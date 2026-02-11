@@ -366,6 +366,143 @@ Sage dem User:
 
 ---
 
+## 🔧 Auto-Fix Workflow
+
+### Optimierungen automatisch anwenden
+
+Wenn du eine Optimierung erkannt hast, kannst du sie **automatisch anwenden**:
+
+```json
+{
+  "action": "apply_optimization",
+  "params": {
+    "suggestionId": "channel-2g-optimize",
+    "confirm": true
+  }
+}
+```
+
+**Ablauf:**
+1. `get_optimization_suggestions` → Liste der Vorschläge
+2. Zeige dem User den Vorschlag mit Risiko-Level
+3. Frage nach Bestätigung
+4. `apply_optimization` mit `confirm: true`
+5. Warte 30 Sekunden
+6. Führe erneut `full_intelligence_scan` durch um Erfolg zu verifizieren
+
+### Was kann automatisch gefixt werden?
+
+| Problem | Auto-Fix Action | Risiko |
+|---------|-----------------|--------|
+| Falscher WiFi-Kanal | `set_wifi_channel` | Medium |
+| Band Steering fehlt | `apply_optimization` | Low |
+| Roaming-Threshold | `apply_optimization` | Low |
+| PoE Port steuern | `set_poe_enabled` | Medium |
+| Mesh-Sync | `sync_mesh_settings` | Medium |
+
+---
+
+## 🔑 Zugangsdaten-Management
+
+### Prüfen ob Zugänge vorhanden
+
+Bevor du Fixes anwendest, prüfe ob die Zugänge funktionieren:
+
+```
+1. Rufe full_intelligence_scan auf
+2. Prüfe das "errors" Array im Response
+3. Wenn "SSH connection failed" → Zugänge fehlen
+4. Wenn "Home Assistant unreachable" → HA-Token fehlt
+```
+
+### Fehlende Zugänge erkennen
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  🔑 ZUGANGSDATEN-STATUS                                     │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  ✅ ASUS Router SSH    → Kann Scans durchführen             │
+│  ✅ Home Assistant     → Kann Zigbee/Bluetooth lesen        │
+│  ⚠️ SNMP Switches      → Optional, nicht konfiguriert       │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Zugänge anfordern (Dialog mit User)
+
+Wenn Zugänge fehlen, frage den User:
+
+```
+Für die WiFi-Analyse benötige ich Zugang zum Router:
+
+1. **Router-IP**: z.B. 192.168.1.1
+2. **SSH-User**: meist "admin"
+3. **SSH-Passwort oder Key-Path**
+4. **SSH-Port**: Standard 22
+
+Hast du SSH auf deinem ASUS Router aktiviert? 
+(Admin → System → Enable SSH)
+```
+
+### Zugänge in Memory speichern
+
+Wenn der User Zugänge gibt, speichere sie in deinem Memory:
+
+```
+Memory-Eintrag erstellen:
+- Title: "ASUS Router Credentials"
+- Content: Host, User, Port (KEIN Passwort speichern!)
+- Tags: ["network", "credentials", "asus"]
+```
+
+### Zugänge aus Memory abrufen
+
+Bevor du nach Zugängen fragst:
+
+```
+1. Durchsuche deine Memories nach "ASUS", "Router", "SSH"
+2. Durchsuche Workspace-Memories nach ".env" Dateien
+3. Prüfe ob ASUS_ROUTER_HOST in Environment gesetzt ist
+4. Erst dann User fragen wenn nichts gefunden
+```
+
+---
+
+## 🤖 Vollautomatischer Fix-Workflow
+
+### Beispiel: Kanal-Optimierung ohne User-Interaktion
+
+```
+1. full_intelligence_scan
+   └─ Score: 65/100, Problem: 5GHz Kanal überlastet
+
+2. get_optimization_suggestions
+   └─ Vorschlag: Kanal 36 → 48, Confidence: 85%
+
+3. Wenn Confidence > 80% und Risiko != "high":
+   └─ apply_optimization mit confirm: true
+   
+4. sleep 30 Sekunden
+
+5. full_intelligence_scan (Verification)
+   └─ Score: 82/100 → Erfolg!
+
+6. Dem User berichten:
+   "Ich habe den 5GHz Kanal von 36 auf 48 geändert.
+    Dein Netzwerk-Score ist von 65 auf 82 gestiegen. ✅"
+```
+
+### Automatische Entscheidungslogik
+
+```
+Confidence > 80% + Risiko "low"     → Auto-Apply
+Confidence > 70% + Risiko "medium"  → User fragen
+Confidence < 70% oder Risiko "high" → Nur vorschlagen
+```
+
+---
+
 ## 🎯 Best Practices
 
 1. **Immer mit full_intelligence_scan starten** - gibt dir den kompletten Überblick
@@ -378,9 +515,11 @@ Sage dem User:
 
 5. **Biete konkrete Lösungen** - Mit Confidence-Score wenn möglich
 
-6. **Bestätigung vor Änderungen** - Immer `confirm=true` nur mit User-OK
+6. **Prüfe Zugänge vor Fixes** - Nicht versuchen ohne SSH-Zugang
 
-7. **Nach Änderungen verifizieren** - Neuer Scan zeigt Verbesserung
+7. **Nach jedem Fix verifizieren** - Erneuter Scan zeigt ob es geklappt hat
+
+8. **Memory nutzen** - Speichere Router-Infos für zukünftige Sessions
 
 ---
 
