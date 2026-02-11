@@ -4,6 +4,75 @@
 
 ---
 
+## 🔧 Skill Installation
+
+### Automatische Installation (empfohlen)
+
+```bash
+# Via OpenClaw CLI
+openclaw skill install https://github.com/The-Geek-Freaks/openclaw_WIFI_DEBUGGER
+
+# Oder via npm
+npm install openclaw-asus-mesh-skill
+```
+
+### Manuelle Installation / Development
+
+```bash
+# Repository klonen
+git clone https://github.com/The-Geek-Freaks/openclaw_WIFI_DEBUGGER.git
+cd openclaw_WIFI_DEBUGGER
+
+# Dependencies installieren
+npm install
+
+# Build
+npm run build
+
+# Als lokalen Skill verlinken
+openclaw skill link .
+```
+
+### Konfiguration (.env Datei erstellen)
+
+```env
+# ASUS Router SSH Zugang (REQUIRED)
+ASUS_HOST=192.168.1.1
+ASUS_USER=admin
+ASUS_PASSWORD=your_router_password
+
+# Home Assistant (OPTIONAL - für Zigbee)
+HASS_URL=http://homeassistant.local:8123
+HASS_TOKEN=your_long_lived_access_token
+
+# SNMP Devices (OPTIONAL - für Switch-Monitoring)
+SNMP_DEVICES=[{"host":"192.168.1.2","community":"public"}]
+```
+
+### Skill aktivieren
+
+Nach Installation muss der Skill in der OpenClaw Config aktiviert werden:
+
+```json
+{
+  "skills": {
+    "asus-mesh-wifi-analyzer": {
+      "enabled": true,
+      "autoLoad": true
+    }
+  }
+}
+```
+
+### Voraussetzungen
+
+- **ASUS Router** mit SSH-Zugang aktiviert (Merlin Firmware empfohlen)
+- **Node.js** >= 18.0.0
+- **Optional:** Home Assistant mit Zigbee-Integration (ZHA oder Z2M)
+- **Optional:** SNMP-fähige Switches
+
+---
+
 ## 📋 Inhaltsverzeichnis
 
 1. [Quick Start](#-quick-start)

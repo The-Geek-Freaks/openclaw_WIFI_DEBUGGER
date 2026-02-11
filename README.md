@@ -170,40 +170,65 @@ Die **NetworkIntelligence Engine** sammelt Daten aus allen verfügbaren Quellen 
 
 ## 📦 Installation
 
-### Als OpenClaw Skill
+### Als OpenClaw Skill (empfohlen)
 
 ```bash
 # Via OpenClaw CLI
-openclaw skill install https://github.com/openclaw/asus-mesh-wifi-analyzer
+openclaw skill install https://github.com/The-Geek-Freaks/openclaw_WIFI_DEBUGGER
 
-# Via npm
+# Oder via npm
 npm install openclaw-asus-mesh-skill
+
+# Skill aktivieren
+openclaw skill enable asus-mesh-wifi-analyzer
 ```
 
 ### Lokale Entwicklung
 
 ```bash
-git clone https://github.com/openclaw/asus-mesh-wifi-analyzer.git
-cd asus-mesh-wifi-analyzer
+# Repository klonen
+git clone https://github.com/The-Geek-Freaks/openclaw_WIFI_DEBUGGER.git
+cd openclaw_WIFI_DEBUGGER
+
+# Dependencies installieren
 npm install
+
+# Build
 npm run build
+
+# Als lokalen Skill verlinken
+openclaw skill link .
 ```
 
-## Konfiguration
+### Skill in OpenClaw Config aktivieren
 
-Erstelle eine `.env` Datei basierend auf `.env.example`:
+```json
+{
+  "skills": {
+    "asus-mesh-wifi-analyzer": {
+      "enabled": true,
+      "autoLoad": true
+    }
+  }
+}
+```
+
+## ⚙️ Konfiguration
+
+Erstelle eine `.env` Datei im Skill-Verzeichnis:
 
 ```env
-# ASUS Router (Merlin Firmware)
-ASUS_ROUTER_HOST=192.168.1.1
-ASUS_ROUTER_SSH_PORT=22
-ASUS_ROUTER_SSH_USER=admin
-ASUS_ROUTER_SSH_PASSWORD=your_password
+# ASUS Router SSH Zugang (REQUIRED)
+ASUS_HOST=192.168.1.1
+ASUS_USER=admin
+ASUS_PASSWORD=your_router_password
 
-# Home Assistant
-HASS_HOST=192.168.178.43
-HASS_PORT=8123
-HASS_ACCESS_TOKEN=your_long_lived_access_token
+# Home Assistant (OPTIONAL - für Zigbee)
+HASS_URL=http://homeassistant.local:8123
+HASS_TOKEN=your_long_lived_access_token
+
+# SNMP Devices (OPTIONAL - für Switch-Monitoring)
+SNMP_DEVICES=[{"host":"192.168.1.2","community":"public"}]
 
 # Logging
 LOG_LEVEL=info
