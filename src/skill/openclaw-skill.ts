@@ -67,7 +67,7 @@ export class OpenClawAsusMeshSkill {
     this.heatmapGenerator = new HeatmapGenerator();
     this.benchmarkEngine = new BenchmarkEngine(this.sshClient);
     this.iotDetector = new IoTWifiDetector(this.sshClient, this.hassClient);
-    this.snmpClient = new SnmpClient(this.config.snmp.devices);
+    this.snmpClient = new SnmpClient(this.config.snmp?.devices ?? []);
     this.topologyAnalyzer = new NetworkTopologyAnalyzer(this.snmpClient);
     this.networkIntelligence = new NetworkIntelligence(
       this.sshClient,

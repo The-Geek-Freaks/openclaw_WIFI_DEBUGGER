@@ -3,7 +3,7 @@ name: asus-mesh-wifi-analyzer
 description: Comprehensive ASUS Mesh WiFi network analysis, optimization, and debugging with Zigbee coordination and community-based tweaks
 homepage: https://github.com/The-Geek-Freaks/openclaw_WIFI_DEBUGGER
 user-invocable: true
-metadata: { "openclaw": { "emoji": "📡", "homepage": "https://github.com/The-Geek-Freaks/openclaw_WIFI_DEBUGGER", "os": ["darwin", "linux", "win32"], "requires": { "bins": ["ssh"], "env": ["ASUS_HOST", "ASUS_USER", "ASUS_PASSWORD"] }, "primaryEnv": "ASUS_HOST", "install": [ { "id": "npm", "kind": "node", "package": "openclaw-asus-mesh-skill", "bins": [], "label": "Install via npm" } ] } }
+metadata: { "openclaw": { "emoji": "📡", "homepage": "https://github.com/The-Geek-Freaks/openclaw_WIFI_DEBUGGER", "os": ["darwin", "linux", "win32"], "requires": { "bins": ["ssh"], "env": ["ASUS_ROUTER_HOST", "ASUS_ROUTER_SSH_USER", "ASUS_ROUTER_SSH_PASSWORD"] }, "primaryEnv": "ASUS_ROUTER_HOST", "install": [ { "id": "npm", "kind": "node", "package": "openclaw-asus-mesh-skill", "bins": [], "label": "Install via npm" } ] } }
 ---
 
 # ASUS Mesh WiFi Analyzer
@@ -56,9 +56,9 @@ This skill provides comprehensive network analysis and optimization for ASUS rou
 ## Configuration
 
 Required environment variables:
-- `ASUS_HOST` - Router IP address (e.g., 192.168.1.1)
-- `ASUS_USER` - SSH username (usually "admin")
-- `ASUS_PASSWORD` - SSH password
+- `ASUS_ROUTER_HOST` - Router IP address (e.g., 192.168.178.3)
+- `ASUS_ROUTER_SSH_USER` - SSH username (usually "admin")
+- `ASUS_ROUTER_SSH_PASSWORD` - SSH password
 
 Optional:
 - `HASS_URL` - Home Assistant URL for Zigbee integration

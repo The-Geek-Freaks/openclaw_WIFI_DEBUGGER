@@ -1,7 +1,7 @@
 {
   "$schema": "https://openclaw.io/schemas/skill.json",
   "name": "asus-mesh-wifi-analyzer",
-  "version": "1.0.0",
+  "version": "1.1.1",
   "displayName": "ASUS Mesh WiFi Analyzer",
   "description": "Comprehensive ASUS Mesh WiFi network analysis and optimization with Home Assistant Zigbee integration",
   "author": "OpenClaw Community",
@@ -50,7 +50,7 @@
         "host": {
           "type": "string",
           "description": "Router IP address",
-          "default": "192.168.1.1"
+          "default": "192.168.178.3"
         },
         "sshPort": {
           "type": "number",
@@ -272,9 +272,9 @@
       "os": ["darwin", "linux", "win32"],
       "requires": {
         "bins": ["ssh"],
-        "env": ["ASUS_HOST", "ASUS_USER", "ASUS_PASSWORD"]
+        "env": ["ASUS_ROUTER_HOST", "ASUS_ROUTER_SSH_USER", "ASUS_ROUTER_SSH_PASSWORD"]
       },
-      "primaryEnv": "ASUS_HOST",
+      "primaryEnv": "ASUS_ROUTER_HOST",
       "install": [
         {
           "id": "npm",

@@ -37,9 +37,9 @@ openclaw skill link .
 
 ```env
 # ASUS Router SSH Zugang (REQUIRED)
-ASUS_HOST=192.168.1.1
-ASUS_USER=admin
-ASUS_PASSWORD=your_router_password
+ASUS_ROUTER_HOST=192.168.178.3
+ASUS_ROUTER_SSH_USER=admin
+ASUS_ROUTER_SSH_PASSWORD=your_router_password
 
 # Home Assistant (OPTIONAL - für Zigbee)
 HASS_URL=http://homeassistant.local:8123
@@ -614,7 +614,7 @@ Wenn Zugänge fehlen, frage den User:
 ```
 Für die WiFi-Analyse benötige ich Zugang zum Router:
 
-1. **Router-IP**: z.B. 192.168.1.1
+1. **Router-IP**: z.B. 192.168.178.3
 2. **SSH-User**: meist "admin"
 3. **SSH-Passwort oder Key-Path**
 4. **SSH-Port**: Standard 22
@@ -1118,7 +1118,7 @@ ifconfig eth0
                     ┌──────┴──────┐
                     │ 🔴 ROUTER   │
                     │ RT-AX88U    │
-                    │ 192.168.1.1 │
+                    │ 192.168.178.3 │
                     │ ─────────── │
                     │ CPU: 45%    │
                     │ RAM: 62%    │

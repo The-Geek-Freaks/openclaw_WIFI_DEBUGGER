@@ -219,9 +219,9 @@ Erstelle eine `.env` Datei im Skill-Verzeichnis:
 
 ```env
 # ASUS Router SSH Zugang (REQUIRED)
-ASUS_HOST=192.168.1.1
-ASUS_USER=admin
-ASUS_PASSWORD=your_router_password
+ASUS_ROUTER_HOST=192.168.178.3
+ASUS_ROUTER_SSH_USER=admin
+ASUS_ROUTER_SSH_PASSWORD=your_router_password
 
 # Home Assistant (OPTIONAL - für Zigbee)
 HASS_URL=http://homeassistant.local:8123
@@ -519,7 +519,7 @@ await nodePool.initialize();
 
 // Alle erkannten Nodes
 const nodes = nodePool.getDiscoveredNodes();
-// [{ id: 'main', name: 'RT-AX88U', ip: '192.168.1.1', sshAvailable: true, ... },
+// [{ id: 'main', name: 'RT-AX88U', ip: '192.168.178.3', sshAvailable: true, ... },
 //  { id: 'node_aabbcc', name: 'ZenWiFi Node', ip: '192.168.1.2', ... }]
 
 // Koordinator für Multi-Node Settings

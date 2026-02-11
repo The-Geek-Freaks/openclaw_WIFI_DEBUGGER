@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const ConfigSchema = z.object({
   asus: z.object({
-    host: z.string().default('192.168.1.1'),
+    host: z.string().default('192.168.178.3'),
     sshPort: z.number().default(22),
     sshUser: z.string().default('admin'),
     sshPassword: z.string().optional(),
@@ -41,7 +41,7 @@ export type Config = z.infer<typeof ConfigSchema>;
 export function loadConfigFromEnv(): Config {
   return ConfigSchema.parse({
     asus: {
-      host: process.env['ASUS_ROUTER_HOST'] ?? '192.168.1.1',
+      host: process.env['ASUS_ROUTER_HOST'] ?? '192.168.178.3',
       sshPort: parseInt(process.env['ASUS_ROUTER_SSH_PORT'] ?? '22', 10),
       sshUser: process.env['ASUS_ROUTER_SSH_USER'] ?? 'admin',
       sshPassword: process.env['ASUS_ROUTER_SSH_PASSWORD'],
