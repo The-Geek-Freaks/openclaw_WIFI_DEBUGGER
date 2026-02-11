@@ -1,36 +1,69 @@
 # OpenClaw ASUS Mesh WiFi Skill
 
-Ein OpenClaw Skill zur Analyse und Optimierung von ASUS Mesh WiFi-Netzwerken mit Merlin Firmware und Home Assistant Zigbee Integration.
+[![Node.js](https://img.shields.io/badge/Node.js-18%2B-green)](https://nodejs.org/)
+[![OpenClaw](https://img.shields.io/badge/OpenClaw-2.0%2B-blue)](https://openclaw.io/)
+[![License](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
 
-## Features
+Ein OpenClaw Skill zur Analyse und Optimierung von ASUS Mesh WiFi-Netzwerken mit Merlin Firmware, SNMP-Netzwerk-Topologie-Analyse und Home Assistant Zigbee Integration.
+
+## 🚀 Features
 
 ### Netzwerk-Analyse
+
 - **Mesh Node Scanning**: Erkennung aller AiMesh-Knoten und deren Status
 - **Device Discovery**: Automatische Erkennung aller verbundenen Geräte
 - **Signal Mapping**: Kontinuierliche Signalstärke-Messung und Historie
 - **Triangulation**: Räumliche Positionsschätzung von Geräten basierend auf Signalstärke
+- **SNMP Topologie**: Netzwerk-Mapping via SNMP (MikroTik, OPNsense, Cisco)
 
 ### Problem-Erkennung
+
 - **Signal Weakness Detection**: Erkennung von Geräten mit schwachem Signal
 - **Connection Stability Analysis**: Analyse von Verbindungsabbrüchen
 - **Roaming Issues**: Erkennung von exzessivem Roaming zwischen Mesh-Knoten
 - **Interference Detection**: Erkennung von Kanalstörungen durch Nachbarnetzwerke
 - **WiFi/Zigbee Konflikt-Analyse**: Erkennung von Frequenzüberlappungen
+- **Bottleneck Detection**: Erkennung von Netzwerk-Engpässen via SNMP
 
 ### Optimierung
+
 - **Channel Optimization**: Automatische Kanalempfehlungen für 2.4GHz und 5GHz
 - **Zigbee Frequency Coordination**: Abstimmung von Zigbee- und WiFi-Kanälen
 - **Roaming Settings**: Optimierung der Roaming-Einstellungen
+- **Multi-Node Sync**: Synchronisierte Einstellungen über alle Mesh-Nodes
 
 ### Home Assistant Integration
+
 - **ZHA Support**: Integration mit Zigbee Home Automation
 - **Zigbee2MQTT Support**: Integration mit Zigbee2MQTT
 - **Device Health Monitoring**: Überwachung der Zigbee-Geräte-Gesundheit
 
-## Installation
+### SNMP Netzwerk-Topologie (NEU)
+
+- **MikroTik SwOS/RouterOS**: Health-Metriken, Temperatur, CPU, PoE
+- **OPNsense/pfSense**: Firewall-States, Interface-Counter
+- **Generic SNMP**: Standard MIBs für alle SNMP-fähigen Geräte
+- **Topologie-Mapping**: Automatische Erkennung von Netzwerk-Links
+
+## 📦 Installation
+
+### Als OpenClaw Skill
 
 ```bash
+# Via OpenClaw CLI
+openclaw skill install https://github.com/openclaw/asus-mesh-wifi-analyzer
+
+# Via npm
+npm install openclaw-asus-mesh-skill
+```
+
+### Lokale Entwicklung
+
+```bash
+git clone https://github.com/openclaw/asus-mesh-wifi-analyzer.git
+cd asus-mesh-wifi-analyzer
 npm install
+npm run build
 ```
 
 ## Konfiguration
@@ -97,58 +130,73 @@ const conflicts = await skill.execute({ action: 'get_frequency_conflicts' });
 await skill.shutdown();
 ```
 
-## Verfügbare Actions
+## 🎯 Verfügbare Actions
+
+### Basis-Actions
 
 | Action | Beschreibung | Parameter |
 |--------|-------------|-----------|
 | `scan_network` | Scannt das gesamte Mesh-Netzwerk | - |
 | `get_network_health` | Berechnet Network Health Score | - |
 | `get_device_list` | Liste aller Geräte | `filter?: 'all' \| 'wireless' \| 'wired' \| 'problematic'` |
-| `get_device_details` | Details eines Geräts | `macAddress: string` |
-| `get_device_signal_history` | Signalverlauf | `macAddress: string, hours?: number` |
-| `get_mesh_nodes` | Liste aller Mesh-Knoten | - |
-| `get_wifi_settings` | Aktuelle WiFi-Einstellungen | - |
-| `set_wifi_channel` | Kanal ändern | `band: '2.4GHz' \| '5GHz', channel: number` |
-| `get_problems` | Erkannte Probleme | `severity?: 'all' \| 'critical' \| 'error' \| 'warning'` |
 | `get_optimization_suggestions` | Optimierungsvorschläge | - |
 | `apply_optimization` | Optimierung anwenden | `suggestionId: string, confirm: boolean` |
+
+### Zigbee & Frequenz
+
+| Action | Beschreibung | Parameter |
+|--------|-------------|-----------|
 | `scan_zigbee` | Zigbee-Netzwerk scannen | - |
-| `get_zigbee_devices` | Zigbee-Geräte auflisten | - |
 | `get_frequency_conflicts` | WiFi/Zigbee Konflikte | - |
-| `get_spatial_map` | Räumliche Gerätekarte | - |
-| `set_node_position` | Mesh-Knoten Position setzen | `nodeId, x, y, z?, room?` |
-| `get_connection_stability` | Verbindungsstabilität | `macAddress: string, hours?: number` |
-| `restart_wireless` | WLAN neu starten | `confirm: boolean` |
 | `get_channel_scan` | Kanalauslastung scannen | `band?: '2.4GHz' \| '5GHz' \| 'both'` |
 
-## Architektur
+### Erweiterte Features
+
+| Action | Beschreibung | Parameter |
+|--------|-------------|-----------|
+| `scan_rogue_iot` | Rogue IoT WiFi-Netzwerke erkennen | - |
+| `get_heatmap` | Signal-Heatmap generieren | `floor?: number` |
+| `run_benchmark` | Netzwerk-Benchmark (iPerf3) | - |
+| `sync_mesh_settings` | Mesh-Einstellungen synchronisieren | `channel2g?, channel5g?` |
+| `analyze_network_topology` | SNMP Netzwerk-Topologie | - |
+
+## 🏗️ Architektur
 
 ```
 src/
-├── config/          # Konfiguration
-├── core/            # Kern-Logik
-│   ├── mesh-analyzer.ts      # Mesh-Netzwerk Analyse
-│   ├── triangulation.ts      # Räumliche Positionsberechnung
-│   ├── problem-detector.ts   # Problem-Erkennung
-│   ├── frequency-optimizer.ts # Frequenz-Optimierung
-│   ├── zigbee-analyzer.ts    # Zigbee-Analyse
-│   ├── heatmap-generator.ts  # Multi-Floor Heatmap
-│   ├── benchmark-engine.ts   # iPerf3/Latency Tests
-│   ├── auto-debugger.ts      # Log-Analyse & Auto-Fix
-│   └── neighbor-monitor.ts   # Nachbarnetz-Scanning
-├── infra/           # Infrastruktur
-│   ├── asus-ssh-client.ts    # SSH-Verbindung zum Router
-│   └── homeassistant-client.ts # Home Assistant API
-├── skill/           # OpenClaw Skill Interface
-│   ├── actions.ts            # Action Definitionen
-│   └── openclaw-skill.ts     # Hauptklasse
-├── types/           # TypeScript Typen
-│   ├── network.ts            # Netzwerk-Typen
-│   ├── zigbee.ts             # Zigbee-Typen
-│   ├── building.ts           # Gebäude/Floor/Heatmap-Typen
-│   ├── benchmark.ts          # Benchmark-Typen
-│   └── debugging.ts          # Log-Analyse-Typen
-└── utils/           # Hilfsfunktionen
+├── config/              # Konfiguration & Zod Schemas
+├── core/                # Kern-Logik (13 Module)
+│   ├── mesh-analyzer.ts           # Mesh-Netzwerk Analyse
+│   ├── triangulation.ts           # Räumliche Positionsberechnung
+│   ├── problem-detector.ts        # Problem-Erkennung
+│   ├── frequency-optimizer.ts     # Frequenz-Optimierung
+│   ├── zigbee-analyzer.ts         # Zigbee-Analyse
+│   ├── heatmap-generator.ts       # Multi-Floor Heatmap
+│   ├── benchmark-engine.ts        # iPerf3/Latency Tests
+│   ├── auto-debugger.ts           # Log-Analyse & Auto-Fix
+│   ├── neighbor-monitor.ts        # Nachbarnetz-Scanning
+│   ├── multi-node-coordinator.ts  # Multi-Node Mesh Management
+│   ├── iot-wifi-detector.ts       # Rogue IoT WiFi Detection
+│   ├── multi-gen-coordinator.ts   # WiFi 5/6/6E/7 Support
+│   └── network-topology-analyzer.ts # SNMP Topologie (NEU)
+├── infra/               # Infrastruktur (5 Clients)
+│   ├── asus-ssh-client.ts         # SSH zum Router
+│   ├── homeassistant-client.ts    # Home Assistant WebSocket
+│   ├── mesh-node-pool.ts          # Multi-Node SSH Pool
+│   ├── snmp-client.ts             # SNMP Client (NEU)
+│   └── opensensemap-client.ts     # OpenSenseMap API
+├── skill/               # OpenClaw Interface
+│   ├── actions.ts                 # Zod Action Schemas
+│   └── openclaw-skill.ts          # Hauptklasse (12 Actions)
+├── types/               # TypeScript Types (9 Module)
+│   ├── network.ts, zigbee.ts, building.ts
+│   ├── benchmark.ts, debugging.ts, analysis.ts
+│   ├── iot-device.ts, router-models.ts
+│   └── homeassistant.ts
+└── utils/               # Utilities
+    ├── logger.ts, mac.ts, frequency.ts
+    ├── async-helpers.ts           # Semaphore, CircularBuffer
+    └── errors.ts                  # Structured Errors (NEU)
 ```
 
 ## Erweiterte Features (Phase 2)
@@ -386,7 +434,7 @@ Für minimale Interferenz:
 - **WiFi 2.4GHz**: Kanal 1 oder 11
 - **Zigbee**: Kanal 25 (bei WiFi 1) oder Kanal 15 (bei WiFi 11)
 
-## Entwicklung
+## 🛠️ Entwicklung
 
 ```bash
 # Development Mode
@@ -396,19 +444,61 @@ npm run dev
 npm run build
 
 # Tests
-npm test
+npm run test:run
 
 # Lint
 npm run lint
+
+# Clean Build
+npm run clean && npm run build
 ```
 
-## Voraussetzungen
+## ✅ Voraussetzungen
 
-- ASUS Router mit Merlin Firmware
-- SSH-Zugang zum Router aktiviert
-- Node.js 18+
-- Optional: Home Assistant mit ZHA oder Zigbee2MQTT
+- **ASUS Router** mit Merlin Firmware (SSH aktiviert)
+- **Node.js 18+**
+- **Optional**: Home Assistant mit ZHA oder Zigbee2MQTT
+- **Optional**: SNMP-fähige Geräte (MikroTik, OPNsense, etc.)
 
-## Lizenz
+## 📊 Unterstützte Geräte
 
-MIT
+### ASUS Router (via SSH)
+
+- RT-AX88U, RT-AX86U, GT-AX11000
+- ZenWiFi AX (XT8), ZenWiFi Pro (ET12)
+- Alle Merlin-kompatiblen Modelle
+
+### SNMP Devices
+
+| Vendor | Unterstützte OIDs |
+|--------|-------------------|
+| MikroTik SwOS/RouterOS | Health, Temperatur, CPU, PoE, Neighbor |
+| OPNsense/pfSense | Firewall States, Interface Counter |
+| Cisco | Standard MIBs |
+| Ubiquiti | Standard MIBs |
+
+### IoT Vendor Detection (100+ OUIs)
+
+| Kategorie | Vendors |
+|-----------|---------|
+| Smart Home | Tuya, Shelly, Sonoff, Meross, LIFX, Govee |
+| Voice | Amazon Alexa, Google Home |
+| Zigbee | Philips Hue, IKEA, Aqara |
+| Network | MikroTik, TP-Link, ASUS |
+| Generic | Espressif (ESP8266/ESP32) |
+
+## 📝 Changelog
+
+### v1.0.0
+
+- Initial Release
+- 12 OpenClaw Actions
+- SNMP Netzwerk-Topologie
+- 100+ Vendor OUI Patterns
+- Graceful Shutdown
+- Connection Pooling
+- Structured Errors
+
+## 📄 Lizenz
+
+MIT - siehe [LICENSE](LICENSE)
