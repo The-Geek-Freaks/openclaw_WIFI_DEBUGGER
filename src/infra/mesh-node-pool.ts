@@ -1,8 +1,15 @@
 import { Client } from 'ssh2';
 import { createChildLogger } from '../utils/logger.js';
+import { withTimeout, Semaphore } from '../utils/async-helpers.js';
 import type { Config } from '../config/index.js';
 
 const logger = createChildLogger('mesh-node-pool');
+
+const CONNECTION_TIMEOUT_MS = 15000;
+const COMMAND_TIMEOUT_MS = 30000;
+const MAX_CONCURRENT_COMMANDS = 3;
+const RECONNECT_INTERVAL_MS = 60000;
+const MAX_RECONNECT_ATTEMPTS = 3;
 
 export interface MeshNodeInfo {
   id: string;
@@ -28,6 +35,8 @@ export interface NodeConnection {
   client: Client;
   connected: boolean;
   lastCommand: Date;
+  semaphore: Semaphore;
+  reconnectAttempts: number;
 }
 
 export class MeshNodePool {
@@ -40,6 +49,8 @@ export class MeshNodePool {
   private readonly sshUser: string;
   private readonly sshPassword: string;
   private readonly sshPrivateKey: string | undefined;
+  private readonly mainSemaphore: Semaphore;
+  private reconnectInterval: NodeJS.Timeout | null = null;
 
   constructor(config: Config) {
     this.config = config;
@@ -48,6 +59,7 @@ export class MeshNodePool {
     this.sshUser = config.asus.sshUser;
     this.sshPassword = config.asus.sshPassword ?? '';
     this.sshPrivateKey = config.asus.sshKeyPath;
+    this.mainSemaphore = new Semaphore(MAX_CONCURRENT_COMMANDS);
   }
 
   async initialize(): Promise<void> {
@@ -64,7 +76,7 @@ export class MeshNodePool {
   }
 
   private async connectToMainRouter(): Promise<void> {
-    return new Promise((resolve, reject) => {
+    const connect = (): Promise<void> => new Promise((resolve, reject) => {
       this.mainConnection = new Client();
       
       this.mainConnection.on('ready', () => {
@@ -72,16 +84,20 @@ export class MeshNodePool {
         resolve();
       });
 
-      this.mainConnection.on('error', (err) => {
+      this.mainConnection.on('error', (err: Error) => {
         logger.error({ err, host: this.mainRouterIp }, 'Main router connection error');
         reject(err);
+      });
+
+      this.mainConnection.on('close', () => {
+        logger.warn({ host: this.mainRouterIp }, 'Main router connection closed');
       });
 
       const connectConfig: Parameters<Client['connect']>[0] = {
         host: this.mainRouterIp,
         port: this.sshPort,
         username: this.sshUser,
-        readyTimeout: 10000,
+        readyTimeout: CONNECTION_TIMEOUT_MS,
       };
 
       if (this.sshPrivateKey) {
@@ -92,6 +108,8 @@ export class MeshNodePool {
 
       this.mainConnection.connect(connectConfig);
     });
+
+    await withTimeout(connect(), CONNECTION_TIMEOUT_MS, 'Main router connection');
   }
 
   async discoverAllNodes(): Promise<MeshNodeInfo[]> {
@@ -283,6 +301,8 @@ export class MeshNodePool {
           client,
           connected: true,
           lastCommand: new Date(),
+          semaphore: new Semaphore(MAX_CONCURRENT_COMMANDS),
+          reconnectAttempts: 0,
         });
 
         this.updateNodeInfoFromConnection(node.id).then(resolve).catch(reject);
@@ -304,7 +324,7 @@ export class MeshNodePool {
         host: node.ipAddress,
         port: this.sshPort,
         username: this.sshUser,
-        readyTimeout: 10000,
+        readyTimeout: CONNECTION_TIMEOUT_MS,
       };
 
       if (this.sshPrivateKey) {
@@ -362,28 +382,31 @@ export class MeshNodePool {
       throw new Error('Main router not connected');
     }
 
-    return new Promise((resolve, reject) => {
-      this.mainConnection!.exec(command, (err, stream) => {
-        if (err) {
-          reject(err);
-          return;
-        }
+    return this.mainSemaphore.withLock(async () => {
+      const exec = (): Promise<string> => new Promise((resolve, reject) => {
+        this.mainConnection!.exec(command, (err, stream) => {
+          if (err) {
+            reject(err);
+            return;
+          }
 
-        let output = '';
-        let errorOutput = '';
+          let output = '';
 
-        stream.on('data', (data: Buffer) => {
-          output += data.toString();
-        });
+          stream.on('data', (data: Buffer) => {
+            output += data.toString();
+          });
 
-        stream.stderr.on('data', (data: Buffer) => {
-          errorOutput += data.toString();
-        });
+          stream.stderr.on('data', (_data: Buffer) => {
+            // Ignore stderr
+          });
 
-        stream.on('close', () => {
-          resolve(output);
+          stream.on('close', () => {
+            resolve(output);
+          });
         });
       });
+
+      return withTimeout(exec(), COMMAND_TIMEOUT_MS, `Main router command: ${command.slice(0, 50)}`);
     });
   }
 
@@ -397,24 +420,28 @@ export class MeshNodePool {
       throw new Error(`Node ${nodeId} not connected`);
     }
 
-    return new Promise((resolve, reject) => {
-      connection.client.exec(command, (err, stream) => {
-        if (err) {
-          reject(err);
-          return;
-        }
+    return connection.semaphore.withLock(async () => {
+      const exec = (): Promise<string> => new Promise((resolve, reject) => {
+        connection.client.exec(command, (err, stream) => {
+          if (err) {
+            reject(err);
+            return;
+          }
 
-        let output = '';
+          let output = '';
 
-        stream.on('data', (data: Buffer) => {
-          output += data.toString();
-        });
+          stream.on('data', (data: Buffer) => {
+            output += data.toString();
+          });
 
-        stream.on('close', () => {
-          connection.lastCommand = new Date();
-          resolve(output);
+          stream.on('close', () => {
+            connection.lastCommand = new Date();
+            resolve(output);
+          });
         });
       });
+
+      return withTimeout(exec(), COMMAND_TIMEOUT_MS, `Node ${nodeId} command`);
     });
   }
 
@@ -605,6 +632,11 @@ export class MeshNodePool {
   async shutdown(): Promise<void> {
     logger.info('Shutting down Mesh Node Pool');
 
+    if (this.reconnectInterval) {
+      clearInterval(this.reconnectInterval);
+      this.reconnectInterval = null;
+    }
+
     for (const conn of this.nodeConnections.values()) {
       if (conn.connected) {
         conn.client.end();
@@ -617,5 +649,45 @@ export class MeshNodePool {
 
     this.nodeConnections.clear();
     this.discoveredNodes.clear();
+    logger.info('Mesh Node Pool shutdown complete');
+  }
+
+  startAutoReconnect(): void {
+    if (this.reconnectInterval) return;
+
+    this.reconnectInterval = setInterval(async () => {
+      for (const [nodeId, conn] of this.nodeConnections) {
+        if (!conn.connected && conn.reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+          const node = this.discoveredNodes.get(nodeId);
+          if (node && node.sshAvailable) {
+            try {
+              logger.info({ nodeId }, 'Attempting reconnection');
+              await this.connectToNode(node);
+              conn.reconnectAttempts = 0;
+            } catch {
+              conn.reconnectAttempts++;
+              logger.warn({ nodeId, attempts: conn.reconnectAttempts }, 'Reconnection failed');
+            }
+          }
+        }
+      }
+    }, RECONNECT_INTERVAL_MS);
+  }
+
+  getPoolStats(): {
+    totalNodes: number;
+    connectedNodes: number;
+    mainConnected: boolean;
+    pendingReconnects: number;
+  } {
+    const pendingReconnects = Array.from(this.nodeConnections.values())
+      .filter(c => !c.connected && c.reconnectAttempts < MAX_RECONNECT_ATTEMPTS).length;
+
+    return {
+      totalNodes: this.discoveredNodes.size,
+      connectedNodes: this.getConnectedNodes().length,
+      mainConnected: this.mainConnection !== null,
+      pendingReconnects,
+    };
   }
 }

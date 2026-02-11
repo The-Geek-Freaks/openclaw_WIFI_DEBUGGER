@@ -80,9 +80,45 @@ export class OpenClawAsusMeshSkill {
 
   async shutdown(): Promise<void> {
     logger.info('Shutting down skill');
-    await this.sshClient.disconnect();
-    await this.hassClient.disconnect();
+    
+    try {
+      this.meshAnalyzer.destroy();
+    } catch (err) {
+      logger.warn({ err }, 'Error destroying mesh analyzer');
+    }
+
+    try {
+      await this.sshClient.disconnect();
+    } catch (err) {
+      logger.warn({ err }, 'Error disconnecting SSH');
+    }
+
+    try {
+      await this.hassClient.disconnect();
+    } catch (err) {
+      logger.warn({ err }, 'Error disconnecting Home Assistant');
+    }
+
     this.initialized = false;
+    logger.info('Skill shutdown complete');
+  }
+
+  registerShutdownHandlers(): void {
+    const shutdown = async (signal: string) => {
+      logger.info({ signal }, 'Received shutdown signal');
+      await this.shutdown();
+      process.exit(0);
+    };
+
+    process.on('SIGINT', () => shutdown('SIGINT'));
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('uncaughtException', (err) => {
+      logger.error({ err }, 'Uncaught exception');
+      shutdown('uncaughtException').catch(() => process.exit(1));
+    });
+    process.on('unhandledRejection', (reason) => {
+      logger.error({ reason }, 'Unhandled rejection');
+    });
   }
 
   async execute(action: SkillAction): Promise<SkillResponse> {
