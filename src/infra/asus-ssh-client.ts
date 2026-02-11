@@ -1,4 +1,4 @@
-import { Client, ConnectConfig } from 'ssh2';
+import { Client, ConnectConfig, Algorithms } from 'ssh2';
 import { EventEmitter } from 'eventemitter3';
 import { readFile } from 'fs/promises';
 import { createChildLogger } from '../utils/logger.js';
@@ -16,6 +16,48 @@ export interface SshClientEvents {
 const SSH_CONNECT_TIMEOUT = 15000;
 const SSH_COMMAND_TIMEOUT = 30000;
 const MAX_CONCURRENT_COMMANDS = 5;
+
+const DROPBEAR_COMPATIBLE_ALGORITHMS: Algorithms = {
+  kex: [
+    'curve25519-sha256',
+    'curve25519-sha256@libssh.org',
+    'ecdh-sha2-nistp256',
+    'ecdh-sha2-nistp384',
+    'ecdh-sha2-nistp521',
+    'diffie-hellman-group-exchange-sha256',
+    'diffie-hellman-group14-sha256',
+    'diffie-hellman-group14-sha1',
+    'diffie-hellman-group1-sha1',
+  ],
+  cipher: [
+    'chacha20-poly1305@openssh.com',
+    'aes128-ctr',
+    'aes192-ctr',
+    'aes256-ctr',
+    'aes128-gcm@openssh.com',
+    'aes256-gcm@openssh.com',
+    'aes256-cbc',
+    'aes192-cbc',
+    'aes128-cbc',
+    '3des-cbc',
+  ],
+  serverHostKey: [
+    'ssh-ed25519',
+    'ecdsa-sha2-nistp256',
+    'ecdsa-sha2-nistp384',
+    'ecdsa-sha2-nistp521',
+    'rsa-sha2-512',
+    'rsa-sha2-256',
+    'ssh-rsa',
+  ],
+  hmac: [
+    'hmac-sha2-256-etm@openssh.com',
+    'hmac-sha2-512-etm@openssh.com',
+    'hmac-sha2-256',
+    'hmac-sha2-512',
+    'hmac-sha1',
+  ],
+};
 
 export class AsusSshClient extends EventEmitter<SshClientEvents> {
   private client: Client | null = null;
@@ -48,6 +90,7 @@ export class AsusSshClient extends EventEmitter<SshClientEvents> {
       readyTimeout: SSH_CONNECT_TIMEOUT,
       keepaliveInterval: 30000,
       keepaliveCountMax: 3,
+      algorithms: DROPBEAR_COMPATIBLE_ALGORITHMS,
     };
 
     if (this.config.sshKeyPath) {

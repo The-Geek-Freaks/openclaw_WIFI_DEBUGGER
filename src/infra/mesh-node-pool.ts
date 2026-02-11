@@ -1,4 +1,4 @@
-import { Client } from 'ssh2';
+import { Client, Algorithms } from 'ssh2';
 import { createChildLogger } from '../utils/logger.js';
 import { withTimeout, Semaphore } from '../utils/async-helpers.js';
 import type { Config } from '../config/index.js';
@@ -10,6 +10,48 @@ const COMMAND_TIMEOUT_MS = 30000;
 const MAX_CONCURRENT_COMMANDS = 3;
 const RECONNECT_INTERVAL_MS = 60000;
 const MAX_RECONNECT_ATTEMPTS = 3;
+
+const DROPBEAR_COMPATIBLE_ALGORITHMS: Algorithms = {
+  kex: [
+    'curve25519-sha256',
+    'curve25519-sha256@libssh.org',
+    'ecdh-sha2-nistp256',
+    'ecdh-sha2-nistp384',
+    'ecdh-sha2-nistp521',
+    'diffie-hellman-group-exchange-sha256',
+    'diffie-hellman-group14-sha256',
+    'diffie-hellman-group14-sha1',
+    'diffie-hellman-group1-sha1',
+  ],
+  cipher: [
+    'chacha20-poly1305@openssh.com',
+    'aes128-ctr',
+    'aes192-ctr',
+    'aes256-ctr',
+    'aes128-gcm@openssh.com',
+    'aes256-gcm@openssh.com',
+    'aes256-cbc',
+    'aes192-cbc',
+    'aes128-cbc',
+    '3des-cbc',
+  ],
+  serverHostKey: [
+    'ssh-ed25519',
+    'ecdsa-sha2-nistp256',
+    'ecdsa-sha2-nistp384',
+    'ecdsa-sha2-nistp521',
+    'rsa-sha2-512',
+    'rsa-sha2-256',
+    'ssh-rsa',
+  ],
+  hmac: [
+    'hmac-sha2-256-etm@openssh.com',
+    'hmac-sha2-512-etm@openssh.com',
+    'hmac-sha2-256',
+    'hmac-sha2-512',
+    'hmac-sha1',
+  ],
+};
 
 export interface MeshNodeInfo {
   id: string;
@@ -98,6 +140,7 @@ export class MeshNodePool {
         port: this.sshPort,
         username: this.sshUser,
         readyTimeout: CONNECTION_TIMEOUT_MS,
+        algorithms: DROPBEAR_COMPATIBLE_ALGORITHMS,
       };
 
       if (this.sshPrivateKey) {
@@ -325,6 +368,7 @@ export class MeshNodePool {
         port: this.sshPort,
         username: this.sshUser,
         readyTimeout: CONNECTION_TIMEOUT_MS,
+        algorithms: DROPBEAR_COMPATIBLE_ALGORITHMS,
       };
 
       if (this.sshPrivateKey) {
