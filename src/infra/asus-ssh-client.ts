@@ -1,6 +1,8 @@
 import { Client, ConnectConfig } from 'ssh2';
 import { EventEmitter } from 'eventemitter3';
+import { readFile } from 'fs/promises';
 import { createChildLogger } from '../utils/logger.js';
+import { withTimeout, Semaphore } from '../utils/async-helpers.js';
 import type { Config } from '../config/index.js';
 
 const logger = createChildLogger('asus-ssh');
@@ -11,10 +13,16 @@ export interface SshClientEvents {
   error: (error: Error) => void;
 }
 
+const SSH_CONNECT_TIMEOUT = 15000;
+const SSH_COMMAND_TIMEOUT = 30000;
+const MAX_CONCURRENT_COMMANDS = 5;
+
 export class AsusSshClient extends EventEmitter<SshClientEvents> {
   private client: Client | null = null;
   private connected: boolean = false;
   private readonly config: Config['asus'];
+  private readonly commandSemaphore = new Semaphore(MAX_CONCURRENT_COMMANDS);
+  private reconnecting: boolean = false;
 
   constructor(config: Config['asus']) {
     super();
@@ -26,30 +34,45 @@ export class AsusSshClient extends EventEmitter<SshClientEvents> {
       return;
     }
 
-    return new Promise((resolve, reject) => {
+    const connectPromise = this.doConnect();
+    return withTimeout(connectPromise, SSH_CONNECT_TIMEOUT, 'SSH connection timed out');
+  }
+
+  private async doConnect(): Promise<void> {
+    return new Promise(async (resolve, reject) => {
       this.client = new Client();
 
       const connectConfig: ConnectConfig = {
         host: this.config.host,
         port: this.config.sshPort,
         username: this.config.sshUser,
+        readyTimeout: SSH_CONNECT_TIMEOUT,
+        keepaliveInterval: 30000,
+        keepaliveCountMax: 3,
       };
 
-      if (this.config.sshKeyPath) {
-        connectConfig.privateKey = require('fs').readFileSync(this.config.sshKeyPath);
-      } else if (this.config.sshPassword) {
-        connectConfig.password = this.config.sshPassword;
+      try {
+        if (this.config.sshKeyPath) {
+          connectConfig.privateKey = await readFile(this.config.sshKeyPath);
+        } else if (this.config.sshPassword) {
+          connectConfig.password = this.config.sshPassword;
+        }
+      } catch (err) {
+        reject(new Error(`Failed to read SSH key: ${err}`));
+        return;
       }
 
       this.client.on('ready', () => {
         this.connected = true;
-        logger.info('SSH connection established');
+        this.reconnecting = false;
+        logger.info({ host: this.config.host }, 'SSH connection established');
         this.emit('connected');
         resolve();
       });
 
       this.client.on('error', (err) => {
         logger.error({ err }, 'SSH connection error');
+        this.connected = false;
         this.emit('error', err);
         reject(err);
       });
@@ -64,6 +87,20 @@ export class AsusSshClient extends EventEmitter<SshClientEvents> {
     });
   }
 
+  async ensureConnected(): Promise<void> {
+    if (this.connected) return;
+    if (this.reconnecting) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      return this.ensureConnected();
+    }
+    this.reconnecting = true;
+    try {
+      await this.connect();
+    } finally {
+      this.reconnecting = false;
+    }
+  }
+
   async disconnect(): Promise<void> {
     if (this.client && this.connected) {
       this.client.end();
@@ -72,12 +109,22 @@ export class AsusSshClient extends EventEmitter<SshClientEvents> {
   }
 
   async execute(command: string): Promise<string> {
-    if (!this.client || !this.connected) {
-      throw new Error('SSH client not connected');
-    }
+    await this.ensureConnected();
 
+    return this.commandSemaphore.withLock(async () => {
+      const executePromise = this.doExecute(command);
+      return withTimeout(executePromise, SSH_COMMAND_TIMEOUT, `Command timed out: ${command.substring(0, 50)}`);
+    });
+  }
+
+  private doExecute(command: string): Promise<string> {
     return new Promise((resolve, reject) => {
-      this.client!.exec(command, (err, stream) => {
+      if (!this.client) {
+        reject(new Error('SSH client not initialized'));
+        return;
+      }
+
+      this.client.exec(command, (err, stream) => {
         if (err) {
           reject(err);
           return;
@@ -88,6 +135,7 @@ export class AsusSshClient extends EventEmitter<SshClientEvents> {
 
         stream.on('close', (code: number) => {
           if (code !== 0 && stderr) {
+            logger.debug({ command: command.substring(0, 50), code, stderr }, 'Command failed');
             reject(new Error(`Command failed with code ${code}: ${stderr}`));
           } else {
             resolve(stdout);
