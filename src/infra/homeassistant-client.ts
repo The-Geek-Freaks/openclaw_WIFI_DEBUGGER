@@ -2,7 +2,7 @@ import axios, { AxiosInstance } from 'axios';
 import WebSocket from 'ws';
 import { EventEmitter } from 'eventemitter3';
 import { createChildLogger } from '../utils/logger.js';
-import { withTimeout } from '../utils/async-helpers.js';
+// withTimeout reserved for future reconnect logic
 import type { HassConfig, HassEntityState, HassEvent, ZhaDevice, Zigbee2MqttDevice } from '../types/homeassistant.js';
 
 const logger = createChildLogger('hass-client');
@@ -16,8 +16,7 @@ export interface HassClientEvents {
 }
 
 const WS_TIMEOUT = 30000;
-const RECONNECT_DELAY = 5000;
-const MAX_RECONNECT_ATTEMPTS = 3;
+// RECONNECT_DELAY and MAX_RECONNECT_ATTEMPTS reserved for future reconnect logic
 
 export class HomeAssistantClient extends EventEmitter<HassClientEvents> {
   private readonly config: HassConfig;

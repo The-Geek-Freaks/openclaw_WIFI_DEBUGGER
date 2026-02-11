@@ -89,7 +89,7 @@ export class NetworkIntelligence extends EventEmitter<NetworkIntelligenceEvents>
 
     let meshState: MeshNetworkState | null = null;
     let zigbeeState: ZigbeeNetworkState | null = null;
-    let neighborNetworks: Array<{ ssid: string; bssid: string; channel: number; signalStrength: number; isHidden: boolean }> = [];
+    const neighborNetworks: Array<{ ssid: string; bssid: string; channel: number; signalStrength: number; isHidden: boolean }> = [];
 
     this.setPhase('collecting_router_data');
     this.progress(0, 'Collecting router data via SSH...');
