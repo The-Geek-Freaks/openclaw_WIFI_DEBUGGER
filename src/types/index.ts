@@ -6,3 +6,4 @@ export * from './building.js';
 export * from './benchmark.js';
 export * from './debugging.js';
 export * from './iot-device.js';
+export * from './router-models.js';
