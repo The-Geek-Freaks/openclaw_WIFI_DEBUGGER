@@ -1668,4 +1668,184 @@ template:
 
 ---
 
+---
+
+## 🔔 Alerting & Benachrichtigungen
+
+### Alerts konfigurieren
+
+```json
+{
+  "action": "configure_alerts",
+  "params": {
+    "webhookUrl": "https://hooks.example.com/alerts",
+    "mqttBroker": "mqtt://192.168.1.50:1883",
+    "mqttTopic": "openclaw/alerts",
+    "minSeverity": "warning",
+    "cooldownMinutes": 15,
+    "enabled": true
+  }
+}
+```
+
+**Parameter:**
+
+- `webhookUrl`: HTTP-Endpoint für Alerts (POST)
+- `mqttBroker`: MQTT-Broker für Alerts
+- `mqttTopic`: MQTT-Topic (default: `openclaw/alerts`)
+- `minSeverity`: `info`, `warning`, oder `critical`
+- `cooldownMinutes`: Minuten zwischen gleichen Alerts
+- `enabled`: Alerting aktivieren
+
+### Aktive Alerts abrufen
+
+```json
+{
+  "action": "get_alerts",
+  "params": { "hours": 24 }
+}
+```
+
+**Response enthält:**
+
+- `active`: Unbestätigte Alerts
+- `history`: Alle Alerts der letzten X Stunden
+- `summary`: Zähler nach Severity
+
+---
+
+## 📊 VLAN & PoE Monitoring
+
+### VLAN-Info abfragen
+
+```json
+{
+  "action": "get_vlan_info",
+  "params": { "host": "192.168.1.10" }
+}
+```
+
+### PoE-Status (MikroTik)
+
+```json
+{
+  "action": "get_poe_status",
+  "params": { "host": "192.168.1.10" }
+}
+```
+
+### PoE ein/ausschalten
+
+```json
+{
+  "action": "set_poe_enabled",
+  "params": {
+    "host": "192.168.1.10",
+    "port": 5,
+    "enabled": false
+  }
+}
+```
+
+---
+
+## 📍 Roaming-Analyse
+
+### Roaming-Verhalten analysieren
+
+```json
+{
+  "action": "get_roaming_analysis",
+  "params": { "macAddress": "AA:BB:CC:DD:EE:FF" }
+}
+```
+
+**Response enthält:**
+
+- `totalRoams`: Anzahl Roaming-Events
+- `pingPongCount`: Ping-Pong-Roaming-Erkennung
+- `avgTimeBetweenRoams`: Durchschnittliche Zeit zwischen Roams
+- `mostFrequentTransition`: Häufigste Node-Wechsel
+- `recommendation`: Empfehlung zur Verbesserung
+
+---
+
+## 📋 Vollständige Action-Liste (39 Actions)
+
+### Basis
+
+| Action | Beschreibung |
+|--------|--------------|
+| `scan_network` | Mesh-Netzwerk scannen |
+| `get_network_health` | Health Score berechnen |
+| `get_device_list` | Geräteliste abrufen |
+| `get_device_details` | Geräte-Details |
+| `get_device_signal_history` | Signal-Historie |
+| `get_mesh_nodes` | Mesh-Nodes abrufen |
+| `get_wifi_settings` | WiFi-Einstellungen |
+| `set_wifi_channel` | Kanal ändern |
+| `get_problems` | Probleme erkennen |
+| `get_optimization_suggestions` | Optimierungsvorschläge |
+| `apply_optimization` | Optimierung anwenden |
+
+### Zigbee & Frequenz
+
+| Action | Beschreibung |
+|--------|--------------|
+| `scan_zigbee` | Zigbee scannen |
+| `get_zigbee_devices` | Zigbee-Geräte |
+| `get_frequency_conflicts` | Frequenzkonflikte |
+| `get_channel_scan` | Kanalauslastung |
+
+### Erweitert
+
+| Action | Beschreibung |
+|--------|--------------|
+| `get_spatial_map` | Räumliche Karte |
+| `set_node_position` | Node-Position setzen |
+| `get_connection_stability` | Verbindungsstabilität |
+| `restart_wireless` | WLAN neustarten |
+| `scan_rogue_iot` | IoT-APs erkennen |
+| `get_heatmap` | Signal-Heatmap |
+| `run_benchmark` | Netzwerk-Benchmark |
+| `sync_mesh_settings` | Mesh synchronisieren |
+| `analyze_network_topology` | SNMP-Topologie |
+
+### Intelligence
+
+| Action | Beschreibung |
+|--------|--------------|
+| `full_intelligence_scan` | KI-gestützter Komplett-Scan |
+| `get_environment_summary` | Umgebungszusammenfassung |
+| `get_homeassistant_data` | Home Assistant Daten |
+| `get_quick_diagnosis` | Schnelldiagnose |
+| `get_placement_recommendations` | Platzierungsempfehlungen |
+
+### Grundriss
+
+| Action | Beschreibung |
+|--------|--------------|
+| `set_floor_plan` | Grundriss konfigurieren |
+| `get_floor_visualization` | Grundriss visualisieren |
+
+### Switch-Monitoring
+
+| Action | Beschreibung |
+|--------|--------------|
+| `get_switch_status` | Switch-Status |
+| `get_port_traffic` | Port-Traffic |
+| `get_vlan_info` | VLAN-Konfiguration |
+| `get_poe_status` | PoE-Status |
+| `set_poe_enabled` | PoE steuern |
+
+### Roaming & Alerting
+
+| Action | Beschreibung |
+|--------|--------------|
+| `get_roaming_analysis` | Roaming analysieren |
+| `configure_alerts` | Alerts konfigurieren |
+| `get_alerts` | Alerts abrufen |
+
+---
+
 *Diese Anleitung wird automatisch aktualisiert wenn neue Features hinzugefügt werden.*

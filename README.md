@@ -40,7 +40,7 @@
 | **Memory Leaks** | 0 | ✅ Geprüft |
 | **OpenClaw Ready** | v2.0+ | ✅ Kompatibel |
 
-**17 Core Modules** • **5 Infra Clients** • **10 Type Definitions** • **100% Reversible**
+**18 Core Modules** • **5 Infra Clients** • **10 Type Definitions** • **100% Reversible**
 
 </div>
 
@@ -282,13 +282,42 @@ await skill.shutdown();
 | `run_benchmark` | Netzwerk-Benchmark (iPerf3) | - |
 | `sync_mesh_settings` | Mesh-Einstellungen synchronisieren | `channel2g?, channel5g?` |
 | `analyze_network_topology` | SNMP Netzwerk-Topologie | - |
+| `full_intelligence_scan` | Kompletter KI-gestützter Scan | `targets?: string[]` |
+| `get_environment_summary` | Umgebungs-Zusammenfassung | - |
+| `get_quick_diagnosis` | Schnelldiagnose mit Prioritäten | - |
+
+### Platzierung & Visualisierung
+
+| Action | Beschreibung | Parameter |
+|--------|-------------|-----------|
+| `get_placement_recommendations` | Node/Device-Platzierungsempfehlungen | - |
+| `set_floor_plan` | Grundriss konfigurieren | `floor, name, imagePath?, widthMeters, heightMeters` |
+| `get_floor_visualization` | Grundriss mit Overlays | `floor: number` |
+| `get_roaming_analysis` | Roaming-Analyse pro Gerät | `macAddress: string` |
+
+### Switch-Monitoring (SNMP)
+
+| Action | Beschreibung | Parameter |
+|--------|-------------|-----------|
+| `get_switch_status` | Switch-Status abfragen | `host?: string` |
+| `get_port_traffic` | Port-Traffic-Details | `host: string, port?: number` |
+| `get_vlan_info` | VLAN-Konfiguration | `host: string` |
+| `get_poe_status` | PoE-Status (MikroTik) | `host: string` |
+| `set_poe_enabled` | PoE ein/ausschalten | `host, port, enabled` |
+
+### Alerting
+
+| Action | Beschreibung | Parameter |
+|--------|-------------|-----------|
+| `configure_alerts` | Webhook/MQTT konfigurieren | `webhookUrl?, mqttBroker?, minSeverity?` |
+| `get_alerts` | Aktive Alerts abrufen | `hours?: number` |
 
 ## 🏗️ Architektur
 
 ```
 src/
 ├── config/              # Konfiguration & Zod Schemas
-├── core/                # Kern-Logik (13 Module)
+├── core/                # Kern-Logik (18 Module)
 │   ├── mesh-analyzer.ts           # Mesh-Netzwerk Analyse
 │   ├── triangulation.ts           # Räumliche Positionsberechnung
 │   ├── problem-detector.ts        # Problem-Erkennung
@@ -301,7 +330,11 @@ src/
 │   ├── multi-node-coordinator.ts  # Multi-Node Mesh Management
 │   ├── iot-wifi-detector.ts       # Rogue IoT WiFi Detection
 │   ├── multi-gen-coordinator.ts   # WiFi 5/6/6E/7 Support
-│   └── network-topology-analyzer.ts # SNMP Topologie (NEU)
+│   ├── network-topology-analyzer.ts # SNMP Topologie
+│   ├── network-intelligence.ts    # KI-gestützte Analyse
+│   ├── spatial-recommendations.ts # Platzierungsempfehlungen
+│   ├── floor-plan-manager.ts      # Grundriss-Verwaltung
+│   └── alerting-service.ts        # Webhook/MQTT Alerts
 ├── infra/               # Infrastruktur (5 Clients)
 │   ├── asus-ssh-client.ts         # SSH zum Router
 │   ├── homeassistant-client.ts    # Home Assistant WebSocket
@@ -310,7 +343,7 @@ src/
 │   └── opensensemap-client.ts     # OpenSenseMap API
 ├── skill/               # OpenClaw Interface
 │   ├── actions.ts                 # Zod Action Schemas
-│   └── openclaw-skill.ts          # Hauptklasse (12 Actions)
+│   └── openclaw-skill.ts          # Hauptklasse (39 Actions)
 ├── types/               # TypeScript Types (9 Module)
 │   ├── network.ts, zigbee.ts, building.ts
 │   ├── benchmark.ts, debugging.ts, analysis.ts
