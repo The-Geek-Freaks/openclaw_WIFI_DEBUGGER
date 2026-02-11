@@ -260,4 +260,8 @@ export class HomeAssistantClient extends EventEmitter<HassClientEvents> {
       return false;
     }
   }
+
+  isConnected(): boolean {
+    return this.ws !== null && this.ws.readyState === WebSocket.OPEN;
+  }
 }

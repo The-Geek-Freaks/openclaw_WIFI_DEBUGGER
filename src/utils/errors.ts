@@ -133,7 +133,7 @@ export class OperationTimeoutError extends SkillError {
       `Operation '${operation}' timed out after ${timeoutMs}ms`,
       { ...options, recoverable: true }
     );
-    this.name = 'TimeoutError';
+    this.name = 'OperationTimeoutError';
   }
 }
 

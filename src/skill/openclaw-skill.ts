@@ -38,6 +38,9 @@ export class OpenClawAsusMeshSkill {
   private zigbeeState: ZigbeeNetworkState | null = null;
   private pendingOptimizations: Map<string, OptimizationSuggestion> = new Map();
   private initialized: boolean = false;
+  private readonly startTime: Date = new Date();
+  private actionCount: number = 0;
+  private errorCount: number = 0;
 
   constructor(config?: Config) {
     this.config = config ?? loadConfigFromEnv();
@@ -717,11 +720,79 @@ export class OpenClawAsusMeshSkill {
   }
 
   private errorResponse(action: string, error: string): SkillResponse {
+    this.errorCount++;
     return {
       success: false,
       action,
       error,
       timestamp: new Date().toISOString(),
     };
+  }
+
+  getHealthCheck(): {
+    status: 'healthy' | 'degraded' | 'unhealthy';
+    initialized: boolean;
+    uptime: number;
+    connections: {
+      ssh: boolean;
+      homeAssistant: boolean;
+    };
+  } {
+    const uptimeMs = Date.now() - this.startTime.getTime();
+
+    const sshConnected = this.sshClient.isConnected();
+    const hassConnected = this.hassClient.isConnected();
+
+    let status: 'healthy' | 'degraded' | 'unhealthy' = 'healthy';
+    if (!this.initialized) {
+      status = 'unhealthy';
+    } else if (!sshConnected) {
+      status = 'unhealthy';
+    } else if (!hassConnected) {
+      status = 'degraded';
+    }
+
+    return {
+      status,
+      initialized: this.initialized,
+      uptime: Math.floor(uptimeMs / 1000),
+      connections: {
+        ssh: sshConnected,
+        homeAssistant: hassConnected,
+      },
+    };
+  }
+
+  getStats(): {
+    uptime: number;
+    actionCount: number;
+    errorCount: number;
+    errorRate: number;
+    meshState: {
+      nodes: number;
+      devices: number;
+    } | null;
+    lastScan: string | null;
+  } {
+    const uptimeMs = Date.now() - this.startTime.getTime();
+    const errorRate = this.actionCount > 0 
+      ? (this.errorCount / this.actionCount) * 100 
+      : 0;
+
+    return {
+      uptime: Math.floor(uptimeMs / 1000),
+      actionCount: this.actionCount,
+      errorCount: this.errorCount,
+      errorRate: Math.round(errorRate * 100) / 100,
+      meshState: this.meshState ? {
+        nodes: this.meshState.nodes.length,
+        devices: this.meshState.devices.length,
+      } : null,
+      lastScan: this.meshState?.lastUpdated?.toISOString() ?? null,
+    };
+  }
+
+  isReady(): boolean {
+    return this.initialized && this.sshClient.isConnected();
   }
 }
