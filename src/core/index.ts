@@ -10,3 +10,4 @@ export * from './neighbor-monitor.js';
 export * from './multi-node-coordinator.js';
 export * from './iot-wifi-detector.js';
 export * from './multi-gen-coordinator.js';
+export * from './network-topology-analyzer.js';
