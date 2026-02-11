@@ -16,3 +16,5 @@ export * from './multi-node-coordinator.js';
 export * from './iot-wifi-detector.js';
 export * from './multi-gen-coordinator.js';
 export * from './network-topology-analyzer.js';
+export { AlertingService } from './alerting-service.js';
+export type { AlertConfig, Alert, AlertHistory } from './alerting-service.js';

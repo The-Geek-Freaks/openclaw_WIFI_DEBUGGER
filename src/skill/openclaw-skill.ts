@@ -15,6 +15,7 @@ import { NetworkTopologyAnalyzer } from '../core/network-topology-analyzer.js';
 import { NetworkIntelligence } from '../core/network-intelligence.js';
 import { SpatialRecommendationEngine } from '../core/spatial-recommendations.js';
 import { FloorPlanManager } from '../core/floor-plan-manager.js';
+import { AlertingService } from '../core/alerting-service.js';
 import type { SkillAction, SkillResponse } from './actions.js';
 import type { MeshNetworkState } from '../types/network.js';
 import type { ZigbeeNetworkState } from '../types/zigbee.js';
@@ -39,6 +40,7 @@ export class OpenClawAsusMeshSkill {
   private readonly networkIntelligence: NetworkIntelligence;
   private readonly spatialEngine: SpatialRecommendationEngine;
   private readonly floorPlanManager: FloorPlanManager;
+  private readonly alertingService: AlertingService;
   
   private meshState: MeshNetworkState | null = null;
   private zigbeeState: ZigbeeNetworkState | null = null;
@@ -74,6 +76,7 @@ export class OpenClawAsusMeshSkill {
     );
     this.spatialEngine = new SpatialRecommendationEngine();
     this.floorPlanManager = new FloorPlanManager();
+    this.alertingService = new AlertingService();
   }
 
   async initialize(): Promise<void> {
@@ -271,6 +274,24 @@ export class OpenClawAsusMeshSkill {
         
         case 'get_port_traffic':
           return await this.handleGetPortTraffic(action.params.host, action.params.port);
+        
+        case 'get_vlan_info':
+          return await this.handleGetVlanInfo(action.params.host);
+        
+        case 'get_poe_status':
+          return await this.handleGetPoEStatus(action.params.host);
+        
+        case 'set_poe_enabled':
+          return await this.handleSetPoEEnabled(action.params.host, action.params.port, action.params.enabled);
+        
+        case 'get_roaming_analysis':
+          return await this.handleGetRoamingAnalysis(action.params.macAddress);
+        
+        case 'configure_alerts':
+          return await this.handleConfigureAlerts(action.params);
+        
+        case 'get_alerts':
+          return await this.handleGetAlerts(action.params?.hours);
         
         default:
           return this.errorResponse('unknown', 'Unknown action');
@@ -1369,5 +1390,123 @@ export class OpenClawAsusMeshSkill {
         highUtilizationPorts: highUtilPorts.length,
       },
     }, suggestions);
+  }
+
+  private async handleGetVlanInfo(host: string): Promise<SkillResponse> {
+    const vlans = await this.snmpClient.getVlanInfo(host);
+    
+    if (vlans.length === 0) {
+      return this.errorResponse('get_vlan_info', `Keine VLAN-Daten von ${host}`);
+    }
+
+    return this.successResponse('get_vlan_info', {
+      host,
+      vlans,
+      summary: {
+        totalVlans: vlans.length,
+        vlanIds: vlans.map(v => v.id),
+      },
+    }, [
+      `${vlans.length} VLANs gefunden`,
+      'VLAN-Segmentierung verbessert Sicherheit und Performance',
+    ]);
+  }
+
+  private async handleGetPoEStatus(host: string): Promise<SkillResponse> {
+    const poeStatus = await this.snmpClient.getPoEStatus(host);
+    
+    if (poeStatus.length === 0) {
+      return this.errorResponse('get_poe_status', 'Keine PoE-Daten verfügbar (nur MikroTik)');
+    }
+
+    const deliveringPorts = poeStatus.filter(p => p.status === 'delivering');
+    const totalPower = poeStatus.reduce((sum, p) => sum + p.power, 0);
+
+    return this.successResponse('get_poe_status', {
+      host,
+      ports: poeStatus,
+      summary: {
+        totalPorts: poeStatus.length,
+        deliveringPorts: deliveringPorts.length,
+        totalPowerWatts: totalPower,
+      },
+    }, [
+      `${deliveringPorts.length} Ports liefern PoE`,
+      `Gesamtleistung: ${totalPower.toFixed(1)}W`,
+    ]);
+  }
+
+  private async handleSetPoEEnabled(host: string, port: number, enabled: boolean): Promise<SkillResponse> {
+    const success = await this.snmpClient.setPoEEnabled(host, port, enabled);
+    
+    if (!success) {
+      return this.errorResponse('set_poe_enabled', 'PoE-Steuerung fehlgeschlagen');
+    }
+
+    return this.successResponse('set_poe_enabled', {
+      host,
+      port,
+      enabled,
+      message: `PoE auf Port ${port} ${enabled ? 'aktiviert' : 'deaktiviert'}`,
+    }, [
+      enabled ? 'Gerät sollte in wenigen Sekunden starten' : 'Gerät wird ausgeschaltet',
+    ]);
+  }
+
+  private async handleGetRoamingAnalysis(macAddress: string): Promise<SkillResponse> {
+    const analysis = this.spatialEngine.getRoamingAnalysis(macAddress);
+
+    return this.successResponse('get_roaming_analysis', {
+      macAddress,
+      ...analysis,
+    }, [
+      analysis.recommendation,
+      analysis.pingPongCount > 0 ? 'Ping-Pong-Roaming erkannt' : 'Roaming stabil',
+    ]);
+  }
+
+  private async handleConfigureAlerts(params: {
+    webhookUrl?: string | undefined;
+    mqttBroker?: string | undefined;
+    mqttTopic?: string | undefined;
+    minSeverity?: 'info' | 'warning' | 'critical' | undefined;
+    cooldownMinutes?: number | undefined;
+    enabled?: boolean | undefined;
+  }): Promise<SkillResponse> {
+    this.alertingService.configure({
+      webhookUrl: params.webhookUrl,
+      mqttBroker: params.mqttBroker,
+      mqttTopic: params.mqttTopic,
+      minSeverity: params.minSeverity,
+      cooldownMinutes: params.cooldownMinutes,
+      enabled: params.enabled ?? true,
+    });
+
+    const summary = this.alertingService.getAlertSummary();
+
+    return this.successResponse('configure_alerts', {
+      configured: true,
+      isEnabled: summary.isEnabled,
+      settings: params,
+    }, [
+      summary.isEnabled ? 'Alerting aktiviert' : 'Alerting konfiguriert aber nicht aktiv',
+      params.webhookUrl ? 'Webhook konfiguriert' : 'Kein Webhook',
+      params.mqttBroker ? 'MQTT konfiguriert' : 'Kein MQTT',
+    ]);
+  }
+
+  private async handleGetAlerts(hours?: number): Promise<SkillResponse> {
+    const history = this.alertingService.getAlertHistory(hours ?? 24);
+    const summary = this.alertingService.getAlertSummary();
+    const activeAlerts = this.alertingService.getActiveAlerts();
+
+    return this.successResponse('get_alerts', {
+      active: activeAlerts,
+      history: history.alerts,
+      summary,
+    }, [
+      `${summary.activeCount} aktive Alerts`,
+      summary.criticalCount > 0 ? `${summary.criticalCount} kritische Alerts!` : 'Keine kritischen Alerts',
+    ]);
   }
 }

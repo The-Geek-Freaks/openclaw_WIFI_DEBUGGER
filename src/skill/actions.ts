@@ -198,6 +198,49 @@ export const SkillActionSchema = z.discriminatedUnion('action', [
       port: z.number().optional(),
     }),
   }),
+  z.object({
+    action: z.literal('get_vlan_info'),
+    params: z.object({
+      host: z.string(),
+    }),
+  }),
+  z.object({
+    action: z.literal('get_poe_status'),
+    params: z.object({
+      host: z.string(),
+    }),
+  }),
+  z.object({
+    action: z.literal('set_poe_enabled'),
+    params: z.object({
+      host: z.string(),
+      port: z.number(),
+      enabled: z.boolean(),
+    }),
+  }),
+  z.object({
+    action: z.literal('get_roaming_analysis'),
+    params: z.object({
+      macAddress: z.string(),
+    }),
+  }),
+  z.object({
+    action: z.literal('configure_alerts'),
+    params: z.object({
+      webhookUrl: z.string().optional(),
+      mqttBroker: z.string().optional(),
+      mqttTopic: z.string().optional(),
+      minSeverity: z.enum(['info', 'warning', 'critical']).optional(),
+      cooldownMinutes: z.number().optional(),
+      enabled: z.boolean().optional(),
+    }),
+  }),
+  z.object({
+    action: z.literal('get_alerts'),
+    params: z.object({
+      hours: z.number().optional(),
+    }).optional(),
+  }),
 ]);
 
 export type SkillAction = z.infer<typeof SkillActionSchema>;

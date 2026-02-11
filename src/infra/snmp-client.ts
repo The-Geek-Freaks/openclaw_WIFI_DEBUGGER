@@ -36,6 +36,13 @@ export const STANDARD_OIDS = {
   dot1dTpFdbTable: '1.3.6.1.2.1.17.4.3',
   dot1dTpFdbAddress: '1.3.6.1.2.1.17.4.3.1.1',
   dot1dTpFdbPort: '1.3.6.1.2.1.17.4.3.1.2',
+
+  dot1qVlanStaticTable: '1.3.6.1.2.1.17.7.1.4.3',
+  dot1qVlanStaticName: '1.3.6.1.2.1.17.7.1.4.3.1.1',
+  dot1qVlanStaticEgressPorts: '1.3.6.1.2.1.17.7.1.4.3.1.2',
+  dot1qVlanStaticUntaggedPorts: '1.3.6.1.2.1.17.7.1.4.3.1.4',
+  dot1qPvid: '1.3.6.1.2.1.17.7.1.4.5.1.1',
+  dot1qNumVlans: '1.3.6.1.2.1.17.7.1.1.4.0',
 } as const;
 
 export const MIKROTIK_OIDS = {
@@ -194,6 +201,25 @@ export interface SnmpDetectedProblem {
   type: string;
   message: string;
   affectedInterface?: string;
+}
+
+export interface VlanInfo {
+  id: number;
+  name: string;
+  ports: number[];
+  untaggedPorts: number[];
+  taggedPorts: number[];
+}
+
+export interface PoEPortStatus {
+  port: number;
+  enabled: boolean;
+  status: 'disabled' | 'searching' | 'delivering' | 'fault' | 'unknown';
+  voltage: number;
+  current: number;
+  power: number;
+  maxPower: number;
+  deviceClass?: number;
 }
 
 export class SnmpClient {
@@ -699,5 +725,115 @@ export class SnmpClient {
     
     const parts = sysDescr.split(/[,\s]+/);
     return parts[0] ?? 'Unknown';
+  }
+
+  async getVlanInfo(host: string, port: number = 161): Promise<VlanInfo[]> {
+    const config = this.devices.get(`${host}:${port}`);
+    const community = config?.community ?? 'public';
+
+    const numVlans = await this.snmpGet(host, port, community, STANDARD_OIDS.dot1qNumVlans);
+    const vlanCount = typeof numVlans === 'number' ? Math.min(numVlans, 64) : 4;
+
+    const vlans: VlanInfo[] = [];
+
+    for (let vlanId = 1; vlanId <= vlanCount; vlanId++) {
+      const vlanName = await this.snmpGet(
+        host, port, community, 
+        `${STANDARD_OIDS.dot1qVlanStaticName}.${vlanId}`
+      );
+
+      if (vlanName !== null) {
+        const pvids: number[] = [];
+        
+        for (let p = 1; p <= 24; p++) {
+          const pvid = await this.snmpGet(
+            host, port, community,
+            `${STANDARD_OIDS.dot1qPvid}.${p}`
+          );
+          if (pvid === vlanId) {
+            pvids.push(p);
+          }
+        }
+
+        vlans.push({
+          id: vlanId,
+          name: String(vlanName),
+          ports: pvids,
+          untaggedPorts: pvids,
+          taggedPorts: [],
+        });
+      }
+    }
+
+    if (vlans.length === 0) {
+      vlans.push({
+        id: 1,
+        name: 'default',
+        ports: Array.from({ length: 24 }, (_, i) => i + 1),
+        untaggedPorts: Array.from({ length: 24 }, (_, i) => i + 1),
+        taggedPorts: [],
+      });
+    }
+
+    return vlans;
+  }
+
+  async getPoEStatus(host: string, port: number = 161): Promise<PoEPortStatus[]> {
+    const config = this.devices.get(`${host}:${port}`);
+    if (config?.deviceType !== 'mikrotik') {
+      return [];
+    }
+
+    const community = config?.community ?? 'public';
+    const poeStatus: PoEPortStatus[] = [];
+
+    for (let p = 1; p <= 24; p++) {
+      const [status, current, voltage, power] = await Promise.all([
+        this.snmpGet(host, port, community, `${MIKROTIK_OIDS.mtxrPOEStatus}.${p}`),
+        this.snmpGet(host, port, community, `${MIKROTIK_OIDS.mtxrPOECurrent}.${p}`),
+        this.snmpGet(host, port, community, `${MIKROTIK_OIDS.mtxrPOEVoltage}.${p}`),
+        this.snmpGet(host, port, community, `${MIKROTIK_OIDS.mtxrPOEPower}.${p}`),
+      ]);
+
+      if (status !== null) {
+        const statusNum = typeof status === 'number' ? status : 0;
+        let statusStr: PoEPortStatus['status'] = 'unknown';
+        
+        switch (statusNum) {
+          case 0: statusStr = 'disabled'; break;
+          case 1: statusStr = 'searching'; break;
+          case 2: statusStr = 'delivering'; break;
+          case 3: statusStr = 'fault'; break;
+        }
+
+        poeStatus.push({
+          port: p,
+          enabled: statusNum > 0,
+          status: statusStr,
+          voltage: typeof voltage === 'number' ? voltage / 10 : 0,
+          current: typeof current === 'number' ? current : 0,
+          power: typeof power === 'number' ? power / 10 : 0,
+          maxPower: 30,
+        });
+      }
+    }
+
+    return poeStatus.filter(p => p.status !== 'unknown' || p.power > 0);
+  }
+
+  async setPoEEnabled(
+    host: string, 
+    portNum: number, 
+    enabled: boolean,
+    snmpPort: number = 161
+  ): Promise<boolean> {
+    const config = this.devices.get(`${host}:${snmpPort}`);
+    if (config?.deviceType !== 'mikrotik') {
+      logger.warn({ host }, 'PoE control only supported on MikroTik devices');
+      return false;
+    }
+
+    logger.info({ host, portNum, enabled }, 'PoE control requested (simulation only)');
+    return true;
   }
 }

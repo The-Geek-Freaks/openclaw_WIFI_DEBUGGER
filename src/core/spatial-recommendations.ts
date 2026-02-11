@@ -1,7 +1,16 @@
 import { createChildLogger } from '../utils/logger.js';
-import type { MeshNetworkState, NetworkDevice, MeshNode } from '../types/network.js';
+import type { MeshNetworkState, NetworkDevice, MeshNode, ConnectionEvent } from '../types/network.js';
 
 const _logger = createChildLogger('spatial-recommendations');
+
+interface RoamingHistoryEntry {
+  timestamp: Date;
+  deviceMac: string;
+  fromNode: string;
+  toNode: string;
+  signalBefore: number;
+  signalAfter: number;
+}
 
 export interface PlacementRecommendation {
   id: string;
@@ -58,6 +67,23 @@ export class SpatialRecommendationEngine {
     poor: -80,
     critical: -85,
   };
+
+  private roamingHistory: RoamingHistoryEntry[] = [];
+  private connectionEvents: ConnectionEvent[] = [];
+
+  recordConnectionEvent(event: ConnectionEvent): void {
+    this.connectionEvents.push(event);
+    if (this.connectionEvents.length > 10000) {
+      this.connectionEvents = this.connectionEvents.slice(-5000);
+    }
+  }
+
+  recordRoamingEvent(entry: RoamingHistoryEntry): void {
+    this.roamingHistory.push(entry);
+    if (this.roamingHistory.length > 5000) {
+      this.roamingHistory = this.roamingHistory.slice(-2500);
+    }
+  }
 
   analyzeAndRecommend(
     meshState: MeshNetworkState,
@@ -350,9 +376,56 @@ export class SpatialRecommendationEngine {
 └────────────────────────────────────────┘`;
   }
 
-  private findNearestNode(_x: number, _y: number, nodes: MeshNode[]): MeshNode | null {
-    // TODO: Implement proper distance calculation when node positions are available
-    return nodes[0] ?? null;
+  private findNearestNode(x: number, y: number, nodes: MeshNode[]): MeshNode | null {
+    if (nodes.length === 0) return null;
+
+    let nearestNode: MeshNode | null = null;
+    let minDistance = Infinity;
+
+    for (const node of nodes) {
+      if (node.location) {
+        const distance = this.calculateDistance(
+          x, y,
+          node.location.x, node.location.y
+        );
+        if (distance < minDistance) {
+          minDistance = distance;
+          nearestNode = node;
+        }
+      }
+    }
+
+    if (!nearestNode) {
+      return nodes[0] ?? null;
+    }
+
+    return nearestNode;
+  }
+
+  private calculateDistance(x1: number, y1: number, x2: number, y2: number): number {
+    return Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+  }
+
+  private calculate3DDistance(
+    x1: number, y1: number, z1: number,
+    x2: number, y2: number, z2: number
+  ): number {
+    return Math.sqrt(
+      Math.pow(x2 - x1, 2) + 
+      Math.pow(y2 - y1, 2) + 
+      Math.pow(z2 - z1, 2)
+    );
+  }
+
+  private estimateSignalAtDistance(distance: number, txPower: number = 20): number {
+    const pathLossExponent = 3.5;
+    const referenceDistance = 1;
+    const referencePathLoss = 40;
+    
+    if (distance <= 0) return txPower - referencePathLoss;
+    
+    const pathLoss = referencePathLoss + 10 * pathLossExponent * Math.log10(distance / referenceDistance);
+    return txPower - pathLoss;
   }
 
   private suggestDeadZoneFix(
@@ -403,14 +476,128 @@ export class SpatialRecommendationEngine {
     return otherNodes[0] ?? null;
   }
 
-  private detectPingPongRoaming(_device: NetworkDevice): boolean {
-    // TODO: Implement roaming history analysis
+  private detectPingPongRoaming(device: NetworkDevice): boolean {
+    const recentHistory = this.roamingHistory
+      .filter(h => h.deviceMac === device.macAddress)
+      .filter(h => h.timestamp.getTime() > Date.now() - 300000)
+      .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+
+    if (recentHistory.length < 3) return false;
+
+    const nodeSequence = recentHistory.map(h => h.toNode);
+    
+    for (let i = 0; i < nodeSequence.length - 2; i++) {
+      if (nodeSequence[i] === nodeSequence[i + 2] && nodeSequence[i] !== nodeSequence[i + 1]) {
+        return true;
+      }
+    }
+
+    const uniqueNodes = new Set(nodeSequence);
+    if (uniqueNodes.size <= 2 && recentHistory.length >= 4) {
+      return true;
+    }
+
     return false;
   }
 
-  private estimateBackhaulStrength(_node: MeshNode, _mainRouter: MeshNode): number {
-    // TODO: Use actual backhaul signal strength when available
-    return -65;
+  getRoamingAnalysis(deviceMac: string): {
+    totalRoams: number;
+    pingPongCount: number;
+    avgTimeBetweenRoams: number;
+    mostFrequentTransition: { from: string; to: string; count: number } | null;
+    recommendation: string;
+  } {
+    const deviceHistory = this.roamingHistory
+      .filter(h => h.deviceMac === deviceMac)
+      .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+
+    if (deviceHistory.length === 0) {
+      return {
+        totalRoams: 0,
+        pingPongCount: 0,
+        avgTimeBetweenRoams: 0,
+        mostFrequentTransition: null,
+        recommendation: 'Keine Roaming-Daten verfügbar',
+      };
+    }
+
+    const transitions = new Map<string, number>();
+    let pingPongCount = 0;
+    const timeDiffs: number[] = [];
+
+    for (let i = 0; i < deviceHistory.length; i++) {
+      const entry = deviceHistory[i]!;
+      const key = `${entry.fromNode}->${entry.toNode}`;
+      transitions.set(key, (transitions.get(key) ?? 0) + 1);
+
+      if (i > 0) {
+        timeDiffs.push(entry.timestamp.getTime() - deviceHistory[i - 1]!.timestamp.getTime());
+      }
+
+      if (i >= 2) {
+        const prev2 = deviceHistory[i - 2]!;
+        const prev1 = deviceHistory[i - 1]!;
+        if (prev2.toNode === entry.fromNode && prev1.fromNode === entry.toNode) {
+          pingPongCount++;
+        }
+      }
+    }
+
+    let mostFrequent: { from: string; to: string; count: number } | null = null;
+    for (const [key, count] of transitions) {
+      const [from, to] = key.split('->');
+      if (!mostFrequent || count > mostFrequent.count) {
+        mostFrequent = { from: from!, to: to!, count };
+      }
+    }
+
+    const avgTime = timeDiffs.length > 0 
+      ? timeDiffs.reduce((a, b) => a + b, 0) / timeDiffs.length 
+      : 0;
+
+    let recommendation = 'Roaming-Verhalten ist normal';
+    if (pingPongCount > 2) {
+      recommendation = 'Ping-Pong-Roaming erkannt. Roaming-Threshold erhöhen oder Node-Positionen anpassen.';
+    } else if (avgTime < 60000 && deviceHistory.length > 5) {
+      recommendation = 'Häufiges Roaming. Signalstärke an Node-Übergängen prüfen.';
+    }
+
+    return {
+      totalRoams: deviceHistory.length,
+      pingPongCount,
+      avgTimeBetweenRoams: Math.round(avgTime / 1000),
+      mostFrequentTransition: mostFrequent,
+      recommendation,
+    };
+  }
+
+  private estimateBackhaulStrength(node: MeshNode, mainRouter: MeshNode): number {
+    if (node.backhaulSignalStrength !== undefined) {
+      return node.backhaulSignalStrength;
+    }
+
+    if (node.backhaulType === 'wired' || node.backhaulType === 'mesh_backhaul') {
+      return 0;
+    }
+
+    if (node.location && mainRouter.location) {
+      const distance = this.calculate3DDistance(
+        node.location.x, node.location.y, node.location.z,
+        mainRouter.location.x, mainRouter.location.y, mainRouter.location.z
+      );
+      return this.estimateSignalAtDistance(distance);
+    }
+
+    const connectedClients = node.connectedClients;
+    if (connectedClients > 15) {
+      return -75;
+    } else if (connectedClients > 10) {
+      return -70;
+    } else if (connectedClients > 5) {
+      return -65;
+    }
+    
+    return -60;
   }
 
   private estimateImprovement(critical: number, high: number): string {
