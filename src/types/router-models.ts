@@ -122,7 +122,7 @@ export const ROUTER_DATABASE: Record<string, RouterModelInfo> = {
     wifiBands: ['2.4GHz', '5GHz', '5GHz-2', '6GHz'],
     maxSpeed: 16000,
     capabilities: ['aimesh_2', 'smart_connect', 'band_steering', 'mu_mimo', 'ofdma', 'dfs', 'wpa3', '160mhz', '10g_wan', '10g_lan', '2.5g_wan'],
-    sshInterface: { wl0: 'eth6', wl1: 'eth7', wl2: 'eth8', wl3: 'eth9' },
+    sshInterface: { wl0: 'eth7', wl1: 'eth8', wl2: 'eth9', wl3: 'eth10' },
     nvramPrefix: { wifi2g: 'wl0', wifi5g: 'wl1', wifi5g2: 'wl2', wifi6g: 'wl3' },
     aimeshRole: 'both',
   },

@@ -1,9 +1,9 @@
 import { spawn } from 'child_process';
 import { EventEmitter } from 'eventemitter3';
-// fs/promises reserved for future SSH key validation
 import { createChildLogger } from '../utils/logger.js';
 import { withTimeout, Semaphore } from '../utils/async-helpers.js';
 import type { Config } from '../config/index.js';
+import { getRouterInfo, type RouterModelInfo } from '../types/router-models.js';
 
 const logger = createChildLogger('asus-ssh');
 
@@ -21,6 +21,8 @@ export class AsusSshClient extends EventEmitter<SshClientEvents> {
   private connected: boolean = false;
   private readonly config: Config['asus'];
   private readonly commandSemaphore = new Semaphore(MAX_CONCURRENT_COMMANDS);
+  private routerModel: RouterModelInfo | null = null;
+  private detectedInterfaces: { wl0?: string | undefined; wl1?: string | undefined; wl2?: string | undefined; wl3?: string | undefined } = {};
 
   constructor(config: Config['asus']) {
     super();
@@ -43,6 +45,8 @@ export class AsusSshClient extends EventEmitter<SshClientEvents> {
         this.connected = true;
         logger.info({ host: this.config.host }, 'SSH connection established via system SSH');
         this.emit('connected');
+        
+        await this.detectRouterModel();
       } else {
         throw new Error('Unexpected response from SSH test');
       }
@@ -50,6 +54,59 @@ export class AsusSshClient extends EventEmitter<SshClientEvents> {
       this.connected = false;
       this.emit('error', err instanceof Error ? err : new Error(String(err)));
       throw err;
+    }
+  }
+
+  private async detectRouterModel(): Promise<void> {
+    try {
+      const modelName = (await this.executeRaw('nvram get productid')).trim();
+      this.routerModel = getRouterInfo(modelName) ?? null;
+      
+      if (this.routerModel) {
+        this.detectedInterfaces = { ...this.routerModel.sshInterface };
+        logger.info({ 
+          model: modelName, 
+          interfaces: this.detectedInterfaces 
+        }, 'Router model detected with interface mapping');
+      } else {
+        await this.autoDetectInterfaces();
+        logger.warn({ model: modelName }, 'Unknown router model, using auto-detected interfaces');
+      }
+    } catch (err) {
+      logger.warn({ err }, 'Failed to detect router model, using auto-detection');
+      await this.autoDetectInterfaces();
+    }
+  }
+
+  private async autoDetectInterfaces(): Promise<void> {
+    const possibleInterfaces = ['eth5', 'eth6', 'eth7', 'eth8', 'eth9', 'eth10', 'wl0', 'wl1', 'wl2', 'wl3'];
+    const detected: string[] = [];
+    
+    for (const iface of possibleInterfaces) {
+      try {
+        const result = await this.executeRaw(`wl -i ${iface} status 2>/dev/null | head -1`);
+        if (result && !result.includes('No such device') && !result.includes('error')) {
+          detected.push(iface);
+        }
+      } catch {
+        // Interface not available
+      }
+    }
+    
+    if (detected.length >= 1) this.detectedInterfaces.wl0 = detected[0];
+    if (detected.length >= 2) this.detectedInterfaces.wl1 = detected[1];
+    if (detected.length >= 3) this.detectedInterfaces.wl2 = detected[2];
+    if (detected.length >= 4) this.detectedInterfaces.wl3 = detected[3];
+    
+    logger.info({ detected, mapped: this.detectedInterfaces }, 'Auto-detected wireless interfaces');
+  }
+
+  getInterface(band: '2g' | '5g' | '5g2' | '6g'): string {
+    switch (band) {
+      case '2g': return this.detectedInterfaces.wl0 ?? 'eth6';
+      case '5g': return this.detectedInterfaces.wl1 ?? 'eth7';
+      case '5g2': return this.detectedInterfaces.wl2 ?? 'eth8';
+      case '6g': return this.detectedInterfaces.wl3 ?? this.detectedInterfaces.wl2 ?? 'eth9';
     }
   }
 
@@ -143,15 +200,36 @@ export class AsusSshClient extends EventEmitter<SshClientEvents> {
   }
 
   async getWirelessClients(): Promise<string> {
-    return this.execute('wl -i eth6 assoclist && wl -i eth7 assoclist');
+    const iface2g = this.getInterface('2g');
+    const iface5g = this.getInterface('5g');
+    const iface5g2 = this.detectedInterfaces.wl2;
+    const iface6g = this.detectedInterfaces.wl3;
+    
+    let cmd = `wl -i ${iface2g} assoclist 2>/dev/null; wl -i ${iface5g} assoclist 2>/dev/null`;
+    if (iface5g2) cmd += `; wl -i ${iface5g2} assoclist 2>/dev/null`;
+    if (iface6g) cmd += `; wl -i ${iface6g} assoclist 2>/dev/null`;
+    
+    return this.execute(cmd);
   }
 
   async getClientSignalStrength(macAddress: string): Promise<string> {
-    return this.execute(`wl -i eth6 rssi ${macAddress} 2>/dev/null || wl -i eth7 rssi ${macAddress} 2>/dev/null`);
+    const interfaces = [
+      this.getInterface('2g'),
+      this.getInterface('5g'),
+      this.detectedInterfaces.wl2,
+      this.detectedInterfaces.wl3,
+    ].filter(Boolean);
+    
+    const cmd = interfaces
+      .map(iface => `wl -i ${iface} rssi ${macAddress} 2>/dev/null`)
+      .join(' || ');
+    
+    return this.execute(cmd);
   }
 
-  async getSiteSurvey(band: '2g' | '5g'): Promise<string> {
-    const iface = band === '2g' ? 'eth6' : 'eth7';
+  async getSiteSurvey(band: '2g' | '5g' | '5g2' | '6g'): Promise<string> {
+    const iface = this.getInterface(band);
+    logger.debug({ band, iface }, 'Running site survey on interface');
     return this.execute(`wl -i ${iface} scanresults`);
   }
 
