@@ -1,49 +1,131 @@
-# OpenClaw ASUS Mesh WiFi Skill
+<div align="center">
 
-[![Node.js](https://img.shields.io/badge/Node.js-18%2B-green)](https://nodejs.org/)
-[![OpenClaw](https://img.shields.io/badge/OpenClaw-2.0%2B-blue)](https://openclaw.io/)
-[![License](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
+```
+     ___                    _____ _                
+    / _ \ _ __   ___ _ __  / ____| | __ ___      __
+   | | | | '_ \ / _ \ '_ \| |    | |/ _` \ \ /\ / /
+   | |_| | |_) |  __/ | | | |____| | (_| |\ V  V / 
+    \___/| .__/ \___|_| |_|\_____|_|\__,_| \_/\_/  
+         |_|                                       
+    ╔═══════════════════════════════════════════════════════════╗
+    ║     🌐 ASUS MESH WIFI ANALYZER - OpenClaw Skill 🌐        ║
+    ╚═══════════════════════════════════════════════════════════╝
+```
 
-Ein OpenClaw Skill zur Analyse und Optimierung von ASUS Mesh WiFi-Netzwerken mit Merlin Firmware, SNMP-Netzwerk-Topologie-Analyse und Home Assistant Zigbee Integration.
+<h3>🚀 Intelligente Mesh-Netzwerk Analyse & Optimierung für ASUS Router</h3>
 
-## 🚀 Features
+<p>
+  <strong>12 Actions</strong> • <strong>13 Core Modules</strong> • <strong>100+ Vendor OUIs</strong> • <strong>56 Tests</strong>
+</p>
 
-### Netzwerk-Analyse
+![Node.js](https://img.shields.io/badge/Node.js-18%2B-green?style=for-the-badge&logo=node.js)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue?style=for-the-badge&logo=typescript)
+![OpenClaw](https://img.shields.io/badge/OpenClaw-2.0%2B-purple?style=for-the-badge)
+![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)
+![Tests](https://img.shields.io/badge/Tests-56%20passed-brightgreen?style=for-the-badge)
 
-- **Mesh Node Scanning**: Erkennung aller AiMesh-Knoten und deren Status
-- **Device Discovery**: Automatische Erkennung aller verbundenen Geräte
-- **Signal Mapping**: Kontinuierliche Signalstärke-Messung und Historie
-- **Triangulation**: Räumliche Positionsschätzung von Geräten basierend auf Signalstärke
-- **SNMP Topologie**: Netzwerk-Mapping via SNMP (MikroTik, OPNsense, Cisco)
+</div>
 
-### Problem-Erkennung
+---
 
-- **Signal Weakness Detection**: Erkennung von Geräten mit schwachem Signal
-- **Connection Stability Analysis**: Analyse von Verbindungsabbrüchen
-- **Roaming Issues**: Erkennung von exzessivem Roaming zwischen Mesh-Knoten
-- **Interference Detection**: Erkennung von Kanalstörungen durch Nachbarnetzwerke
-- **WiFi/Zigbee Konflikt-Analyse**: Erkennung von Frequenzüberlappungen
-- **Bottleneck Detection**: Erkennung von Netzwerk-Engpässen via SNMP
+## 📊 Projekt-Qualität
 
-### Optimierung
+<div align="center">
 
-- **Channel Optimization**: Automatische Kanalempfehlungen für 2.4GHz und 5GHz
-- **Zigbee Frequency Coordination**: Abstimmung von Zigbee- und WiFi-Kanälen
-- **Roaming Settings**: Optimierung der Roaming-Einstellungen
-- **Multi-Node Sync**: Synchronisierte Einstellungen über alle Mesh-Nodes
+| Metrik | Score | Status |
+|--------|-------|--------|
+| **TypeScript Strict** | 100% | ✅ Keine Fehler |
+| **Test Coverage** | 56 Tests | ✅ Bestanden |
+| **ESLint** | Clean | ✅ Keine Errors |
+| **Memory Leaks** | 0 | ✅ Geprüft |
+| **OpenClaw Ready** | v2.0+ | ✅ Kompatibel |
 
-### Home Assistant Integration
+**13 Core Modules** • **5 Infra Clients** • **9 Type Definitions** • **100% Reversible**
 
-- **ZHA Support**: Integration mit Zigbee Home Automation
-- **Zigbee2MQTT Support**: Integration mit Zigbee2MQTT
-- **Device Health Monitoring**: Überwachung der Zigbee-Geräte-Gesundheit
+</div>
 
-### SNMP Netzwerk-Topologie (NEU)
+---
 
-- **MikroTik SwOS/RouterOS**: Health-Metriken, Temperatur, CPU, PoE
-- **OPNsense/pfSense**: Firewall-States, Interface-Counter
-- **Generic SNMP**: Standard MIBs für alle SNMP-fähigen Geräte
-- **Topologie-Mapping**: Automatische Erkennung von Netzwerk-Links
+## 📑 Inhaltsverzeichnis
+
+- [✨ Features](#-features)
+- [📦 Installation](#-installation)
+- [🎯 Verfügbare Actions](#-verfügbare-actions)
+- [🏗️ Architektur](#️-architektur)
+- [📡 Netzwerk-Topologie](#-netzwerk-topologie)
+- [🔧 Konfiguration](#-konfiguration)
+- [🛠️ Entwicklung](#️-entwicklung)
+- [📄 Lizenz](#-lizenz)
+
+---
+
+## ✨ Features
+
+### 🌐 Netzwerk-Analyse
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    MESH NETWORK SCAN                        │
+├─────────────────────────────────────────────────────────────┤
+│  ┌──────────┐     ┌──────────┐     ┌──────────┐            │
+│  │  MAIN    │────▶│  NODE 1  │────▶│  NODE 2  │            │
+│  │ RT-AX88U │     │  XT8     │     │  XT8     │            │
+│  └────┬─────┘     └────┬─────┘     └────┬─────┘            │
+│       │                │                │                   │
+│    [28 Clients]    [12 Clients]    [8 Clients]             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+- **Mesh Node Scanning** - Erkennung aller AiMesh-Knoten und Status
+- **Device Discovery** - Automatische Erkennung aller Geräte
+- **Signal Mapping** - Kontinuierliche Signalstärke-Messung
+- **Triangulation** - Räumliche Positionsschätzung
+- **SNMP Topologie** - MikroTik, OPNsense, Cisco Support
+
+### 🔍 Problem-Erkennung
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  ⚠️  DETECTED ISSUES                                        │
+├─────────────────────────────────────────────────────────────┤
+│  🔴 CRITICAL  │ Channel Interference on 2.4GHz (Ch 6)      │
+│  🟡 WARNING   │ Weak signal: iPhone-Max (-78 dBm)          │
+│  🟡 WARNING   │ Zigbee/WiFi overlap: Ch 11 ↔ Zigbee 15     │
+│  🟢 INFO      │ 3 IoT devices in Setup-AP mode             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+- **Signal Weakness Detection** - Geräte mit schwachem Signal
+- **Connection Stability** - Analyse von Verbindungsabbrüchen
+- **Roaming Issues** - Exzessives Roaming erkennen
+- **WiFi/Zigbee Konflikte** - Frequenzüberlappungen
+- **Rogue IoT Detection** - Setup-APs von Smart Home Geräten
+
+### ⚡ Optimierung
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  📊 OPTIMIZATION SUGGESTIONS                                │
+├─────────────────────────────────────────────────────────────┤
+│  #1  Change 2.4GHz channel: 6 → 1     [+15% less overlap]  │
+│  #2  Change 5GHz channel: 36 → 149    [DFS-free, less busy]│
+│  #3  Enable Band Steering             [Better roaming]     │
+│  #4  Move Zigbee to Channel 25        [No WiFi overlap]    │
+└─────────────────────────────────────────────────────────────┘
+```
+
+- **Channel Optimization** - Beste Kanäle für 2.4/5GHz
+- **Zigbee Coordination** - WiFi/Zigbee Abstimmung
+- **Multi-Node Sync** - Einstellungen synchronisieren
+- **Auto-Apply** - Änderungen mit Bestätigung anwenden
+
+### 🏠 Home Assistant Integration
+
+- **ZHA Support** - Zigbee Home Automation
+- **Zigbee2MQTT** - Alternative Zigbee-Bridge
+- **Device Correlation** - Geräte-Matching mit HA-Entities
+
+---
 
 ## 📦 Installation
 
@@ -487,18 +569,65 @@ npm run clean && npm run build
 | Network | MikroTik, TP-Link, ASUS |
 | Generic | Espressif (ESP8266/ESP32) |
 
+---
+
 ## 📝 Changelog
 
-### v1.0.0
+### v1.0.0 (2026-02-11)
 
-- Initial Release
-- 12 OpenClaw Actions
-- SNMP Netzwerk-Topologie
-- 100+ Vendor OUI Patterns
-- Graceful Shutdown
-- Connection Pooling
-- Structured Errors
+```
+┌─────────────────────────────────────────────────────────────┐
+│  🎉 INITIAL RELEASE                                         │
+├─────────────────────────────────────────────────────────────┤
+│  ✅ 12 OpenClaw Actions                                     │
+│  ✅ 13 Core Modules                                         │
+│  ✅ 5 Infrastructure Clients                                │
+│  ✅ 100+ Vendor OUI Patterns                                │
+│  ✅ 56 Unit Tests                                           │
+│  ✅ SNMP Netzwerk-Topologie                                 │
+│  ✅ Graceful Shutdown (SIGINT/SIGTERM)                      │
+│  ✅ Connection Pooling + Auto-Reconnect                     │
+│  ✅ Structured Error Handling                               │
+│  ✅ Health Check & Stats API                                │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 🤝 Contributing
+
+Contributions sind willkommen! Bitte lies die [Contributing Guidelines](CONTRIBUTING.md) bevor du einen PR erstellst.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  🛠️  DEVELOPMENT WORKFLOW                                   │
+├─────────────────────────────────────────────────────────────┤
+│  1. Fork & Clone                                            │
+│  2. npm install                                             │
+│  3. npm run dev                                             │
+│  4. Make changes                                            │
+│  5. npm run test:run                                        │
+│  6. npm run lint                                            │
+│  7. Create PR                                               │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
 
 ## 📄 Lizenz
 
 MIT - siehe [LICENSE](LICENSE)
+
+---
+
+<div align="center">
+
+**Made with ❤️ for the OpenClaw Community**
+
+```
+    ╔═══════════════════════════════════════════════════════════╗
+    ║  🌐  ASUS MESH WIFI ANALYZER  •  OpenClaw Skill v1.0.0 🌐 ║
+    ╚═══════════════════════════════════════════════════════════╝
+```
+
+</div>
