@@ -91,11 +91,12 @@ export class HomeAssistantClient extends EventEmitter<HassClientEvents> {
         connectResolve();
         break;
 
-      case 'auth_invalid':
+      case 'auth_invalid': {
         const err = new Error('Invalid Home Assistant authentication');
         this.emit('error', err);
         connectReject(err);
         break;
+      }
 
       case 'result':
         if (message.id !== undefined) {

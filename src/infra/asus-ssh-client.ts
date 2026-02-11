@@ -39,30 +39,25 @@ export class AsusSshClient extends EventEmitter<SshClientEvents> {
   }
 
   private async doConnect(): Promise<void> {
-    return new Promise(async (resolve, reject) => {
-      this.client = new Client();
+    this.client = new Client();
 
-      const connectConfig: ConnectConfig = {
-        host: this.config.host,
-        port: this.config.sshPort,
-        username: this.config.sshUser,
-        readyTimeout: SSH_CONNECT_TIMEOUT,
-        keepaliveInterval: 30000,
-        keepaliveCountMax: 3,
-      };
+    const connectConfig: ConnectConfig = {
+      host: this.config.host,
+      port: this.config.sshPort,
+      username: this.config.sshUser,
+      readyTimeout: SSH_CONNECT_TIMEOUT,
+      keepaliveInterval: 30000,
+      keepaliveCountMax: 3,
+    };
 
-      try {
-        if (this.config.sshKeyPath) {
-          connectConfig.privateKey = await readFile(this.config.sshKeyPath);
-        } else if (this.config.sshPassword) {
-          connectConfig.password = this.config.sshPassword;
-        }
-      } catch (err) {
-        reject(new Error(`Failed to read SSH key: ${err}`));
-        return;
-      }
+    if (this.config.sshKeyPath) {
+      connectConfig.privateKey = await readFile(this.config.sshKeyPath);
+    } else if (this.config.sshPassword) {
+      connectConfig.password = this.config.sshPassword;
+    }
 
-      this.client.on('ready', () => {
+    return new Promise((resolve, reject) => {
+      this.client!.on('ready', () => {
         this.connected = true;
         this.reconnecting = false;
         logger.info({ host: this.config.host }, 'SSH connection established');
@@ -70,20 +65,20 @@ export class AsusSshClient extends EventEmitter<SshClientEvents> {
         resolve();
       });
 
-      this.client.on('error', (err) => {
+      this.client!.on('error', (err) => {
         logger.error({ err }, 'SSH connection error');
         this.connected = false;
         this.emit('error', err);
         reject(err);
       });
 
-      this.client.on('close', () => {
+      this.client!.on('close', () => {
         this.connected = false;
         logger.info('SSH connection closed');
         this.emit('disconnected');
       });
 
-      this.client.connect(connectConfig);
+      this.client!.connect(connectConfig);
     });
   }
 

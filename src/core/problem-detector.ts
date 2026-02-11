@@ -325,8 +325,8 @@ export class ProblemDetector {
 
     let totalConnections = 0;
     let totalDisconnections = 0;
-    let connectionDurations: number[] = [];
-    let disconnectReasons: Map<string, number> = new Map();
+    const connectionDurations: number[] = [];
+    const disconnectReasons: Map<string, number> = new Map();
     let lastConnectTime: number | null = null;
 
     for (const event of deviceEvents) {

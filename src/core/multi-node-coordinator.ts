@@ -258,7 +258,7 @@ export class MultiNodeCoordinator {
     const optimized: OptimizedSettings[] = [];
 
     let best2gChannel = 1;
-    let best5gChannel = 36;
+    const best5gChannel = 36;
 
     if (zigbeeChannel) {
       const overlap1 = getWifi2gZigbeeOverlap(1, zigbeeChannel);
