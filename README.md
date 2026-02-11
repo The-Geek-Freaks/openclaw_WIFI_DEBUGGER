@@ -647,6 +647,25 @@ npm run clean && npm run build
 
 ## 📝 Changelog
 
+### v1.0.2 (2026-02-11)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  🚀 FEATURE: AP-Mode Detection & Optimizations              │
+├─────────────────────────────────────────────────────────────┤
+│  ✅ AP-Mode Detection via nvram sw_mode                     │
+│  ✅ AP-Mode Empfehlungen:                                   │
+│     • QoS deaktivieren (OPNsense übernimmt)                │
+│     • AIProtection deaktivieren (CPU-Last -15-25%)         │
+│     • Traffic Analyzer, Adaptive QoS, DDNS, UPnP           │
+│     • MU-MIMO/OFDMA Hinweise für wenig Clients             │
+│  ✅ Batch Signal Collection (getAllClientSignals)           │
+│  ✅ SNMP Config aus Environment (SNMP_DEVICES)              │
+│  ✅ Mesh Node Firmware Parsing aus cfg_device_list          │
+│  ✅ getRouterFeatureStatus() für Feature-Erkennung          │
+└─────────────────────────────────────────────────────────────┘
+```
+
 ### v1.0.1 (2026-02-11)
 
 ```

@@ -63,7 +63,7 @@ export class OpenClawAsusMeshSkill {
     this.heatmapGenerator = new HeatmapGenerator();
     this.benchmarkEngine = new BenchmarkEngine(this.sshClient);
     this.iotDetector = new IoTWifiDetector(this.sshClient, this.hassClient);
-    this.snmpClient = new SnmpClient();
+    this.snmpClient = new SnmpClient(this.config.snmp.devices);
     this.topologyAnalyzer = new NetworkTopologyAnalyzer(this.snmpClient);
     this.networkIntelligence = new NetworkIntelligence(
       this.sshClient,
@@ -480,19 +480,28 @@ export class OpenClawAsusMeshSkill {
       this.meshState = await this.meshAnalyzer.scan();
     }
 
-    const suggestions = await this.frequencyOptimizer.generateOptimizations(
+    const wifiSuggestions = await this.frequencyOptimizer.generateOptimizations(
       this.meshState,
       this.zigbeeState ?? undefined
     );
 
+    const apModeSuggestions = await this.frequencyOptimizer.generateApModeOptimizations();
+    
+    const allSuggestions = [...apModeSuggestions, ...wifiSuggestions]
+      .sort((a, b) => b.priority - a.priority);
+
     this.pendingOptimizations.clear();
-    for (const s of suggestions) {
+    for (const s of allSuggestions) {
       this.pendingOptimizations.set(s.id, s);
     }
 
+    const operationMode = apModeSuggestions.length > 0 ? 'ap' : 'router';
+
     return this.successResponse('get_optimization_suggestions', {
-      count: suggestions.length,
-      suggestions: suggestions.map(s => ({
+      operationMode,
+      count: allSuggestions.length,
+      apModeOptimizations: apModeSuggestions.length,
+      suggestions: allSuggestions.map(s => ({
         id: s.id,
         priority: s.priority,
         category: s.category,
@@ -523,7 +532,15 @@ export class OpenClawAsusMeshSkill {
       });
     }
 
-    const success = await this.frequencyOptimizer.applyAndRestart(suggestion);
+    let success: boolean;
+    let needsRestart = false;
+    
+    if (suggestionId.startsWith('ap-')) {
+      success = await this.frequencyOptimizer.applyApModeOptimization(suggestion);
+    } else {
+      success = await this.frequencyOptimizer.applyAndRestart(suggestion);
+      needsRestart = true;
+    }
     
     if (success) {
       this.pendingOptimizations.delete(suggestionId);
@@ -532,8 +549,11 @@ export class OpenClawAsusMeshSkill {
     return this.successResponse('apply_optimization', {
       suggestionId,
       applied: success,
+      requiresReboot: suggestionId.startsWith('ap-'),
       message: success 
-        ? 'Optimization applied and wireless restarted' 
+        ? needsRestart 
+          ? 'Optimization applied and wireless restarted' 
+          : 'Optimization applied - reboot router for full effect'
         : 'Failed to apply optimization',
     });
   }

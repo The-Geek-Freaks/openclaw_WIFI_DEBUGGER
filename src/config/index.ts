@@ -26,6 +26,14 @@ export const ConfigSchema = z.object({
   logging: z.object({
     level: z.enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal']).default('info'),
   }),
+  snmp: z.object({
+    devices: z.array(z.object({
+      host: z.string(),
+      port: z.number().default(161),
+      community: z.string().default('public'),
+      deviceType: z.enum(['generic', 'mikrotik', 'cisco', 'ubiquiti']).default('generic'),
+    })).default([]),
+  }),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -57,5 +65,21 @@ export function loadConfigFromEnv(): Config {
     logging: {
       level: (process.env['LOG_LEVEL'] as Config['logging']['level']) ?? 'info',
     },
+    snmp: {
+      devices: parseSnmpDevices(process.env['SNMP_DEVICES']),
+    },
   });
+}
+
+function parseSnmpDevices(envValue: string | undefined): Array<{ host: string; port: number; community: string; deviceType: 'generic' | 'mikrotik' | 'cisco' | 'ubiquiti' }> {
+  if (!envValue || envValue.trim() === '') return [];
+  
+  return envValue.split(',').map(entry => {
+    const parts = entry.trim().split(':');
+    const host = parts[0] ?? '';
+    const port = parseInt(parts[1] ?? '161', 10);
+    const community = parts[2] ?? 'public';
+    const deviceType = (parts[3] as 'generic' | 'mikrotik' | 'cisco' | 'ubiquiti') ?? 'generic';
+    return { host, port, community, deviceType };
+  }).filter(d => d.host !== '');
 }

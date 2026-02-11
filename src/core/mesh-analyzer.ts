@@ -124,18 +124,35 @@ export class MeshAnalyzer extends EventEmitter<MeshAnalyzerEvents> {
 
       try {
         const meshList = await this.sshClient.getMeshNodes();
-        const meshMacs = meshList.split('<').filter(Boolean);
+        const meshEntries = meshList.split('<').filter(Boolean);
         
-        for (const meshMac of meshMacs) {
-          const parts = meshMac.split('>');
+        for (const entry of meshEntries) {
+          const parts = entry.split('>');
           if (parts.length >= 2) {
+            const mac = normalizeMac(parts[0] ?? '');
+            const alias = parts[1] ?? '';
+            const model = parts[2] ?? '';
+            const uiModel = parts[3] ?? '';
+            const fwver = parts[4] ?? '';
+            const _newFwver = parts[5] ?? '';
+            const ip = parts[6] ?? '';
+            const online = parts[7] ?? '';
+            
+            const nodeName = alias || uiModel || model || `AiMesh Node ${mac}`;
+            const firmwareVersion = fwver || 'unknown';
+            const isOnline = online === '1';
+            
+            logger.debug({ 
+              mac, alias, model, fwver, ip, online, partsCount: parts.length 
+            }, 'Parsed mesh node entry');
+            
             nodes.push({
-              id: normalizeMac(parts[0] ?? ''),
-              name: parts[1] ?? 'AiMesh Node',
-              macAddress: normalizeMac(parts[0] ?? ''),
-              ipAddress: '',
+              id: mac,
+              name: nodeName,
+              macAddress: mac,
+              ipAddress: ip,
               isMainRouter: false,
-              firmwareVersion: 'unknown',
+              firmwareVersion,
               uptime: 0,
               cpuUsage: 0,
               memoryUsage: 0,
@@ -214,6 +231,9 @@ export class MeshAnalyzer extends EventEmitter<MeshAnalyzerEvents> {
     try {
       const wirelessClients = await this.sshClient.getWirelessClients();
       const macMatches = wirelessClients.match(/([0-9A-Fa-f:]{17})/g) ?? [];
+      
+      const allSignals = await this.sshClient.getAllClientSignals();
+      logger.debug({ signalCount: allSignals.size }, 'Collected client signal strengths');
 
       for (const mac of macMatches) {
         const normalizedMac = normalizeMac(mac);
@@ -221,15 +241,11 @@ export class MeshAnalyzer extends EventEmitter<MeshAnalyzerEvents> {
           const device = devices.get(normalizedMac)!;
           device.connectionType = 'wireless_5g';
           
-          try {
-            const rssiStr = await this.sshClient.getClientSignalStrength(normalizedMac);
-            const rssi = parseInt(rssiStr.trim(), 10);
-            if (!isNaN(rssi)) {
-              device.signalStrength = rssi;
-              this.recordSignalMeasurement(normalizedMac, 'main', rssi);
-            }
-          } catch {
-            // Signal strength not available
+          const rssi = allSignals.get(normalizedMac);
+          if (rssi !== undefined) {
+            device.signalStrength = rssi;
+            this.recordSignalMeasurement(normalizedMac, 'main', rssi);
+            logger.debug({ mac: normalizedMac, rssi }, 'Signal strength recorded');
           }
         }
       }

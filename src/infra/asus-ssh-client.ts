@@ -310,6 +310,117 @@ export class AsusSshClient extends EventEmitter<SshClientEvents> {
     return this.execute(`wl -i ${iface} scan 2>/dev/null; sleep 2; wl -i ${iface} scanresults 2>/dev/null`);
   }
 
+  async getOperationMode(): Promise<'router' | 'ap' | 'repeater' | 'media_bridge' | 'unknown'> {
+    try {
+      const swMode = (await this.execute('nvram get sw_mode')).trim();
+      switch (swMode) {
+        case '1': return 'router';
+        case '3': return 'ap';
+        case '2': return 'repeater';
+        case '4': return 'media_bridge';
+        default: return 'unknown';
+      }
+    } catch {
+      return 'unknown';
+    }
+  }
+
+  async getRouterFeatureStatus(): Promise<{
+    operationMode: 'router' | 'ap' | 'repeater' | 'media_bridge' | 'unknown';
+    qosEnabled: boolean;
+    aiProtectionEnabled: boolean;
+    trafficAnalyzerEnabled: boolean;
+    adaptiveQosEnabled: boolean;
+    parentalControlEnabled: boolean;
+    guestNetworkEnabled: boolean;
+    vpnServerEnabled: boolean;
+    ddnsEnabled: boolean;
+    uptEnabled: boolean;
+    natEnabled: boolean;
+  }> {
+    const nvramVars = [
+      'sw_mode',
+      'qos_enable',
+      'qos_type',
+      'wrs_protect_enable',
+      'wrs_enable',
+      'TM_EULA',
+      'bwdpi_db_enable',
+      'PARENTAL_CTRL',
+      'wl0.1_bss_enabled',
+      'wl1.1_bss_enabled',
+      'VPNServer_enable',
+      'ddns_enable_x',
+      'upnp_enable',
+      'wan0_nat_x',
+    ];
+    
+    const result: Record<string, string> = {};
+    for (const v of nvramVars) {
+      try {
+        result[v] = (await this.execute(`nvram get ${v}`)).trim();
+      } catch {
+        result[v] = '';
+      }
+    }
+    
+    const swMode = result['sw_mode'];
+    let operationMode: 'router' | 'ap' | 'repeater' | 'media_bridge' | 'unknown' = 'unknown';
+    switch (swMode) {
+      case '1': operationMode = 'router'; break;
+      case '3': operationMode = 'ap'; break;
+      case '2': operationMode = 'repeater'; break;
+      case '4': operationMode = 'media_bridge'; break;
+    }
+    
+    return {
+      operationMode,
+      qosEnabled: result['qos_enable'] === '1',
+      aiProtectionEnabled: result['wrs_protect_enable'] === '1' || result['wrs_enable'] === '1',
+      trafficAnalyzerEnabled: result['bwdpi_db_enable'] === '1',
+      adaptiveQosEnabled: result['qos_type'] === '1',
+      parentalControlEnabled: result['PARENTAL_CTRL'] === '1',
+      guestNetworkEnabled: result['wl0.1_bss_enabled'] === '1' || result['wl1.1_bss_enabled'] === '1',
+      vpnServerEnabled: result['VPNServer_enable'] === '1',
+      ddnsEnabled: result['ddns_enable_x'] === '1',
+      uptEnabled: result['upnp_enable'] === '1',
+      natEnabled: result['wan0_nat_x'] === '1',
+    };
+  }
+
+  async getAllClientSignals(): Promise<Map<string, number>> {
+    const signals = new Map<string, number>();
+    const interfaces = [
+      this.getInterface('2g'),
+      this.getInterface('5g'),
+      this.detectedInterfaces.wl2,
+      this.detectedInterfaces.wl3,
+    ].filter(Boolean);
+    
+    for (const iface of interfaces) {
+      try {
+        const assoclist = await this.execute(`wl -i ${iface} assoclist 2>/dev/null`);
+        const macs = assoclist.match(/([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}/g) ?? [];
+        
+        for (const mac of macs) {
+          try {
+            const rssiStr = await this.execute(`wl -i ${iface} rssi ${mac} 2>/dev/null`);
+            const rssi = parseInt(rssiStr.trim(), 10);
+            if (!isNaN(rssi) && rssi < 0) {
+              signals.set(mac.toLowerCase(), rssi);
+            }
+          } catch {
+            // Skip this MAC
+          }
+        }
+      } catch {
+        // Skip this interface
+      }
+    }
+    
+    return signals;
+  }
+
   async getWifiSettings(): Promise<Record<string, string>> {
     const commands = [
       'nvram get wl0_ssid',
@@ -325,6 +436,12 @@ export class AsusSshClient extends EventEmitter<SshClientEvents> {
       'nvram get smart_connect_x',
       'nvram get wl0_bsd_steering_policy',
       'nvram get wl1_bsd_steering_policy',
+      'nvram get wl0_mumimo',
+      'nvram get wl1_mumimo',
+      'nvram get wl0_ofdma',
+      'nvram get wl1_ofdma',
+      'nvram get wl0_11ax',
+      'nvram get wl1_11ax',
     ];
 
     const result: Record<string, string> = {};

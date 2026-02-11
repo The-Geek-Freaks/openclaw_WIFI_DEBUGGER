@@ -259,6 +259,205 @@ export class FrequencyOptimizer {
     return suggestions.sort((a, b) => b.priority - a.priority);
   }
 
+  async generateApModeOptimizations(): Promise<OptimizationSuggestion[]> {
+    const suggestions: OptimizationSuggestion[] = [];
+    
+    try {
+      const featureStatus = await this.sshClient.getRouterFeatureStatus();
+      
+      if (featureStatus.operationMode !== 'ap') {
+        return suggestions;
+      }
+
+      logger.info('Router in AP-Mode detected - generating AP-specific optimizations');
+
+      if (featureStatus.qosEnabled) {
+        suggestions.push({
+          id: 'ap-disable-qos',
+          priority: 9,
+          category: 'power',
+          currentValue: true,
+          suggestedValue: false,
+          expectedImprovement: 'Reduzierte CPU-Last, weniger Latenz - QoS wird von OPNsense/Router übernommen',
+          riskLevel: 'low',
+          affectedDevices: [],
+          description: 'QoS deaktivieren (im AP-Modus unnötig - OPNsense handhabt Traffic Shaping)',
+        });
+      }
+
+      if (featureStatus.aiProtectionEnabled) {
+        suggestions.push({
+          id: 'ap-disable-aiprotection',
+          priority: 9,
+          category: 'power',
+          currentValue: true,
+          suggestedValue: false,
+          expectedImprovement: 'Signifikant reduzierte CPU-Last - AiProtection verbraucht ~15-25% CPU',
+          riskLevel: 'low',
+          affectedDevices: [],
+          description: 'AiProtection deaktivieren (im AP-Modus unnötig - Firewall übernimmt Security)',
+        });
+      }
+
+      if (featureStatus.trafficAnalyzerEnabled) {
+        suggestions.push({
+          id: 'ap-disable-traffic-analyzer',
+          priority: 8,
+          category: 'power',
+          currentValue: true,
+          suggestedValue: false,
+          expectedImprovement: 'Reduzierte CPU/RAM-Last - Traffic Analyzer speichert große Datenmengen',
+          riskLevel: 'low',
+          affectedDevices: [],
+          description: 'Traffic Analyzer deaktivieren (im AP-Modus sieht er nur Bridge-Traffic)',
+        });
+      }
+
+      if (featureStatus.adaptiveQosEnabled) {
+        suggestions.push({
+          id: 'ap-disable-adaptive-qos',
+          priority: 8,
+          category: 'power',
+          currentValue: true,
+          suggestedValue: false,
+          expectedImprovement: 'Reduzierte CPU-Last - Adaptive QoS erfordert Deep Packet Inspection',
+          riskLevel: 'low',
+          affectedDevices: [],
+          description: 'Adaptive QoS deaktivieren (im AP-Modus nicht funktional)',
+        });
+      }
+
+      if (featureStatus.parentalControlEnabled) {
+        suggestions.push({
+          id: 'ap-disable-parental-control',
+          priority: 7,
+          category: 'power',
+          currentValue: true,
+          suggestedValue: false,
+          expectedImprovement: 'Weniger DNS/URL-Filtering overhead',
+          riskLevel: 'medium',
+          affectedDevices: [],
+          description: 'Parental Control deaktivieren (im AP-Modus auf OPNsense konfigurieren)',
+        });
+      }
+
+      if (featureStatus.vpnServerEnabled) {
+        suggestions.push({
+          id: 'ap-disable-vpn-server',
+          priority: 7,
+          category: 'power',
+          currentValue: true,
+          suggestedValue: false,
+          expectedImprovement: 'VPN Server benötigt WAN-Zugang - im AP-Modus nicht erreichbar',
+          riskLevel: 'low',
+          affectedDevices: [],
+          description: 'VPN Server deaktivieren (im AP-Modus nicht funktional - auf OPNsense einrichten)',
+        });
+      }
+
+      if (featureStatus.ddnsEnabled) {
+        suggestions.push({
+          id: 'ap-disable-ddns',
+          priority: 6,
+          category: 'power',
+          currentValue: true,
+          suggestedValue: false,
+          expectedImprovement: 'DDNS im AP-Modus nutzlos - keine WAN-IP',
+          riskLevel: 'low',
+          affectedDevices: [],
+          description: 'DDNS deaktivieren (im AP-Modus keine WAN-Verbindung)',
+        });
+      }
+
+      if (featureStatus.uptEnabled) {
+        suggestions.push({
+          id: 'ap-disable-upnp',
+          priority: 6,
+          category: 'power',
+          currentValue: true,
+          suggestedValue: false,
+          expectedImprovement: 'UPnP im AP-Modus ohne NAT nutzlos',
+          riskLevel: 'low',
+          affectedDevices: [],
+          description: 'UPnP deaktivieren (kein NAT im AP-Modus)',
+        });
+      }
+
+      suggestions.push({
+        id: 'ap-info-ofdma',
+        priority: 5,
+        category: 'channel',
+        currentValue: 'check',
+        suggestedValue: 'evaluate',
+        expectedImprovement: 'OFDMA kann bei wenigen Clients CPU-Last ohne Nutzen erzeugen',
+        riskLevel: 'low',
+        affectedDevices: [],
+        description: 'OFDMA prüfen: Bei <10 Clients pro Band kann Deaktivierung CPU sparen',
+      });
+
+      suggestions.push({
+        id: 'ap-info-mumimo',
+        priority: 5,
+        category: 'channel',
+        currentValue: 'check',
+        suggestedValue: 'evaluate',
+        expectedImprovement: 'MU-MIMO sinnvoll nur mit vielen gleichzeitig aktiven Clients',
+        riskLevel: 'low',
+        affectedDevices: [],
+        description: 'MU-MIMO prüfen: Bei wenig simultanen Downloads ggf. deaktivieren',
+      });
+
+    } catch (err) {
+      logger.warn({ err }, 'Failed to get router feature status for AP-mode optimizations');
+    }
+
+    return suggestions.sort((a, b) => b.priority - a.priority);
+  }
+
+  async applyApModeOptimization(suggestion: OptimizationSuggestion): Promise<boolean> {
+    logger.info({ suggestion }, 'Applying AP-mode optimization');
+
+    try {
+      switch (suggestion.id) {
+        case 'ap-disable-qos':
+          await this.sshClient.setNvram('qos_enable', '0');
+          break;
+        case 'ap-disable-aiprotection':
+          await this.sshClient.setNvram('wrs_protect_enable', '0');
+          await this.sshClient.setNvram('wrs_enable', '0');
+          break;
+        case 'ap-disable-traffic-analyzer':
+          await this.sshClient.setNvram('bwdpi_db_enable', '0');
+          break;
+        case 'ap-disable-adaptive-qos':
+          await this.sshClient.setNvram('qos_type', '0');
+          break;
+        case 'ap-disable-parental-control':
+          await this.sshClient.setNvram('PARENTAL_CTRL', '0');
+          break;
+        case 'ap-disable-vpn-server':
+          await this.sshClient.setNvram('VPNServer_enable', '0');
+          break;
+        case 'ap-disable-ddns':
+          await this.sshClient.setNvram('ddns_enable_x', '0');
+          break;
+        case 'ap-disable-upnp':
+          await this.sshClient.setNvram('upnp_enable', '0');
+          break;
+        default:
+          logger.warn({ id: suggestion.id }, 'Unknown AP-mode optimization');
+          return false;
+      }
+
+      await this.sshClient.commitNvram();
+      logger.info({ suggestionId: suggestion.id }, 'AP-mode optimization applied');
+      return true;
+    } catch (err) {
+      logger.error({ err, suggestionId: suggestion.id }, 'Failed to apply AP-mode optimization');
+      return false;
+    }
+  }
+
   private findBestWifiChannel(
     scanResults: ChannelScanResult[],
     availableChannels: number[],
