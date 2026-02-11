@@ -176,6 +176,11 @@
           "type": "number"
         }
       ]
+    },
+    {
+      "name": "analyze_network_topology",
+      "description": "Analyze network topology via SNMP (MikroTik, OPNsense, etc.)",
+      "parameters": []
     }
   ]
 }
