@@ -160,6 +160,10 @@ export const SkillActionSchema = z.discriminatedUnion('action', [
       ])).optional(),
     }).optional(),
   }),
+  z.object({
+    action: z.literal('get_placement_recommendations'),
+    params: z.object({}).optional(),
+  }),
 ]);
 
 export type SkillAction = z.infer<typeof SkillActionSchema>;

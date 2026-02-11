@@ -13,6 +13,7 @@ import { BenchmarkEngine } from '../core/benchmark-engine.js';
 import { IoTWifiDetector } from '../core/iot-wifi-detector.js';
 import { NetworkTopologyAnalyzer } from '../core/network-topology-analyzer.js';
 import { NetworkIntelligence } from '../core/network-intelligence.js';
+import { SpatialRecommendationEngine } from '../core/spatial-recommendations.js';
 import type { SkillAction, SkillResponse } from './actions.js';
 import type { MeshNetworkState } from '../types/network.js';
 import type { ZigbeeNetworkState } from '../types/zigbee.js';
@@ -35,6 +36,7 @@ export class OpenClawAsusMeshSkill {
   private readonly topologyAnalyzer: NetworkTopologyAnalyzer;
   private readonly snmpClient: SnmpClient;
   private readonly networkIntelligence: NetworkIntelligence;
+  private readonly spatialEngine: SpatialRecommendationEngine;
   
   private meshState: MeshNetworkState | null = null;
   private zigbeeState: ZigbeeNetworkState | null = null;
@@ -68,6 +70,7 @@ export class OpenClawAsusMeshSkill {
       this.frequencyOptimizer,
       this.topologyAnalyzer
     );
+    this.spatialEngine = new SpatialRecommendationEngine();
   }
 
   async initialize(): Promise<void> {
@@ -247,6 +250,9 @@ export class OpenClawAsusMeshSkill {
         
         case 'get_homeassistant_data':
           return await this.handleGetHomeAssistantData(action.params?.include);
+        
+        case 'get_placement_recommendations':
+          return await this.handleGetPlacementRecommendations();
         
         default:
           return this.errorResponse('unknown', 'Unknown action');
@@ -1003,5 +1009,41 @@ export class OpenClawAsusMeshSkill {
         `Failed to get Home Assistant data: ${err instanceof Error ? err.message : 'Unknown error'}`
       );
     }
+  }
+
+  private async handleGetPlacementRecommendations(): Promise<SkillResponse> {
+    if (!this.meshState) {
+      this.meshState = await this.meshAnalyzer.scan();
+    }
+
+    const analysis = this.spatialEngine.analyzeAndRecommend(this.meshState);
+
+    const suggestions: string[] = [];
+    
+    if (analysis.recommendations.length === 0) {
+      suggestions.push('Keine Platzierungsempfehlungen - Netzwerk ist gut optimiert');
+    } else {
+      suggestions.push(`${analysis.summary.criticalIssues} kritische Probleme gefunden`);
+      
+      for (const rec of analysis.recommendations.slice(0, 3)) {
+        suggestions.push(rec.humanReadable.split('\n')[0]);
+      }
+    }
+
+    return this.successResponse('get_placement_recommendations', {
+      recommendations: analysis.recommendations.map(r => ({
+        id: r.id,
+        type: r.type,
+        priority: r.priority,
+        target: r.target,
+        recommendation: r.recommendation,
+        confidence: r.confidence,
+        humanReadable: r.humanReadable,
+        visualization: r.asciiVisualization,
+      })),
+      deadZones: analysis.deadZones,
+      overlapZones: analysis.overlapZones,
+      summary: analysis.summary,
+    }, suggestions);
   }
 }
