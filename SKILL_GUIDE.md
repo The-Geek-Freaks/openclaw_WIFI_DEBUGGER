@@ -120,6 +120,31 @@ Dieser Scan sammelt **alle verfügbaren Daten** und gibt dir:
 | `analyze_network_topology` | SNMP-Topologie | Switches, Bottlenecks |
 | `run_benchmark` | Performance-Test | iPerf3 Ergebnisse |
 
+### 🧠 Knowledge Base Actions (NEU!)
+
+> **Persistente Netzwerk-Datenbank** - Alle Scans werden automatisch gespeichert. Geräte, Nodes, SNMP-Devices und Zigbee-Geräte werden über Zeit getracked.
+
+| Action | Wann verwenden | Output |
+|--------|----------------|--------|
+| `get_knowledge_stats` | Übersicht über gespeicherte Daten | Device-Count, Snapshots, History |
+| `get_known_devices` | Alle bekannten Geräte abrufen | Geräte mit Custom-Namen, Typen, Tags |
+| `mark_device_known` | Gerät als "bekannt" markieren | Bestätigung |
+| `get_network_history` | Historische Snapshots abrufen | Health-Scores über Zeit |
+| `export_knowledge` | Komplette Knowledge Base exportieren | Alle Daten als JSON |
+
+**Beispiel: Gerät als bekannt markieren**
+```json
+{
+  "action": "mark_device_known",
+  "params": {
+    "macAddress": "AA:BB:CC:DD:EE:FF",
+    "customName": "Alex's iPhone",
+    "deviceType": "phone",
+    "notes": "Hauptgerät"
+  }
+}
+```
+
 ---
 
 ## 🎨 Daten visualisieren

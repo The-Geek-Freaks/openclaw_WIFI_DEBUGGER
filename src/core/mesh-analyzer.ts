@@ -267,11 +267,25 @@ export class MeshAnalyzer extends EventEmitter<MeshAnalyzerEvents> {
         return isNaN(parsed) ? 0 : parsed;
       };
 
+      const parseBandwidth = (val: string | undefined, defaultMhz: number): number => {
+        const code = parseInt(val ?? '', 10);
+        if (isNaN(code)) return defaultMhz;
+        const bwMap: Record<number, number> = {
+          0: 20,
+          1: 40,
+          2: 80,
+          3: 160,
+          4: 80,   // 80+80 fallback
+          5: 320,  // WiFi 7
+        };
+        return bwMap[code] ?? defaultMhz;
+      };
+
       settings.push({
         ssid: nvram['wl0_ssid'] ?? '',
         band: '2.4GHz',
         channel: parseChannel(nvram['wl0_channel']),
-        channelWidth: parseChannel(nvram['wl0_bw']) || 20,
+        channelWidth: parseBandwidth(nvram['wl0_bw'], 20),
         txPower: parseChannel(nvram['wl0_txpower']) || 100,
         standard: '802.11ax',
         security: 'WPA3',
@@ -286,7 +300,7 @@ export class MeshAnalyzer extends EventEmitter<MeshAnalyzerEvents> {
         ssid: nvram['wl1_ssid'] ?? '',
         band: '5GHz',
         channel: parseChannel(nvram['wl1_channel']),
-        channelWidth: parseChannel(nvram['wl1_bw']) || 80,
+        channelWidth: parseBandwidth(nvram['wl1_bw'], 80),
         txPower: parseChannel(nvram['wl1_txpower']) || 100,
         standard: '802.11ax',
         security: 'WPA3',

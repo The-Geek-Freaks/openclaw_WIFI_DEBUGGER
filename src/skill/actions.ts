@@ -241,6 +241,35 @@ export const SkillActionSchema = z.discriminatedUnion('action', [
       hours: z.number().optional(),
     }).optional(),
   }),
+  z.object({
+    action: z.literal('get_knowledge_stats'),
+    params: z.object({}).optional(),
+  }),
+  z.object({
+    action: z.literal('get_known_devices'),
+    params: z.object({
+      filter: z.enum(['all', 'known', 'unknown']).optional(),
+    }).optional(),
+  }),
+  z.object({
+    action: z.literal('mark_device_known'),
+    params: z.object({
+      macAddress: z.string(),
+      customName: z.string().optional(),
+      deviceType: z.enum(['router', 'switch', 'ap', 'computer', 'phone', 'tablet', 'iot', 'smart_home', 'media', 'gaming', 'unknown']).optional(),
+      notes: z.string().optional(),
+    }),
+  }),
+  z.object({
+    action: z.literal('get_network_history'),
+    params: z.object({
+      limit: z.number().optional(),
+    }).optional(),
+  }),
+  z.object({
+    action: z.literal('export_knowledge'),
+    params: z.object({}).optional(),
+  }),
 ]);
 
 export type SkillAction = z.infer<typeof SkillActionSchema>;

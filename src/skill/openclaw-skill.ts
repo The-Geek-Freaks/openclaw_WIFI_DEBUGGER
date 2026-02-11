@@ -3,6 +3,7 @@ import { loadConfigFromEnv, type Config } from '../config/index.js';
 import { AsusSshClient } from '../infra/asus-ssh-client.js';
 import { HomeAssistantClient } from '../infra/homeassistant-client.js';
 import { SnmpClient } from '../infra/snmp-client.js';
+import { NetworkKnowledgeBase } from '../infra/network-knowledge-base.js';
 import { MeshAnalyzer } from '../core/mesh-analyzer.js';
 import { TriangulationEngine } from '../core/triangulation.js';
 import { ProblemDetector } from '../core/problem-detector.js';
@@ -41,6 +42,7 @@ export class OpenClawAsusMeshSkill {
   private readonly spatialEngine: SpatialRecommendationEngine;
   private readonly floorPlanManager: FloorPlanManager;
   private readonly alertingService: AlertingService;
+  private readonly knowledgeBase: NetworkKnowledgeBase;
   
   private meshState: MeshNetworkState | null = null;
   private zigbeeState: ZigbeeNetworkState | null = null;
@@ -77,6 +79,7 @@ export class OpenClawAsusMeshSkill {
     this.spatialEngine = new SpatialRecommendationEngine();
     this.floorPlanManager = new FloorPlanManager();
     this.alertingService = new AlertingService();
+    this.knowledgeBase = new NetworkKnowledgeBase();
   }
 
   async initialize(): Promise<void> {
@@ -95,6 +98,13 @@ export class OpenClawAsusMeshSkill {
       logger.info('Connected to Home Assistant');
     } catch (err) {
       logger.warn({ err }, 'Failed to connect to Home Assistant - Zigbee features will be limited');
+    }
+
+    try {
+      await this.knowledgeBase.initialize();
+      logger.info('Knowledge base loaded');
+    } catch (err) {
+      logger.warn({ err }, 'Failed to initialize knowledge base - data persistence disabled');
     }
 
     this.initialized = true;
@@ -120,6 +130,12 @@ export class OpenClawAsusMeshSkill {
       await this.hassClient.disconnect();
     } catch (err) {
       logger.warn({ err }, 'Error disconnecting Home Assistant');
+    }
+
+    try {
+      await this.knowledgeBase.shutdown();
+    } catch (err) {
+      logger.warn({ err }, 'Error shutting down knowledge base');
     }
 
     this.initialized = false;
@@ -293,6 +309,26 @@ export class OpenClawAsusMeshSkill {
         case 'get_alerts':
           return await this.handleGetAlerts(action.params?.hours);
         
+        case 'get_knowledge_stats':
+          return this.handleGetKnowledgeStats();
+        
+        case 'get_known_devices':
+          return this.handleGetKnownDevices(action.params?.filter);
+        
+        case 'mark_device_known':
+          return this.handleMarkDeviceKnown(
+            action.params.macAddress,
+            action.params.customName,
+            action.params.deviceType,
+            action.params.notes
+          );
+        
+        case 'get_network_history':
+          return this.handleGetNetworkHistory(action.params?.limit);
+        
+        case 'export_knowledge':
+          return this.handleExportKnowledge();
+        
         default:
           return this.errorResponse('unknown', 'Unknown action');
       }
@@ -308,12 +344,49 @@ export class OpenClawAsusMeshSkill {
   private async handleScanNetwork(): Promise<SkillResponse> {
     this.meshState = await this.meshAnalyzer.scan();
     
+    this.persistScanData();
+    
     return this.successResponse('scan_network', {
       nodes: this.meshState.nodes.length,
       devices: this.meshState.devices.length,
       wifiSettings: this.meshState.wifiSettings,
       lastUpdated: this.meshState.lastUpdated,
     });
+  }
+
+  private persistScanData(): void {
+    if (!this.meshState) return;
+
+    try {
+      for (const node of this.meshState.nodes) {
+        this.knowledgeBase.updateMeshNode(node);
+      }
+
+      for (const device of this.meshState.devices) {
+        this.knowledgeBase.updateDevice(device);
+      }
+
+      const healthScore = this.problemDetector.calculateHealthScore(
+        this.meshState,
+        this.problemDetector.analyze(this.meshState, this.meshAnalyzer.getConnectionEvents())
+      );
+
+      this.knowledgeBase.addSnapshot(
+        this.meshState.nodes,
+        this.meshState.devices,
+        this.meshState.wifiSettings,
+        healthScore.overall,
+        this.zigbeeState?.channel,
+        this.zigbeeState?.devices.length
+      );
+
+      logger.debug({ 
+        devices: this.meshState.devices.length,
+        nodes: this.meshState.nodes.length,
+      }, 'Scan data persisted to knowledge base');
+    } catch (err) {
+      logger.warn({ err }, 'Failed to persist scan data');
+    }
   }
 
   private async handleGetNetworkHealth(): Promise<SkillResponse> {
@@ -560,6 +633,15 @@ export class OpenClawAsusMeshSkill {
 
   private async handleScanZigbee(): Promise<SkillResponse> {
     this.zigbeeState = await this.zigbeeAnalyzer.scan();
+
+    try {
+      for (const device of this.zigbeeState.devices) {
+        this.knowledgeBase.updateZigbeeDevice(device);
+      }
+      logger.debug({ count: this.zigbeeState.devices.length }, 'Zigbee devices persisted');
+    } catch (err) {
+      logger.warn({ err }, 'Failed to persist Zigbee devices');
+    }
 
     return this.successResponse('scan_zigbee', {
       channel: this.zigbeeState.channel,
@@ -1528,5 +1610,110 @@ export class OpenClawAsusMeshSkill {
       `${summary.activeCount} aktive Alerts`,
       summary.criticalCount > 0 ? `${summary.criticalCount} kritische Alerts!` : 'Keine kritischen Alerts',
     ]);
+  }
+
+  private handleGetKnowledgeStats(): SkillResponse {
+    const stats = this.knowledgeBase.getStats();
+
+    return this.successResponse('get_knowledge_stats', {
+      ...stats,
+      suggestions: stats.totalDevices > 0 && stats.knownDevices === 0
+        ? ['Markiere bekannte Geräte mit mark_device_known für bessere Übersicht']
+        : [],
+    });
+  }
+
+  private handleGetKnownDevices(filter?: 'all' | 'known' | 'unknown'): SkillResponse {
+    let devices;
+    switch (filter) {
+      case 'known':
+        devices = this.knowledgeBase.getKnownDevices();
+        break;
+      case 'unknown':
+        devices = this.knowledgeBase.getUnknownDevices();
+        break;
+      default:
+        devices = this.knowledgeBase.getAllDevices();
+    }
+
+    return this.successResponse('get_known_devices', {
+      count: devices.length,
+      devices: devices.map(d => ({
+        mac: d.macAddress,
+        name: d.customName ?? d.hostnames[0] ?? d.macAddress,
+        type: d.deviceType ?? 'unknown',
+        vendor: d.vendor,
+        isKnown: d.isKnown,
+        firstSeen: d.firstSeen,
+        lastSeen: d.lastSeen,
+        avgSignal: d.avgSignalStrength,
+        tags: d.tags,
+        notes: d.notes,
+      })),
+    });
+  }
+
+  private handleMarkDeviceKnown(
+    macAddress: string,
+    customName?: string,
+    deviceType?: 'router' | 'switch' | 'ap' | 'computer' | 'phone' | 'tablet' | 'iot' | 'smart_home' | 'media' | 'gaming' | 'unknown',
+    notes?: string
+  ): SkillResponse {
+    const success = this.knowledgeBase.markDeviceAsKnown(macAddress, customName, deviceType, notes);
+
+    if (!success) {
+      return this.errorResponse('mark_device_known', `Device ${macAddress} not found in knowledge base`);
+    }
+
+    return this.successResponse('mark_device_known', {
+      macAddress,
+      customName,
+      deviceType,
+      marked: true,
+    });
+  }
+
+  private handleGetNetworkHistory(limit?: number): SkillResponse {
+    const snapshots = this.knowledgeBase.getSnapshots(limit ?? 10);
+
+    return this.successResponse('get_network_history', {
+      count: snapshots.length,
+      snapshots: snapshots.map(s => ({
+        timestamp: s.timestamp,
+        deviceCount: s.deviceCount,
+        onlineDevices: s.onlineDevices,
+        healthScore: s.healthScore,
+        meshNodes: s.meshNodes.length,
+        zigbeeChannel: s.zigbeeChannel,
+        zigbeeDevices: s.zigbeeDeviceCount,
+      })),
+    });
+  }
+
+  private handleExportKnowledge(): SkillResponse {
+    const knowledge = this.knowledgeBase.exportKnowledge();
+
+    if (!knowledge) {
+      return this.errorResponse('export_knowledge', 'Knowledge base not initialized');
+    }
+
+    return this.successResponse('export_knowledge', {
+      networkId: knowledge.networkId,
+      networkName: knowledge.networkName,
+      createdAt: knowledge.createdAt,
+      updatedAt: knowledge.updatedAt,
+      stats: {
+        devices: Object.keys(knowledge.devices).length,
+        meshNodes: Object.keys(knowledge.meshNodes).length,
+        snmpDevices: Object.keys(knowledge.snmpDevices).length,
+        zigbeeDevices: Object.keys(knowledge.zigbeeDevices).length,
+        snapshots: knowledge.snapshots.length,
+        optimizations: knowledge.optimizationHistory.length,
+      },
+      devices: knowledge.devices,
+      meshNodes: knowledge.meshNodes,
+      snmpDevices: knowledge.snmpDevices,
+      zigbeeDevices: knowledge.zigbeeDevices,
+    });
   }
 }

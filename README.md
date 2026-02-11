@@ -312,6 +312,20 @@ await skill.shutdown();
 | `configure_alerts` | Webhook/MQTT konfigurieren | `webhookUrl?, mqttBroker?, minSeverity?` |
 | `get_alerts` | Aktive Alerts abrufen | `hours?: number` |
 
+### 🧠 Knowledge Base (NEU!)
+
+> **Persistente Netzwerk-Datenbank** - Alle Scans werden automatisch gespeichert. Geräte, Nodes, SNMP-Devices und Zigbee-Geräte werden über Zeit getracked.
+
+| Action | Beschreibung | Parameter |
+|--------|-------------|-----------|
+| `get_knowledge_stats` | Übersicht über gespeicherte Daten | - |
+| `get_known_devices` | Alle bekannten Geräte abrufen | `filter?: 'all' \| 'known' \| 'unknown'` |
+| `mark_device_known` | Gerät als "bekannt" markieren | `macAddress, customName?, deviceType?, notes?` |
+| `get_network_history` | Historische Snapshots abrufen | `limit?: number` |
+| `export_knowledge` | Komplette Knowledge Base exportieren | - |
+
+**Device Types:** `router`, `switch`, `ap`, `computer`, `phone`, `tablet`, `iot`, `smart_home`, `media`, `gaming`, `unknown`
+
 ## 🏗️ Architektur
 
 ```
@@ -335,20 +349,22 @@ src/
 │   ├── spatial-recommendations.ts # Platzierungsempfehlungen
 │   ├── floor-plan-manager.ts      # Grundriss-Verwaltung
 │   └── alerting-service.ts        # Webhook/MQTT Alerts
-├── infra/               # Infrastruktur (5 Clients)
+├── infra/               # Infrastruktur (6 Clients)
 │   ├── asus-ssh-client.ts         # SSH zum Router
 │   ├── homeassistant-client.ts    # Home Assistant WebSocket
 │   ├── mesh-node-pool.ts          # Multi-Node SSH Pool
-│   ├── snmp-client.ts             # SNMP Client (NEU)
-│   └── opensensemap-client.ts     # OpenSenseMap API
+│   ├── snmp-client.ts             # SNMP Client
+│   ├── opensensemap-client.ts     # OpenSenseMap API
+│   └── network-knowledge-base.ts  # Persistente Netzwerk-Datenbank (NEU)
 ├── skill/               # OpenClaw Interface
 │   ├── actions.ts                 # Zod Action Schemas
 │   └── openclaw-skill.ts          # Hauptklasse (39 Actions)
-├── types/               # TypeScript Types (9 Module)
+├── types/               # TypeScript Types (10 Module)
 │   ├── network.ts, zigbee.ts, building.ts
 │   ├── benchmark.ts, debugging.ts, analysis.ts
 │   ├── iot-device.ts, router-models.ts
-│   └── homeassistant.ts
+│   ├── homeassistant.ts
+│   └── knowledge-base.ts            # Knowledge Base Types (NEU)
 └── utils/               # Utilities
     ├── logger.ts, mac.ts, frequency.ts
     ├── async-helpers.ts           # Semaphore, CircularBuffer
