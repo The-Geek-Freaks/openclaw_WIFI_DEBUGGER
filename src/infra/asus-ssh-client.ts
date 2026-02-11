@@ -289,9 +289,25 @@ export class AsusSshClient extends EventEmitter<SshClientEvents> {
   }
 
   async getSiteSurvey(band: '2g' | '5g' | '5g2' | '6g'): Promise<string> {
+    // For '5g', scan both 5GHz bands if available
+    if (band === '5g') {
+      const iface1 = this.getInterface('5g');
+      const iface2 = this.detectedInterfaces.wl2;
+      
+      let cmd = `wl -i ${iface1} scan 2>/dev/null; sleep 2; wl -i ${iface1} scanresults 2>/dev/null`;
+      
+      if (iface2) {
+        cmd += `; echo "---BAND2---"; wl -i ${iface2} scan 2>/dev/null; sleep 2; wl -i ${iface2} scanresults 2>/dev/null`;
+      }
+      
+      logger.debug({ band, iface1, iface2 }, 'Running 5GHz site survey on all interfaces');
+      return this.execute(cmd);
+    }
+    
+    // For other bands, scan single interface
     const iface = this.getInterface(band);
     logger.debug({ band, iface }, 'Running site survey on interface');
-    return this.execute(`wl -i ${iface} scanresults`);
+    return this.execute(`wl -i ${iface} scan 2>/dev/null; sleep 2; wl -i ${iface} scanresults 2>/dev/null`);
   }
 
   async getWifiSettings(): Promise<Record<string, string>> {
