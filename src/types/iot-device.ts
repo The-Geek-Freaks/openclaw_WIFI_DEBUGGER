@@ -1,0 +1,153 @@
+import { z } from 'zod';
+
+export const IoTVendorSchema = z.enum([
+  'tuya',
+  'shelly',
+  'tasmota',
+  'espressif',
+  'xiaomi',
+  'ikea',
+  'philips_hue',
+  'sonoff',
+  'meross',
+  'wemo',
+  'tp_link_kasa',
+  'ring',
+  'nest',
+  'aqara',
+  'unknown',
+]);
+export type IoTVendor = z.infer<typeof IoTVendorSchema>;
+
+export const RogueWifiTypeSchema = z.enum([
+  'setup_ap',
+  'config_portal',
+  'fallback_ap',
+  'permanent_ap',
+  'mesh_extender',
+  'hotspot',
+  'unknown',
+]);
+export type RogueWifiType = z.infer<typeof RogueWifiTypeSchema>;
+
+export const RogueWifiNetworkSchema = z.object({
+  ssid: z.string(),
+  bssid: z.string(),
+  channel: z.number(),
+  band: z.enum(['2.4GHz', '5GHz']),
+  signalStrength: z.number(),
+  vendor: IoTVendorSchema,
+  deviceType: z.string().optional(),
+  rogueType: RogueWifiTypeSchema,
+  interferenceLevel: z.enum(['low', 'medium', 'high']),
+  firstSeen: z.date(),
+  lastSeen: z.date(),
+  isActive: z.boolean(),
+  recommendedAction: z.string(),
+  homeAssistantEntityId: z.string().optional(),
+  canBeControlled: z.boolean(),
+});
+export type RogueWifiNetwork = z.infer<typeof RogueWifiNetworkSchema>;
+
+export const IoTDeviceInfoSchema = z.object({
+  macAddress: z.string(),
+  ipAddress: z.string().optional(),
+  vendor: IoTVendorSchema,
+  deviceType: z.string(),
+  friendlyName: z.string().optional(),
+  homeAssistantEntityId: z.string().optional(),
+  hasRogueWifi: z.boolean(),
+  rogueWifiSsid: z.string().optional(),
+  connectedToNetwork: z.string().optional(),
+  signalStrength: z.number().optional(),
+  lastSeen: z.date(),
+  capabilities: z.array(z.string()),
+});
+export type IoTDeviceInfo = z.infer<typeof IoTDeviceInfoSchema>;
+
+export const OpenClawActionSchema = z.object({
+  actionId: z.string(),
+  actionType: z.enum([
+    'disable_ap',
+    'restart_device',
+    'reconfigure_wifi',
+    'change_channel',
+    'update_firmware',
+    'factory_reset',
+    'notify_user',
+  ]),
+  targetDevice: z.object({
+    macAddress: z.string(),
+    vendor: IoTVendorSchema,
+    entityId: z.string().optional(),
+  }),
+  parameters: z.record(z.unknown()).optional(),
+  priority: z.enum(['low', 'medium', 'high', 'critical']),
+  estimatedImpact: z.string(),
+  requiresConfirmation: z.boolean(),
+});
+export type OpenClawAction = z.infer<typeof OpenClawActionSchema>;
+
+export const VENDOR_OUI_PATTERNS: Record<string, IoTVendor> = {
+  '10:d0:7a': 'tuya',
+  '7c:f6:66': 'tuya',
+  'a4:cf:12': 'espressif',
+  'ac:0b:fb': 'espressif',
+  '24:0a:c4': 'espressif',
+  '30:ae:a4': 'espressif',
+  'cc:50:e3': 'espressif',
+  '84:cc:a8': 'espressif',
+  'c8:c9:a3': 'shelly',
+  'e8:db:84': 'shelly',
+  '98:cd:ac': 'shelly',
+  '34:94:54': 'xiaomi',
+  '64:90:c1': 'xiaomi',
+  '78:11:dc': 'xiaomi',
+  '00:17:88': 'philips_hue',
+  'ec:b5:fa': 'philips_hue',
+  '00:0b:57': 'ikea',
+  '94:b9:7e': 'sonoff',
+  'd8:f1:5b': 'sonoff',
+  '48:3f:da': 'meross',
+  '68:ff:7b': 'tp_link_kasa',
+  '50:c7:bf': 'tp_link_kasa',
+  'b0:be:76': 'tp_link_kasa',
+  'f0:9f:c2': 'wemo',
+  '24:f5:a2': 'ring',
+  '18:b4:30': 'nest',
+  '54:ef:44': 'aqara',
+};
+
+export const ROGUE_SSID_PATTERNS: { pattern: RegExp; vendor: IoTVendor; type: RogueWifiType }[] = [
+  { pattern: /^Tasmota-\w+$/i, vendor: 'tasmota', type: 'config_portal' },
+  { pattern: /^tasmota_\w+$/i, vendor: 'tasmota', type: 'config_portal' },
+  { pattern: /^shelly.*$/i, vendor: 'shelly', type: 'setup_ap' },
+  { pattern: /^ShellyPlus.*$/i, vendor: 'shelly', type: 'setup_ap' },
+  { pattern: /^ShellyPro.*$/i, vendor: 'shelly', type: 'setup_ap' },
+  { pattern: /^SmartLife-\w+$/i, vendor: 'tuya', type: 'setup_ap' },
+  { pattern: /^Smart Life-\w+$/i, vendor: 'tuya', type: 'setup_ap' },
+  { pattern: /^TUYA.*$/i, vendor: 'tuya', type: 'setup_ap' },
+  { pattern: /^ESP_\w+$/i, vendor: 'espressif', type: 'fallback_ap' },
+  { pattern: /^ESP32.*$/i, vendor: 'espressif', type: 'fallback_ap' },
+  { pattern: /^ESP8266.*$/i, vendor: 'espressif', type: 'fallback_ap' },
+  { pattern: /^ESPHOME.*$/i, vendor: 'espressif', type: 'fallback_ap' },
+  { pattern: /^Sonoff.*$/i, vendor: 'sonoff', type: 'setup_ap' },
+  { pattern: /^ITEAD-\w+$/i, vendor: 'sonoff', type: 'setup_ap' },
+  { pattern: /^eWeLink.*$/i, vendor: 'sonoff', type: 'setup_ap' },
+  { pattern: /^Meross.*$/i, vendor: 'meross', type: 'setup_ap' },
+  { pattern: /^MSS\d+.*$/i, vendor: 'meross', type: 'setup_ap' },
+  { pattern: /^TP-Link.*$/i, vendor: 'tp_link_kasa', type: 'setup_ap' },
+  { pattern: /^Kasa.*$/i, vendor: 'tp_link_kasa', type: 'setup_ap' },
+  { pattern: /^Wemo.*$/i, vendor: 'wemo', type: 'setup_ap' },
+  { pattern: /^Ring-\w+$/i, vendor: 'ring', type: 'setup_ap' },
+  { pattern: /^Ring Setup.*$/i, vendor: 'ring', type: 'setup_ap' },
+  { pattern: /^Nest-\w+$/i, vendor: 'nest', type: 'setup_ap' },
+  { pattern: /^Philips.*$/i, vendor: 'philips_hue', type: 'setup_ap' },
+  { pattern: /^Hue-\w+$/i, vendor: 'philips_hue', type: 'setup_ap' },
+  { pattern: /^IKEA.*$/i, vendor: 'ikea', type: 'setup_ap' },
+  { pattern: /^TRADFRI.*$/i, vendor: 'ikea', type: 'setup_ap' },
+  { pattern: /^lumi-gateway.*$/i, vendor: 'aqara', type: 'setup_ap' },
+  { pattern: /^Aqara.*$/i, vendor: 'aqara', type: 'setup_ap' },
+  { pattern: /^xiaomi.*$/i, vendor: 'xiaomi', type: 'setup_ap' },
+  { pattern: /^yeelink.*$/i, vendor: 'xiaomi', type: 'setup_ap' },
+];

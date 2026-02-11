@@ -1,0 +1,28 @@
+node_modules/
+dist/
+.env
+*.log
+coverage/
+.DS_Store
+*.tsbuildinfo
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+Desktop.ini
+
+# Build artifacts
+*.tgz
+*.tar.gz
+
+# Test
+.vitest/
+
+# Temp
+tmp/
+temp/

@@ -1,0 +1,181 @@
+{
+  "$schema": "https://openclaw.io/schemas/skill.json",
+  "name": "asus-mesh-wifi-analyzer",
+  "version": "1.0.0",
+  "displayName": "ASUS Mesh WiFi Analyzer",
+  "description": "Comprehensive ASUS Mesh WiFi network analysis and optimization with Home Assistant Zigbee integration",
+  "author": "OpenClaw Community",
+  "license": "MIT",
+  "homepage": "https://github.com/openclaw/asus-mesh-wifi-analyzer",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/openclaw/asus-mesh-wifi-analyzer.git"
+  },
+  "keywords": [
+    "asus",
+    "mesh",
+    "wifi",
+    "network",
+    "optimization",
+    "zigbee",
+    "home-assistant",
+    "merlin"
+  ],
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "engines": {
+    "node": ">=18.0.0",
+    "openclaw": ">=2.0.0"
+  },
+  "capabilities": [
+    "network_analysis",
+    "device_discovery",
+    "signal_optimization",
+    "zigbee_coordination",
+    "auto_debugging",
+    "heatmap_generation"
+  ],
+  "permissions": [
+    "network.ssh",
+    "network.scan",
+    "homeassistant.read",
+    "homeassistant.write",
+    "storage.local"
+  ],
+  "configuration": {
+    "asus": {
+      "type": "object",
+      "required": true,
+      "properties": {
+        "host": {
+          "type": "string",
+          "description": "Router IP address",
+          "default": "192.168.1.1"
+        },
+        "sshPort": {
+          "type": "number",
+          "description": "SSH port",
+          "default": 22
+        },
+        "sshUser": {
+          "type": "string",
+          "description": "SSH username",
+          "default": "admin"
+        },
+        "sshPassword": {
+          "type": "string",
+          "description": "SSH password",
+          "secret": true
+        }
+      }
+    },
+    "homeAssistant": {
+      "type": "object",
+      "required": false,
+      "properties": {
+        "host": {
+          "type": "string",
+          "description": "Home Assistant host"
+        },
+        "port": {
+          "type": "number",
+          "default": 8123
+        },
+        "accessToken": {
+          "type": "string",
+          "secret": true
+        }
+      }
+    }
+  },
+  "actions": [
+    {
+      "name": "scan_network",
+      "description": "Scan the entire mesh network",
+      "parameters": []
+    },
+    {
+      "name": "get_network_health",
+      "description": "Get network health score",
+      "parameters": []
+    },
+    {
+      "name": "get_device_list",
+      "description": "List all connected devices",
+      "parameters": [
+        {
+          "name": "filter",
+          "type": "string",
+          "enum": ["all", "wireless", "wired", "problematic"],
+          "default": "all"
+        }
+      ]
+    },
+    {
+      "name": "get_optimization_suggestions",
+      "description": "Get optimization suggestions",
+      "parameters": []
+    },
+    {
+      "name": "apply_optimization",
+      "description": "Apply an optimization suggestion",
+      "parameters": [
+        {
+          "name": "suggestionId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "confirm",
+          "type": "boolean",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "scan_zigbee",
+      "description": "Scan Zigbee network via Home Assistant",
+      "parameters": []
+    },
+    {
+      "name": "get_frequency_conflicts",
+      "description": "Get WiFi/Zigbee frequency conflicts",
+      "parameters": []
+    },
+    {
+      "name": "run_benchmark",
+      "description": "Run network benchmark",
+      "parameters": []
+    },
+    {
+      "name": "scan_rogue_iot",
+      "description": "Scan for rogue IoT WiFi networks",
+      "parameters": []
+    },
+    {
+      "name": "get_heatmap",
+      "description": "Generate signal heatmap",
+      "parameters": [
+        {
+          "name": "floor",
+          "type": "number",
+          "default": 0
+        }
+      ]
+    },
+    {
+      "name": "sync_mesh_settings",
+      "description": "Sync settings across all mesh nodes",
+      "parameters": [
+        {
+          "name": "channel2g",
+          "type": "number"
+        },
+        {
+          "name": "channel5g",
+          "type": "number"
+        }
+      ]
+    }
+  ]
+}

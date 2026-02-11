@@ -1,0 +1,78 @@
+{
+  "name": "openclaw-asus-mesh-skill",
+  "version": "1.0.0",
+  "description": "OpenClaw Skill for ASUS Mesh WiFi Analysis, Optimization and Home Assistant Zigbee Integration",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "openclaw.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest --coverage",
+    "lint": "eslint src/**/*.ts",
+    "format": "prettier --write src/**/*.ts",
+    "prepublishOnly": "npm run build && npm run test:run",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "openclaw",
+    "asus",
+    "mesh",
+    "wifi",
+    "merlin",
+    "home-assistant",
+    "zigbee",
+    "network-analysis"
+  ],
+  "author": "OpenClaw Community",
+  "homepage": "https://github.com/openclaw/asus-mesh-wifi-analyzer",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/openclaw/asus-mesh-wifi-analyzer.git"
+  },
+  "bugs": {
+    "url": "https://github.com/openclaw/asus-mesh-wifi-analyzer/issues"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "ssh2": "^1.15.0",
+    "axios": "^1.6.0",
+    "zod": "^3.22.0",
+    "ws": "^8.16.0",
+    "node-cron": "^3.0.3",
+    "pino": "^8.17.0",
+    "eventemitter3": "^5.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/ssh2": "^1.11.0",
+    "@types/ws": "^8.5.10",
+    "@types/node-cron": "^3.0.11",
+    "typescript": "^5.3.0",
+    "tsx": "^4.7.0",
+    "vitest": "^1.2.0",
+    "@vitest/coverage-v8": "^1.2.0",
+    "eslint": "^8.56.0",
+    "@typescript-eslint/eslint-plugin": "^6.18.0",
+    "@typescript-eslint/parser": "^6.18.0",
+    "prettier": "^3.2.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

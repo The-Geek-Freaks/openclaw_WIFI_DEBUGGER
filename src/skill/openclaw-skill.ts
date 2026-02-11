@@ -1,0 +1,587 @@
+import { createChildLogger } from '../utils/logger.js';
+import { loadConfigFromEnv, type Config } from '../config/index.js';
+import { AsusSshClient } from '../infra/asus-ssh-client.js';
+import { HomeAssistantClient } from '../infra/homeassistant-client.js';
+import { MeshAnalyzer } from '../core/mesh-analyzer.js';
+import { TriangulationEngine } from '../core/triangulation.js';
+import { ProblemDetector } from '../core/problem-detector.js';
+import { FrequencyOptimizer } from '../core/frequency-optimizer.js';
+import { ZigbeeAnalyzer } from '../core/zigbee-analyzer.js';
+import type { SkillAction, SkillResponse } from './actions.js';
+import type { MeshNetworkState } from '../types/network.js';
+import type { ZigbeeNetworkState } from '../types/zigbee.js';
+import type { OptimizationSuggestion, NetworkHealthScore } from '../types/analysis.js';
+
+const logger = createChildLogger('openclaw-skill');
+
+export class OpenClawAsusMeshSkill {
+  private readonly config: Config;
+  private readonly sshClient: AsusSshClient;
+  private readonly hassClient: HomeAssistantClient;
+  private readonly meshAnalyzer: MeshAnalyzer;
+  private readonly triangulation: TriangulationEngine;
+  private readonly problemDetector: ProblemDetector;
+  private readonly frequencyOptimizer: FrequencyOptimizer;
+  private readonly zigbeeAnalyzer: ZigbeeAnalyzer;
+  
+  private meshState: MeshNetworkState | null = null;
+  private zigbeeState: ZigbeeNetworkState | null = null;
+  private pendingOptimizations: Map<string, OptimizationSuggestion> = new Map();
+  private initialized: boolean = false;
+
+  constructor(config?: Config) {
+    this.config = config ?? loadConfigFromEnv();
+    
+    this.sshClient = new AsusSshClient(this.config.asus);
+    this.hassClient = new HomeAssistantClient(this.config.homeAssistant);
+    this.meshAnalyzer = new MeshAnalyzer(this.sshClient);
+    this.triangulation = new TriangulationEngine();
+    this.problemDetector = new ProblemDetector();
+    this.frequencyOptimizer = new FrequencyOptimizer(this.sshClient);
+    this.zigbeeAnalyzer = new ZigbeeAnalyzer(this.hassClient);
+  }
+
+  async initialize(): Promise<void> {
+    logger.info('Initializing OpenClaw ASUS Mesh Skill');
+    
+    try {
+      await this.sshClient.connect();
+      logger.info('Connected to ASUS router via SSH');
+    } catch (err) {
+      logger.error({ err }, 'Failed to connect to ASUS router');
+      throw err;
+    }
+
+    try {
+      await this.hassClient.connect();
+      logger.info('Connected to Home Assistant');
+    } catch (err) {
+      logger.warn({ err }, 'Failed to connect to Home Assistant - Zigbee features will be limited');
+    }
+
+    this.initialized = true;
+    logger.info('Skill initialized successfully');
+  }
+
+  async shutdown(): Promise<void> {
+    logger.info('Shutting down skill');
+    await this.sshClient.disconnect();
+    await this.hassClient.disconnect();
+    this.initialized = false;
+  }
+
+  async execute(action: SkillAction): Promise<SkillResponse> {
+    if (!this.initialized) {
+      return this.errorResponse(action.action, 'Skill not initialized. Call initialize() first.');
+    }
+
+    logger.info({ action: action.action }, 'Executing action');
+
+    try {
+      switch (action.action) {
+        case 'scan_network':
+          return await this.handleScanNetwork();
+        
+        case 'get_network_health':
+          return await this.handleGetNetworkHealth();
+        
+        case 'get_device_list':
+          return await this.handleGetDeviceList(action.params?.filter);
+        
+        case 'get_device_details':
+          return await this.handleGetDeviceDetails(action.params.macAddress);
+        
+        case 'get_device_signal_history':
+          return await this.handleGetDeviceSignalHistory(
+            action.params.macAddress,
+            action.params.hours
+          );
+        
+        case 'get_mesh_nodes':
+          return await this.handleGetMeshNodes();
+        
+        case 'get_wifi_settings':
+          return await this.handleGetWifiSettings();
+        
+        case 'set_wifi_channel':
+          return await this.handleSetWifiChannel(
+            action.params.band,
+            action.params.channel
+          );
+        
+        case 'get_problems':
+          return await this.handleGetProblems(action.params?.severity);
+        
+        case 'get_optimization_suggestions':
+          return await this.handleGetOptimizationSuggestions();
+        
+        case 'apply_optimization':
+          return await this.handleApplyOptimization(
+            action.params.suggestionId,
+            action.params.confirm
+          );
+        
+        case 'scan_zigbee':
+          return await this.handleScanZigbee();
+        
+        case 'get_zigbee_devices':
+          return await this.handleGetZigbeeDevices();
+        
+        case 'get_frequency_conflicts':
+          return await this.handleGetFrequencyConflicts();
+        
+        case 'get_spatial_map':
+          return await this.handleGetSpatialMap();
+        
+        case 'set_node_position': {
+          const nodeParams: { nodeId: string; x: number; y: number; z?: number; room?: string } = {
+            nodeId: action.params.nodeId,
+            x: action.params.x,
+            y: action.params.y,
+          };
+          if (action.params.z !== undefined) nodeParams.z = action.params.z;
+          if (action.params.room !== undefined) nodeParams.room = action.params.room;
+          return await this.handleSetNodePosition(nodeParams);
+        }
+        
+        case 'get_connection_stability':
+          return await this.handleGetConnectionStability(
+            action.params.macAddress,
+            action.params.hours
+          );
+        
+        case 'restart_wireless':
+          return await this.handleRestartWireless(action.params.confirm);
+        
+        case 'get_channel_scan':
+          return await this.handleGetChannelScan(action.params?.band);
+        
+        default:
+          return this.errorResponse('unknown', 'Unknown action');
+      }
+    } catch (err) {
+      logger.error({ err, action: action.action }, 'Action execution failed');
+      return this.errorResponse(
+        action.action,
+        err instanceof Error ? err.message : 'Unknown error'
+      );
+    }
+  }
+
+  private async handleScanNetwork(): Promise<SkillResponse> {
+    this.meshState = await this.meshAnalyzer.scan();
+    
+    return this.successResponse('scan_network', {
+      nodes: this.meshState.nodes.length,
+      devices: this.meshState.devices.length,
+      wifiSettings: this.meshState.wifiSettings,
+      lastUpdated: this.meshState.lastUpdated,
+    });
+  }
+
+  private async handleGetNetworkHealth(): Promise<SkillResponse> {
+    if (!this.meshState) {
+      this.meshState = await this.meshAnalyzer.scan();
+    }
+
+    const problems = this.problemDetector.analyze(
+      this.meshState,
+      this.meshAnalyzer.getConnectionEvents(),
+      undefined,
+      this.zigbeeState ?? undefined
+    );
+
+    const healthScore = this.problemDetector.calculateHealthScore(this.meshState, problems);
+
+    return this.successResponse('get_network_health', healthScore, 
+      this.generateHealthSuggestions(healthScore)
+    );
+  }
+
+  private async handleGetDeviceList(
+    filter?: 'all' | 'wireless' | 'wired' | 'problematic'
+  ): Promise<SkillResponse> {
+    if (!this.meshState) {
+      this.meshState = await this.meshAnalyzer.scan();
+    }
+
+    let devices = this.meshState.devices;
+
+    switch (filter) {
+      case 'wireless':
+        devices = devices.filter(d => d.connectionType.startsWith('wireless'));
+        break;
+      case 'wired':
+        devices = devices.filter(d => d.connectionType === 'wired');
+        break;
+      case 'problematic':
+        devices = devices.filter(d => 
+          d.status === 'unstable' || 
+          (d.signalStrength !== undefined && d.signalStrength < -75)
+        );
+        break;
+    }
+
+    return this.successResponse('get_device_list', {
+      count: devices.length,
+      devices: devices.map(d => ({
+        mac: d.macAddress,
+        hostname: d.hostname,
+        ip: d.ipAddress,
+        connection: d.connectionType,
+        signal: d.signalStrength,
+        status: d.status,
+      })),
+    });
+  }
+
+  private async handleGetDeviceDetails(macAddress: string): Promise<SkillResponse> {
+    if (!this.meshState) {
+      this.meshState = await this.meshAnalyzer.scan();
+    }
+
+    const device = this.meshState.devices.find(d => d.macAddress === macAddress);
+    if (!device) {
+      return this.errorResponse('get_device_details', `Device ${macAddress} not found`);
+    }
+
+    const signalQuality = this.meshAnalyzer.getDeviceSignalQuality(macAddress);
+    const events = this.meshAnalyzer.getConnectionEvents(macAddress);
+
+    return this.successResponse('get_device_details', {
+      device,
+      signalQuality,
+      recentEvents: events.slice(-10),
+    });
+  }
+
+  private async handleGetDeviceSignalHistory(
+    macAddress: string,
+    hours?: number
+  ): Promise<SkillResponse> {
+    const history = this.meshAnalyzer.getSignalHistory(macAddress);
+    
+    const cutoff = Date.now() - (hours ?? 24) * 60 * 60 * 1000;
+    const filtered = history.filter(m => m.timestamp.getTime() > cutoff);
+
+    return this.successResponse('get_device_signal_history', {
+      macAddress,
+      measurements: filtered,
+      count: filtered.length,
+    });
+  }
+
+  private async handleGetMeshNodes(): Promise<SkillResponse> {
+    if (!this.meshState) {
+      this.meshState = await this.meshAnalyzer.scan();
+    }
+
+    return this.successResponse('get_mesh_nodes', {
+      nodes: this.meshState.nodes,
+    });
+  }
+
+  private async handleGetWifiSettings(): Promise<SkillResponse> {
+    if (!this.meshState) {
+      this.meshState = await this.meshAnalyzer.scan();
+    }
+
+    return this.successResponse('get_wifi_settings', {
+      settings: this.meshState.wifiSettings,
+    });
+  }
+
+  private async handleSetWifiChannel(
+    band: '2.4GHz' | '5GHz',
+    channel: number
+  ): Promise<SkillResponse> {
+    const nvramKey = band === '2.4GHz' ? 'wl0_channel' : 'wl1_channel';
+    
+    await this.sshClient.setNvram(nvramKey, String(channel));
+    await this.sshClient.commitNvram();
+
+    return this.successResponse('set_wifi_channel', {
+      band,
+      channel,
+      message: `Channel set to ${channel}. Restart wireless to apply.`,
+    }, ['Run restart_wireless to apply the change']);
+  }
+
+  private async handleGetProblems(
+    severity?: 'all' | 'critical' | 'error' | 'warning'
+  ): Promise<SkillResponse> {
+    if (!this.meshState) {
+      this.meshState = await this.meshAnalyzer.scan();
+    }
+
+    let problems = this.problemDetector.analyze(
+      this.meshState,
+      this.meshAnalyzer.getConnectionEvents(),
+      undefined,
+      this.zigbeeState ?? undefined
+    );
+
+    if (severity && severity !== 'all') {
+      problems = problems.filter(p => p.severity === severity);
+    }
+
+    return this.successResponse('get_problems', {
+      count: problems.length,
+      problems: problems.map(p => ({
+        id: p.id,
+        category: p.category,
+        severity: p.severity,
+        description: p.description,
+        recommendation: p.recommendation,
+        autoFixAvailable: p.autoFixAvailable,
+      })),
+    });
+  }
+
+  private async handleGetOptimizationSuggestions(): Promise<SkillResponse> {
+    if (!this.meshState) {
+      this.meshState = await this.meshAnalyzer.scan();
+    }
+
+    const suggestions = await this.frequencyOptimizer.generateOptimizations(
+      this.meshState,
+      this.zigbeeState ?? undefined
+    );
+
+    this.pendingOptimizations.clear();
+    for (const s of suggestions) {
+      this.pendingOptimizations.set(s.id, s);
+    }
+
+    return this.successResponse('get_optimization_suggestions', {
+      count: suggestions.length,
+      suggestions: suggestions.map(s => ({
+        id: s.id,
+        priority: s.priority,
+        category: s.category,
+        description: s.description,
+        expectedImprovement: s.expectedImprovement,
+        riskLevel: s.riskLevel,
+      })),
+    });
+  }
+
+  private async handleApplyOptimization(
+    suggestionId: string,
+    confirm: boolean
+  ): Promise<SkillResponse> {
+    const suggestion = this.pendingOptimizations.get(suggestionId);
+    
+    if (!suggestion) {
+      return this.errorResponse('apply_optimization', 
+        `Optimization ${suggestionId} not found. Get fresh suggestions first.`
+      );
+    }
+
+    if (!confirm) {
+      return this.successResponse('apply_optimization', {
+        suggestion,
+        status: 'pending_confirmation',
+        message: 'Set confirm=true to apply this optimization',
+      });
+    }
+
+    const success = await this.frequencyOptimizer.applyAndRestart(suggestion);
+    
+    if (success) {
+      this.pendingOptimizations.delete(suggestionId);
+    }
+
+    return this.successResponse('apply_optimization', {
+      suggestionId,
+      applied: success,
+      message: success 
+        ? 'Optimization applied and wireless restarted' 
+        : 'Failed to apply optimization',
+    });
+  }
+
+  private async handleScanZigbee(): Promise<SkillResponse> {
+    this.zigbeeState = await this.zigbeeAnalyzer.scan();
+
+    return this.successResponse('scan_zigbee', {
+      channel: this.zigbeeState.channel,
+      deviceCount: this.zigbeeState.devices.length,
+      stats: this.zigbeeAnalyzer.getNetworkStats(),
+    });
+  }
+
+  private async handleGetZigbeeDevices(): Promise<SkillResponse> {
+    if (!this.zigbeeState) {
+      this.zigbeeState = await this.zigbeeAnalyzer.scan();
+    }
+
+    const health = this.zigbeeAnalyzer.getDeviceHealth();
+
+    return this.successResponse('get_zigbee_devices', {
+      devices: health.map(h => ({
+        ieee: h.device.ieeeAddress,
+        name: h.device.friendlyName,
+        type: h.device.type,
+        lqi: h.device.lqi,
+        available: h.device.available,
+        healthScore: h.healthScore,
+        issues: h.issues,
+      })),
+    });
+  }
+
+  private async handleGetFrequencyConflicts(): Promise<SkillResponse> {
+    if (!this.meshState) {
+      this.meshState = await this.meshAnalyzer.scan();
+    }
+    if (!this.zigbeeState) {
+      this.zigbeeState = await this.zigbeeAnalyzer.scan();
+    }
+
+    const conflicts = this.zigbeeAnalyzer.analyzeFrequencyConflicts(
+      this.meshState.wifiSettings
+    );
+
+    return this.successResponse('get_frequency_conflicts', {
+      conflicts,
+      hasConflicts: conflicts.some(c => c.conflictSeverity !== 'none'),
+    });
+  }
+
+  private async handleGetSpatialMap(): Promise<SkillResponse> {
+    if (!this.meshState) {
+      this.meshState = await this.meshAnalyzer.scan();
+    }
+
+    const deviceSignals = new Map<string, Array<{ nodeMac: string; rssi: number }>>();
+    
+    for (const device of this.meshState.devices) {
+      if (device.signalStrength) {
+        deviceSignals.set(device.macAddress, [{
+          nodeMac: device.connectedToNode,
+          rssi: device.signalStrength,
+        }]);
+      }
+    }
+
+    const spatialMap = this.triangulation.generateSpatialMap(
+      this.meshState.nodes,
+      this.meshState.devices,
+      deviceSignals
+    );
+
+    return this.successResponse('get_spatial_map', spatialMap);
+  }
+
+  private async handleSetNodePosition(params: {
+    nodeId: string;
+    x: number;
+    y: number;
+    z?: number;
+    room?: string;
+  }): Promise<SkillResponse> {
+    this.triangulation.setNodePosition(
+      params.nodeId,
+      params.nodeId,
+      params.x,
+      params.y,
+      params.z ?? 0
+    );
+
+    return this.successResponse('set_node_position', {
+      nodeId: params.nodeId,
+      position: { x: params.x, y: params.y, z: params.z ?? 0 },
+      room: params.room,
+    });
+  }
+
+  private async handleGetConnectionStability(
+    macAddress: string,
+    hours?: number
+  ): Promise<SkillResponse> {
+    const events = this.meshAnalyzer.getConnectionEvents(macAddress);
+    const report = this.problemDetector.generateStabilityReport(
+      macAddress,
+      events,
+      hours ?? 24
+    );
+
+    return this.successResponse('get_connection_stability', report);
+  }
+
+  private async handleRestartWireless(confirm: boolean): Promise<SkillResponse> {
+    if (!confirm) {
+      return this.successResponse('restart_wireless', {
+        status: 'pending_confirmation',
+        message: 'This will temporarily disconnect all wireless clients. Set confirm=true to proceed.',
+      });
+    }
+
+    await this.sshClient.restartWireless();
+
+    return this.successResponse('restart_wireless', {
+      status: 'restarted',
+      message: 'Wireless service restarted. Clients will reconnect shortly.',
+    });
+  }
+
+  private async handleGetChannelScan(
+    band?: '2.4GHz' | '5GHz' | 'both'
+  ): Promise<SkillResponse> {
+    const results = [];
+
+    if (!band || band === 'both' || band === '2.4GHz') {
+      results.push(...await this.frequencyOptimizer.scanChannels('2g'));
+    }
+    if (!band || band === 'both' || band === '5GHz') {
+      results.push(...await this.frequencyOptimizer.scanChannels('5g'));
+    }
+
+    return this.successResponse('get_channel_scan', {
+      channels: results,
+    });
+  }
+
+  private generateHealthSuggestions(health: NetworkHealthScore): string[] {
+    const suggestions: string[] = [];
+
+    if (health.categories.signalQuality < 70) {
+      suggestions.push('Check device positions and consider adding mesh nodes');
+    }
+    if (health.categories.channelOptimization < 70) {
+      suggestions.push('Run get_optimization_suggestions to find better channel settings');
+    }
+    if (health.categories.zigbeeHealth < 70) {
+      suggestions.push('Check for WiFi/Zigbee frequency conflicts');
+    }
+    if (health.categories.interferenceLevel < 70) {
+      suggestions.push('Run get_channel_scan to analyze interference');
+    }
+
+    return suggestions;
+  }
+
+  private successResponse(
+    action: string,
+    data: unknown,
+    suggestions?: string[]
+  ): SkillResponse {
+    return {
+      success: true,
+      action,
+      data,
+      suggestions,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  private errorResponse(action: string, error: string): SkillResponse {
+    return {
+      success: false,
+      action,
+      error,
+      timestamp: new Date().toISOString(),
+    };
+  }
+}

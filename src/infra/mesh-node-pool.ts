@@ -1,0 +1,621 @@
+import { Client } from 'ssh2';
+import { createChildLogger } from '../utils/logger.js';
+import type { Config } from '../config/index.js';
+
+const logger = createChildLogger('mesh-node-pool');
+
+export interface MeshNodeInfo {
+  id: string;
+  name: string;
+  macAddress: string;
+  ipAddress: string;
+  isMainRouter: boolean;
+  firmwareVersion: string;
+  model: string;
+  role: 'router' | 'node';
+  status: 'online' | 'offline' | 'unreachable';
+  sshAvailable: boolean;
+  lastSeen: Date;
+  uptime: number;
+  cpuUsage: number;
+  memoryUsage: number;
+  connectedClients: number;
+}
+
+export interface NodeConnection {
+  nodeId: string;
+  ipAddress: string;
+  client: Client;
+  connected: boolean;
+  lastCommand: Date;
+}
+
+export class MeshNodePool {
+  private readonly config: Config;
+  private readonly mainRouterIp: string;
+  private mainConnection: Client | null = null;
+  private nodeConnections: Map<string, NodeConnection> = new Map();
+  private discoveredNodes: Map<string, MeshNodeInfo> = new Map();
+  private readonly sshPort: number;
+  private readonly sshUser: string;
+  private readonly sshPassword: string;
+  private readonly sshPrivateKey: string | undefined;
+
+  constructor(config: Config) {
+    this.config = config;
+    this.mainRouterIp = config.asus.host;
+    this.sshPort = config.asus.sshPort;
+    this.sshUser = config.asus.sshUser;
+    this.sshPassword = config.asus.sshPassword ?? '';
+    this.sshPrivateKey = config.asus.sshKeyPath;
+  }
+
+  async initialize(): Promise<void> {
+    logger.info('Initializing Mesh Node Pool');
+    
+    await this.connectToMainRouter();
+    await this.discoverAllNodes();
+    await this.establishNodeConnections();
+    
+    logger.info({ 
+      nodeCount: this.discoveredNodes.size,
+      connectedCount: this.nodeConnections.size 
+    }, 'Mesh Node Pool initialized');
+  }
+
+  private async connectToMainRouter(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.mainConnection = new Client();
+      
+      this.mainConnection.on('ready', () => {
+        logger.info({ host: this.mainRouterIp }, 'Connected to main router');
+        resolve();
+      });
+
+      this.mainConnection.on('error', (err) => {
+        logger.error({ err, host: this.mainRouterIp }, 'Main router connection error');
+        reject(err);
+      });
+
+      const connectConfig: Parameters<Client['connect']>[0] = {
+        host: this.mainRouterIp,
+        port: this.sshPort,
+        username: this.sshUser,
+        readyTimeout: 10000,
+      };
+
+      if (this.sshPrivateKey) {
+        connectConfig.privateKey = this.sshPrivateKey;
+      } else {
+        connectConfig.password = this.sshPassword;
+      }
+
+      this.mainConnection.connect(connectConfig);
+    });
+  }
+
+  async discoverAllNodes(): Promise<MeshNodeInfo[]> {
+    logger.info('Discovering all mesh nodes');
+    this.discoveredNodes.clear();
+
+    if (!this.mainConnection) {
+      throw new Error('Main router not connected');
+    }
+
+    const mainNodeInfo = await this.getMainRouterInfo();
+    this.discoveredNodes.set(mainNodeInfo.id, mainNodeInfo);
+
+    const meshNodes = await this.getAiMeshNodes();
+    for (const node of meshNodes) {
+      this.discoveredNodes.set(node.id, node);
+    }
+
+    logger.info({ count: this.discoveredNodes.size }, 'Node discovery complete');
+    return Array.from(this.discoveredNodes.values());
+  }
+
+  private async getMainRouterInfo(): Promise<MeshNodeInfo> {
+    const systemInfo = await this.executeOnMain('nvram show 2>/dev/null | grep -E "^(productid|firmver|buildno|lan_ipaddr|lan_hwaddr|uptime)" | head -10');
+    const cpuInfo = await this.executeOnMain('top -bn1 | head -3');
+    const memInfo = await this.executeOnMain('free | grep Mem');
+    const clientCount = await this.executeOnMain('wl -i eth6 assoclist 2>/dev/null | wc -l; wl -i eth7 assoclist 2>/dev/null | wc -l');
+
+    const lines = systemInfo.split('\n');
+    const getValue = (key: string): string => {
+      const line = lines.find(l => l.startsWith(`${key}=`));
+      return line?.split('=')[1] ?? '';
+    };
+
+    const cpuMatch = cpuInfo.match(/(\d+)%\s*id/);
+    const cpuUsage = cpuMatch ? 100 - parseInt(cpuMatch[1]!, 10) : 0;
+
+    const memParts = memInfo.trim().split(/\s+/);
+    const memTotal = parseInt(memParts[1] ?? '1', 10);
+    const memUsed = parseInt(memParts[2] ?? '0', 10);
+    const memoryUsage = Math.round((memUsed / memTotal) * 100);
+
+    const clientLines = clientCount.trim().split('\n');
+    const connectedClients = clientLines.reduce((sum, l) => sum + parseInt(l.trim() || '0', 10), 0);
+
+    return {
+      id: 'main',
+      name: getValue('productid') || 'Main Router',
+      macAddress: getValue('lan_hwaddr'),
+      ipAddress: this.mainRouterIp,
+      isMainRouter: true,
+      firmwareVersion: `${getValue('firmver')}.${getValue('buildno')}`,
+      model: getValue('productid'),
+      role: 'router',
+      status: 'online',
+      sshAvailable: true,
+      lastSeen: new Date(),
+      uptime: this.parseUptime(getValue('uptime')),
+      cpuUsage,
+      memoryUsage,
+      connectedClients,
+    };
+  }
+
+  private async getAiMeshNodes(): Promise<MeshNodeInfo[]> {
+    const nodes: MeshNodeInfo[] = [];
+
+    try {
+      const cfgClientList = await this.executeOnMain('nvram get cfg_clientlist');
+      const cfgAlias = await this.executeOnMain('nvram get cfg_alias');
+      
+      const macList = cfgClientList.split('<').filter(Boolean).map(entry => {
+        const parts = entry.split('>');
+        return {
+          mac: parts[0]?.toLowerCase() ?? '',
+          ip: parts[1] ?? '',
+          model: parts[2] ?? '',
+          alias: parts[3] ?? '',
+        };
+      });
+
+      const arpOutput = await this.executeOnMain('cat /proc/net/arp');
+      const arpEntries = new Map<string, string>();
+      
+      for (const line of arpOutput.split('\n').slice(1)) {
+        const parts = line.trim().split(/\s+/);
+        if (parts.length >= 4) {
+          const ip = parts[0]!;
+          const mac = parts[3]!.toLowerCase();
+          arpEntries.set(mac, ip);
+        }
+      }
+
+      for (const meshEntry of macList) {
+        if (!meshEntry.mac || meshEntry.mac === this.discoveredNodes.get('main')?.macAddress.toLowerCase()) {
+          continue;
+        }
+
+        const ip = meshEntry.ip || arpEntries.get(meshEntry.mac) || '';
+        
+        if (!ip) {
+          logger.warn({ mac: meshEntry.mac }, 'Could not find IP for mesh node');
+          continue;
+        }
+
+        const nodeInfo: MeshNodeInfo = {
+          id: `node_${meshEntry.mac.replace(/:/g, '')}`,
+          name: meshEntry.alias || meshEntry.model || `AiMesh Node ${meshEntry.mac}`,
+          macAddress: meshEntry.mac,
+          ipAddress: ip,
+          isMainRouter: false,
+          firmwareVersion: '',
+          model: meshEntry.model,
+          role: 'node',
+          status: 'online',
+          sshAvailable: false,
+          lastSeen: new Date(),
+          uptime: 0,
+          cpuUsage: 0,
+          memoryUsage: 0,
+          connectedClients: 0,
+        };
+
+        const isReachable = await this.checkNodeReachability(ip);
+        if (isReachable) {
+          nodeInfo.status = 'online';
+          nodeInfo.sshAvailable = await this.checkSshAvailability(ip);
+        } else {
+          nodeInfo.status = 'unreachable';
+        }
+
+        nodes.push(nodeInfo);
+      }
+    } catch (err) {
+      logger.error({ err }, 'Failed to discover AiMesh nodes');
+    }
+
+    return nodes;
+  }
+
+  private async checkNodeReachability(ip: string): Promise<boolean> {
+    try {
+      const result = await this.executeOnMain(`ping -c 1 -W 2 ${ip} > /dev/null 2>&1 && echo "ok" || echo "fail"`);
+      return result.trim() === 'ok';
+    } catch {
+      return false;
+    }
+  }
+
+  private async checkSshAvailability(ip: string): Promise<boolean> {
+    try {
+      const result = await this.executeOnMain(`nc -z -w 2 ${ip} ${this.sshPort} && echo "ok" || echo "fail"`);
+      return result.trim() === 'ok';
+    } catch {
+      return false;
+    }
+  }
+
+  async establishNodeConnections(): Promise<void> {
+    logger.info('Establishing SSH connections to mesh nodes');
+
+    for (const node of this.discoveredNodes.values()) {
+      if (node.isMainRouter) continue;
+      if (!node.sshAvailable) {
+        logger.warn({ nodeId: node.id, ip: node.ipAddress }, 'SSH not available on node');
+        continue;
+      }
+
+      try {
+        await this.connectToNode(node);
+      } catch (err) {
+        logger.error({ err, nodeId: node.id }, 'Failed to connect to node');
+      }
+    }
+
+    logger.info({ connectedCount: this.nodeConnections.size }, 'Node connections established');
+  }
+
+  private async connectToNode(node: MeshNodeInfo): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const client = new Client();
+
+      client.on('ready', () => {
+        logger.info({ nodeId: node.id, ip: node.ipAddress }, 'Connected to mesh node');
+        
+        this.nodeConnections.set(node.id, {
+          nodeId: node.id,
+          ipAddress: node.ipAddress,
+          client,
+          connected: true,
+          lastCommand: new Date(),
+        });
+
+        this.updateNodeInfoFromConnection(node.id).then(resolve).catch(reject);
+      });
+
+      client.on('error', (err) => {
+        logger.warn({ err, nodeId: node.id }, 'Node connection error');
+        reject(err);
+      });
+
+      client.on('close', () => {
+        const conn = this.nodeConnections.get(node.id);
+        if (conn) {
+          conn.connected = false;
+        }
+      });
+
+      const connectConfig: Parameters<Client['connect']>[0] = {
+        host: node.ipAddress,
+        port: this.sshPort,
+        username: this.sshUser,
+        readyTimeout: 10000,
+      };
+
+      if (this.sshPrivateKey) {
+        connectConfig.privateKey = this.sshPrivateKey;
+      } else {
+        connectConfig.password = this.sshPassword;
+      }
+
+      client.connect(connectConfig);
+    });
+  }
+
+  private async updateNodeInfoFromConnection(nodeId: string): Promise<void> {
+    const node = this.discoveredNodes.get(nodeId);
+    if (!node) return;
+
+    try {
+      const systemInfo = await this.executeOnNode(nodeId, 'nvram show 2>/dev/null | grep -E "^(productid|firmver|buildno)" | head -5');
+      const cpuInfo = await this.executeOnNode(nodeId, 'top -bn1 | head -3');
+      const memInfo = await this.executeOnNode(nodeId, 'free | grep Mem');
+      const clientCount = await this.executeOnNode(nodeId, 'wl -i eth6 assoclist 2>/dev/null | wc -l; wl -i eth7 assoclist 2>/dev/null | wc -l');
+      const uptimeOutput = await this.executeOnNode(nodeId, 'cat /proc/uptime');
+
+      const lines = systemInfo.split('\n');
+      const getValue = (key: string): string => {
+        const line = lines.find(l => l.startsWith(`${key}=`));
+        return line?.split('=')[1] ?? '';
+      };
+
+      node.firmwareVersion = `${getValue('firmver')}.${getValue('buildno')}`;
+      node.model = getValue('productid') || node.model;
+
+      const cpuMatch = cpuInfo.match(/(\d+)%\s*id/);
+      node.cpuUsage = cpuMatch ? 100 - parseInt(cpuMatch[1]!, 10) : 0;
+
+      const memParts = memInfo.trim().split(/\s+/);
+      const memTotal = parseInt(memParts[1] ?? '1', 10);
+      const memUsed = parseInt(memParts[2] ?? '0', 10);
+      node.memoryUsage = Math.round((memUsed / memTotal) * 100);
+
+      const clientLines = clientCount.trim().split('\n');
+      node.connectedClients = clientLines.reduce((sum, l) => sum + parseInt(l.trim() || '0', 10), 0);
+
+      node.uptime = parseFloat(uptimeOutput.split(' ')[0] ?? '0');
+      node.lastSeen = new Date();
+
+      logger.info({ nodeId, model: node.model, firmware: node.firmwareVersion }, 'Node info updated');
+    } catch (err) {
+      logger.warn({ err, nodeId }, 'Failed to update node info');
+    }
+  }
+
+  private async executeOnMain(command: string): Promise<string> {
+    if (!this.mainConnection) {
+      throw new Error('Main router not connected');
+    }
+
+    return new Promise((resolve, reject) => {
+      this.mainConnection!.exec(command, (err, stream) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+
+        let output = '';
+        let errorOutput = '';
+
+        stream.on('data', (data: Buffer) => {
+          output += data.toString();
+        });
+
+        stream.stderr.on('data', (data: Buffer) => {
+          errorOutput += data.toString();
+        });
+
+        stream.on('close', () => {
+          resolve(output);
+        });
+      });
+    });
+  }
+
+  async executeOnNode(nodeId: string, command: string): Promise<string> {
+    if (nodeId === 'main') {
+      return this.executeOnMain(command);
+    }
+
+    const connection = this.nodeConnections.get(nodeId);
+    if (!connection?.connected) {
+      throw new Error(`Node ${nodeId} not connected`);
+    }
+
+    return new Promise((resolve, reject) => {
+      connection.client.exec(command, (err, stream) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+
+        let output = '';
+
+        stream.on('data', (data: Buffer) => {
+          output += data.toString();
+        });
+
+        stream.on('close', () => {
+          connection.lastCommand = new Date();
+          resolve(output);
+        });
+      });
+    });
+  }
+
+  async executeOnAllNodes(command: string): Promise<Map<string, string>> {
+    const results = new Map<string, string>();
+
+    for (const nodeId of this.discoveredNodes.keys()) {
+      try {
+        const result = await this.executeOnNode(nodeId, command);
+        results.set(nodeId, result);
+      } catch (err) {
+        logger.warn({ err, nodeId }, 'Failed to execute on node');
+        results.set(nodeId, `ERROR: ${err}`);
+      }
+    }
+
+    return results;
+  }
+
+  async getWifiSettingsFromAllNodes(): Promise<Map<string, {
+    channel2g: number;
+    channel5g: number;
+    txpower2g: number;
+    txpower5g: number;
+    bandwidth2g: number;
+    bandwidth5g: number;
+  }>> {
+    const settings = new Map();
+
+    for (const nodeId of this.discoveredNodes.keys()) {
+      try {
+        const output = await this.executeOnNode(nodeId, `
+          echo "channel2g=$(nvram get wl0_channel)"
+          echo "channel5g=$(nvram get wl1_channel)"
+          echo "txpower2g=$(nvram get wl0_txpower)"
+          echo "txpower5g=$(nvram get wl1_txpower)"
+          echo "bw2g=$(nvram get wl0_bw)"
+          echo "bw5g=$(nvram get wl1_bw)"
+        `);
+
+        const lines = output.split('\n');
+        const getValue = (key: string): number => {
+          const line = lines.find(l => l.startsWith(`${key}=`));
+          return parseInt(line?.split('=')[1] ?? '0', 10);
+        };
+
+        settings.set(nodeId, {
+          channel2g: getValue('channel2g'),
+          channel5g: getValue('channel5g'),
+          txpower2g: getValue('txpower2g'),
+          txpower5g: getValue('txpower5g'),
+          bandwidth2g: getValue('bw2g'),
+          bandwidth5g: getValue('bw5g'),
+        });
+      } catch (err) {
+        logger.warn({ err, nodeId }, 'Failed to get WiFi settings');
+      }
+    }
+
+    return settings;
+  }
+
+  async setWifiChannelOnAllNodes(band: '2g' | '5g', channel: number): Promise<Map<string, boolean>> {
+    const results = new Map<string, boolean>();
+    const nvramKey = band === '2g' ? 'wl0_channel' : 'wl1_channel';
+
+    for (const nodeId of this.discoveredNodes.keys()) {
+      try {
+        await this.executeOnNode(nodeId, `nvram set ${nvramKey}=${channel}`);
+        await this.executeOnNode(nodeId, 'nvram commit');
+        results.set(nodeId, true);
+        logger.info({ nodeId, band, channel }, 'Channel set on node');
+      } catch (err) {
+        logger.error({ err, nodeId }, 'Failed to set channel');
+        results.set(nodeId, false);
+      }
+    }
+
+    return results;
+  }
+
+  async syncSettingsAcrossNodes(settings: {
+    channel2g?: number;
+    channel5g?: number;
+    txpower2g?: number;
+    txpower5g?: number;
+  }): Promise<Map<string, { success: boolean; error?: string }>> {
+    const results = new Map<string, { success: boolean; error?: string }>();
+
+    const commands: string[] = [];
+    if (settings.channel2g !== undefined) {
+      commands.push(`nvram set wl0_channel=${settings.channel2g}`);
+    }
+    if (settings.channel5g !== undefined) {
+      commands.push(`nvram set wl1_channel=${settings.channel5g}`);
+    }
+    if (settings.txpower2g !== undefined) {
+      commands.push(`nvram set wl0_txpower=${settings.txpower2g}`);
+    }
+    if (settings.txpower5g !== undefined) {
+      commands.push(`nvram set wl1_txpower=${settings.txpower5g}`);
+    }
+
+    if (commands.length === 0) {
+      return results;
+    }
+
+    commands.push('nvram commit');
+    const fullCommand = commands.join(' && ');
+
+    for (const nodeId of this.discoveredNodes.keys()) {
+      try {
+        await this.executeOnNode(nodeId, fullCommand);
+        results.set(nodeId, { success: true });
+        logger.info({ nodeId }, 'Settings synced to node');
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        results.set(nodeId, { success: false, error: errorMsg });
+        logger.error({ err, nodeId }, 'Failed to sync settings');
+      }
+    }
+
+    return results;
+  }
+
+  async restartWirelessOnAllNodes(): Promise<Map<string, boolean>> {
+    const results = new Map<string, boolean>();
+
+    for (const nodeId of this.discoveredNodes.keys()) {
+      try {
+        await this.executeOnNode(nodeId, 'service restart_wireless');
+        results.set(nodeId, true);
+        logger.info({ nodeId }, 'Wireless restarted on node');
+      } catch (err) {
+        logger.error({ err, nodeId }, 'Failed to restart wireless');
+        results.set(nodeId, false);
+      }
+    }
+
+    return results;
+  }
+
+  getDiscoveredNodes(): MeshNodeInfo[] {
+    return Array.from(this.discoveredNodes.values());
+  }
+
+  getConnectedNodes(): MeshNodeInfo[] {
+    return Array.from(this.discoveredNodes.values()).filter(node => {
+      if (node.isMainRouter) return true;
+      const conn = this.nodeConnections.get(node.id);
+      return conn?.connected ?? false;
+    });
+  }
+
+  getNodeById(nodeId: string): MeshNodeInfo | undefined {
+    return this.discoveredNodes.get(nodeId);
+  }
+
+  isNodeConnected(nodeId: string): boolean {
+    if (nodeId === 'main') return this.mainConnection !== null;
+    return this.nodeConnections.get(nodeId)?.connected ?? false;
+  }
+
+  private parseUptime(uptimeStr: string): number {
+    const match = uptimeStr.match(/(\d+)/);
+    return match ? parseInt(match[1]!, 10) : 0;
+  }
+
+  async refreshNodeStatus(): Promise<void> {
+    for (const node of this.discoveredNodes.values()) {
+      if (node.isMainRouter) continue;
+
+      const isReachable = await this.checkNodeReachability(node.ipAddress);
+      node.status = isReachable ? 'online' : 'unreachable';
+      node.lastSeen = isReachable ? new Date() : node.lastSeen;
+
+      const conn = this.nodeConnections.get(node.id);
+      if (conn && !conn.connected && isReachable && node.sshAvailable) {
+        try {
+          await this.connectToNode(node);
+        } catch {
+          logger.warn({ nodeId: node.id }, 'Failed to reconnect to node');
+        }
+      }
+    }
+  }
+
+  async shutdown(): Promise<void> {
+    logger.info('Shutting down Mesh Node Pool');
+
+    for (const conn of this.nodeConnections.values()) {
+      if (conn.connected) {
+        conn.client.end();
+      }
+    }
+
+    if (this.mainConnection) {
+      this.mainConnection.end();
+    }
+
+    this.nodeConnections.clear();
+    this.discoveredNodes.clear();
+  }
+}
