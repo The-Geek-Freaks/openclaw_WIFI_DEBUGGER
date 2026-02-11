@@ -924,4 +924,438 @@ Aktueller Status: ⚠️ PROBLEME ERKANNT
 
 ---
 
+## 🏆 Community Wisdom & Pro Tipps
+
+> Gesammelte Weisheiten aus Reddit, SNBForums und der ASUS Community
+
+### Sticky Client Problem (Das #1 AiMesh Problem)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  ⚠️ STICKY CLIENT SYNDROM                                   │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  Problem: Gerät bleibt am entfernten Node "kleben"          │
+│  obwohl ein näherer Node verfügbar ist.                     │
+│                                                              │
+│  Ursachen laut SNBForums Community:                         │
+│  • Keine echte Real-Time Steering Logic bei ASUS            │
+│  • Schwache 802.11k/v Implementation                        │
+│  • Kein BSS Transition Enforcement                          │
+│  • Geringe Node Load Awareness                              │
+│                                                              │
+│  Lösungen aus der Community:                                │
+│  ─────────────────────────────────────────────────────────  │
+│                                                              │
+│  1. Roaming Assistant aktivieren                            │
+│     → Wireless → Professional → Roaming Assistant: Enable   │
+│     → RSSI Threshold: -75 dBm (Standard empfohlen)          │
+│        • -65 dBm für dichte AP-Umgebungen                   │
+│        • -85 dBm für große Bereiche mit wenigen APs         │
+│                                                              │
+│  2. Sendeleistung reduzieren (Geheimtipp!)                  │
+│     → TX Power auf 75-80% reduzieren                        │
+│     → Erzwingt früheres Roaming                             │
+│     → Besonders effektiv bei Überlappung                    │
+│                                                              │
+│  3. Separate SSID für problematische Geräte                 │
+│     → IoT-Geräte auf eigene 2.4GHz SSID                     │
+│     → Roaming Assistant für diese SSID deaktivieren         │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### WiFi 6 Optimale Einstellungen (Expertenwissen)
+
+```
+📡 WIFI 6 (802.11ax) OPTIMIERUNG - COMMUNITY KONSENS
+
+┌─ OFDMA / MU-MIMO Einstellungen ──────────────────────────────┐
+│                                                               │
+│  Empfehlung je nach Szenario:                                │
+│                                                               │
+│  🏠 Gemischtes Netzwerk (WiFi 5 + WiFi 6 Geräte):            │
+│     → OFDMA: DL OFDMA only                                   │
+│     → Grund: Ältere Geräte haben Kompatibilitätsprobleme     │
+│                                                               │
+│  🎮 Nur WiFi 6 Geräte (Gaming/Streaming):                    │
+│     → OFDMA: DL/UL OFDMA + MU-MIMO                          │
+│     → Maximale Effizienz für viele gleichzeitige Geräte      │
+│                                                               │
+│  🔌 Viele IoT-Geräte:                                        │
+│     → OFDMA: Disable                                         │
+│     → IoT-Geräte mögen keine WiFi 6 Features                 │
+│                                                               │
+│  ⚠️ Bei Problemen: OFDMA/MU-MIMO deaktivieren und testen!   │
+│                                                               │
+└───────────────────────────────────────────────────────────────┘
+
+┌─ Beamforming Einstellungen ──────────────────────────────────┐
+│                                                               │
+│  ✅ 802.11ax/ac Beamforming: AN (5GHz)                       │
+│     → Verbessert Reichweite und Durchsatz erheblich          │
+│     → Fokussiert Signal auf Client-Position                  │
+│                                                               │
+│  ⚠️ Universal Beamforming: Optional                          │
+│     → Für ältere Geräte ohne Beamforming-Support             │
+│     → Kann Performance für moderne Geräte reduzieren         │
+│                                                               │
+│  ✅ Explicit Beamforming (2.4GHz): AN                        │
+│     → Hilft bei Reichweite auf 2.4GHz                        │
+│                                                               │
+└───────────────────────────────────────────────────────────────┘
+
+┌─ Target Wake Time (TWT) ─────────────────────────────────────┐
+│                                                               │
+│  Was es macht: Geräte "schlafen" und wachen gezielt auf      │
+│  → Spart Batterie bei Smartphones/Tablets                    │
+│                                                               │
+│  ✅ AN für: Mobile Geräte, Laptops                           │
+│  ❌ AUS für: Gaming, Streaming (kann Latenz erhöhen)         │
+│                                                               │
+└───────────────────────────────────────────────────────────────┘
+```
+
+### Kanal-Weisheiten aus der Community
+
+```
+🎯 KANAL-TIPPS VON REDDIT & SNBFORUMS
+
+┌─ 2.4 GHz Goldene Regeln ─────────────────────────────────────┐
+│                                                               │
+│  1. NUR Kanal 1, 6 oder 11 verwenden                         │
+│     → Alles andere überlappt und stört                       │
+│                                                               │
+│  2. Kanalbreite: 20 MHz (nicht 40!)                          │
+│     → 40 MHz auf 2.4GHz ist IMMER schlechter                 │
+│     → Mehr Interferenz, weniger Stabilität                   │
+│     → "Wer 40MHz auf 2.4GHz nutzt, hasst seine Nachbarn"     │
+│                                                               │
+│  3. Prüfe Zigbee-Konflikt vor Kanalwahl                      │
+│     → WiFi Ch 1 + Zigbee Ch 25/26 = Perfekt                  │
+│     → WiFi Ch 11 + Zigbee Ch 15 = Konflikt!                  │
+│                                                               │
+└───────────────────────────────────────────────────────────────┘
+
+┌─ 5 GHz Pro-Tipps ────────────────────────────────────────────┐
+│                                                               │
+│  1. DFS-Kanäle vermeiden wenn möglich                        │
+│     → Kanäle 52-64, 100-144 erfordern DFS                    │
+│     → Radar-Erkennung → plötzlicher Kanalwechsel             │
+│     → Besonders problematisch nahe Flughäfen                 │
+│                                                               │
+│  2. Sichere Kanäle:                                          │
+│     → 36, 40, 44, 48 (UNII-1) - stabil, indoor               │
+│     → 149, 153, 157, 161 (UNII-3) - höhere Leistung erlaubt  │
+│                                                               │
+│  3. Kanalbreite je nach Umgebung:                            │
+│     → Apartment/Stadt: 80 MHz                                │
+│     → Haus/Land: 160 MHz möglich                             │
+│     → Viele Nachbarn: 40 MHz für Stabilität                  │
+│                                                               │
+│  4. "160 MHz klingt toll, aber..."                           │
+│     → Nur wenn KEINE Nachbar-Netzwerke                       │
+│     → Nur mit WiFi 6 Geräten                                 │
+│     → Reichweite ist deutlich geringer                       │
+│                                                               │
+└───────────────────────────────────────────────────────────────┘
+```
+
+### AiMesh Weisheiten
+
+```
+🕸️ AIMESH COMMUNITY SECRETS
+
+┌─ Backhaul Optimierung ───────────────────────────────────────┐
+│                                                               │
+│  Priorität (von Reddit-Konsens):                             │
+│  1. 🥇 Ethernet Backhaul (wenn möglich - IMMER bevorzugen)   │
+│  2. 🥈 Dedizierter 5GHz Backhaul (Tri-Band Router)           │
+│  3. 🥉 Shared 5GHz Backhaul (Dual-Band)                      │
+│  4. 💀 2.4GHz Backhaul (vermeiden!)                          │
+│                                                               │
+│  "Wired Backhaul ist der einzige Weg zu echtem Mesh"         │
+│  - SNBForums User                                            │
+│                                                               │
+└───────────────────────────────────────────────────────────────┘
+
+┌─ Node Platzierung ───────────────────────────────────────────┐
+│                                                               │
+│  ❌ FALSCH: Nodes am Rand des Hauses                         │
+│  ✅ RICHTIG: Nodes auf halber Strecke                        │
+│                                                               │
+│  ❌ FALSCH: Node direkt neben Router für "mehr Power"        │
+│  ✅ RICHTIG: Nodes verteilen für echte Abdeckung             │
+│                                                               │
+│  ❌ FALSCH: Node hinter Fernseher/Metallschrank              │
+│  ✅ RICHTIG: Node erhöht, freie Sichtlinie                   │
+│                                                               │
+│  "Jeder Wireless Hop halbiert den Durchsatz"                 │
+│  → Max 2 Hops empfohlen, 3 ist schon kritisch                │
+│                                                               │
+└───────────────────────────────────────────────────────────────┘
+
+┌─ Smart Connect: Die ewige Debatte ───────────────────────────┐
+│                                                               │
+│  Team Smart Connect AN:                                      │
+│  + Einfacher für User                                        │
+│  + Router entscheidet Band automatisch                       │
+│  + Moderne Geräte profitieren                                │
+│                                                               │
+│  Team Smart Connect AUS:                                     │
+│  + Mehr Kontrolle                                            │
+│  + IoT-Geräte stabiler auf 2.4GHz                           │
+│  + Verhindert unnötiges Band-Hopping                         │
+│                                                               │
+│  Community-Konsens:                                          │
+│  → AUS + Separate SSIDs für 2.4GHz IoT                       │
+│  → Oder: AN + IoT auf separate SSID ohne Band Steering       │
+│                                                               │
+└───────────────────────────────────────────────────────────────┘
+```
+
+### Gaming & Low-Latency Tipps
+
+```
+🎮 GAMING OPTIMIERUNG (REDDIT WISDOM)
+
+┌─ Latenz minimieren ──────────────────────────────────────────┐
+│                                                               │
+│  1. QoS aktivieren mit Gaming-Profil                         │
+│     → Adaptive QoS → Gaming                                  │
+│     → Oder: Traditional QoS mit Priorität für Gaming-Gerät   │
+│                                                               │
+│  2. IMMER 5GHz für Gaming                                    │
+│     → Weniger Interferenz                                    │
+│     → Niedrigere Latenz                                      │
+│     → Feste SSID nur für 5GHz erstellen                      │
+│                                                               │
+│  3. Kabel wenn möglich!                                      │
+│     → "WiFi für Gaming ist wie mit Handschuhen tippen"       │
+│     → Ethernet Adapter für Konsolen                          │
+│                                                               │
+│  4. WMM (WiFi Multimedia): AN lassen                         │
+│     → Priorisiert latenzempfindlichen Traffic                │
+│                                                               │
+│  5. OFDMA für Gaming: Testen!                                │
+│     → Manche berichten von niedrigerer Latenz                │
+│     → Andere haben Probleme damit                            │
+│     → Am besten: Deaktivieren wenn Probleme                  │
+│                                                               │
+└───────────────────────────────────────────────────────────────┘
+
+┌─ Bufferbloat bekämpfen ──────────────────────────────────────┐
+│                                                               │
+│  Was ist Bufferbloat?                                        │
+│  → Latenz steigt wenn jemand anders downloadet               │
+│  → Ping springt von 20ms auf 200ms+                          │
+│                                                               │
+│  Lösung auf ASUS:                                            │
+│  → Adaptive QoS aktivieren                                   │
+│  → Upload/Download Limits leicht unter Maximum setzen        │
+│  → Test: dslreports.com/speedtest oder waveform.com/bufferbloat │
+│                                                               │
+│  Merlin Firmware Extra:                                      │
+│  → Cake SQM verfügbar (besser als fq_codel)                  │
+│  → Über amtm installierbar                                   │
+│                                                               │
+└───────────────────────────────────────────────────────────────┘
+```
+
+### IoT & Smart Home Weisheiten
+
+```
+🔌 IOT-GERÄTE TIPPS (COMMUNITY BEST PRACTICES)
+
+┌─ Die IoT-SSID Strategie ─────────────────────────────────────┐
+│                                                               │
+│  Erstelle separate SSID nur für IoT:                         │
+│                                                               │
+│  Haupt-SSID:        "MeinWiFi"     (2.4+5GHz, Smart Connect) │
+│  IoT-SSID:          "MeinWiFi_IoT" (Nur 2.4GHz)              │
+│                                                               │
+│  IoT-SSID Einstellungen:                                     │
+│  • Nur 2.4GHz aktivieren                                     │
+│  • Band Steering: AUS                                        │
+│  • Roaming Assistant: AUS                                    │
+│  • Smart Connect: AUS                                        │
+│  • WPA2 (nicht WPA3 - viele IoT können das nicht)           │
+│                                                               │
+│  Warum?                                                      │
+│  → IoT-Geräte haben schlechte WiFi-Implementierung           │
+│  → Roaming/Steering verwirrt sie                             │
+│  → 2.4GHz hat bessere Reichweite für Sensoren               │
+│                                                               │
+└───────────────────────────────────────────────────────────────┘
+
+┌─ Bekannte Problemgeräte ─────────────────────────────────────┐
+│                                                               │
+│  Shelly Geräte:                                              │
+│  → Nur 2.4GHz, kein 5GHz Support                            │
+│  → Probleme mit WPA3 → WPA2 verwenden                        │
+│  → Kein Hidden SSID Support                                  │
+│                                                               │
+│  ESP8266/ESP32 Projekte:                                     │
+│  → Nur 2.4GHz                                                │
+│  → Kanalbreite 20MHz erforderlich                            │
+│  → Manche brauchen Kanal ≤ 11                                │
+│                                                               │
+│  Ältere Ring/Nest Geräte:                                    │
+│  → Probleme mit Band Steering                                │
+│  → Separate SSID empfohlen                                   │
+│                                                               │
+│  Drucker:                                                    │
+│  → Oft WPS oder Setup-Mode Probleme                          │
+│  → Temporär SSID sichtbar machen für Setup                   │
+│                                                               │
+└───────────────────────────────────────────────────────────────┘
+```
+
+### Versteckte Merlin-Features
+
+```
+🦎 MERLIN FIRMWARE GEHEIMTIPPS
+
+┌─ Nützliche NVRAM-Tweaks ─────────────────────────────────────┐
+│                                                               │
+│  # Schnellere DHCP-Lease (für IoT Reconnect)                 │
+│  nvram set dhcp_lease=86400                                  │
+│  nvram set dhcpd_lmax=5000                                   │
+│                                                               │
+│  # DNS-Cache vergrößern                                      │
+│  nvram set dnsmasq_memmax=100000                             │
+│                                                               │
+│  # Aggressive Power Save deaktivieren (hilft bei Latenz)     │
+│  nvram set wl0_aps=0                                         │
+│  nvram set wl1_aps=0                                         │
+│                                                               │
+│  # Nach Änderungen:                                          │
+│  nvram commit                                                │
+│  service restart_wireless                                    │
+│                                                               │
+└───────────────────────────────────────────────────────────────┘
+
+┌─ Amtm Must-Have Scripts ─────────────────────────────────────┐
+│                                                               │
+│  ssh admin@router                                            │
+│  amtm                                                        │
+│                                                               │
+│  Empfohlene Installationen:                                  │
+│  • Diversion - Werbe/Malware-Blocker auf Router-Ebene       │
+│  • Skynet - Firewall auf Steroiden                          │
+│  • scMerlin - Service Control (Start/Stop/Restart)          │
+│  • ntpMerlin - Präzise Zeitsynchonisierung                  │
+│                                                               │
+│  Für Fortgeschrittene:                                       │
+│  • Cake-QoS - Besseres QoS als Stock                        │
+│  • Wireguard - VPN ohne Performance-Verlust                 │
+│                                                               │
+└───────────────────────────────────────────────────────────────┘
+```
+
+### Debug-Tipps aus der Community
+
+```
+🔍 DEBUGGING WEISHEITEN
+
+┌─ Wenn nichts mehr geht ──────────────────────────────────────┐
+│                                                               │
+│  Die "Nuclear Option" (SNBForums Konsens):                   │
+│                                                               │
+│  1. Backup der Einstellungen                                 │
+│  2. Factory Reset (30-30-30 wenn möglich)                    │
+│  3. NICHT Backup wiederherstellen!                           │
+│  4. Manuell neu konfigurieren                                │
+│                                                               │
+│  Warum?                                                      │
+│  → Alte NVRAM-Einstellungen können Probleme verursachen      │
+│  → Backup enthält manchmal korrupte Werte                    │
+│  → Frische Konfiguration = stabilstes System                 │
+│                                                               │
+└───────────────────────────────────────────────────────────────┘
+
+┌─ Log-Analyse für Profis ─────────────────────────────────────┐
+│                                                               │
+│  ssh admin@router                                            │
+│                                                               │
+│  # Echtzeit Wireless-Events                                  │
+│  wl -i eth1 sta_info all 2>/dev/null                        │
+│                                                               │
+│  # Roaming-Events beobachten                                 │
+│  tail -f /tmp/syslog.log | grep -i roam                     │
+│                                                               │
+│  # Alle Wireless-Warnungen                                   │
+│  cat /tmp/syslog.log | grep -E "(wl|wireless|wifi)" | tail  │
+│                                                               │
+│  # AiMesh Sync Status                                        │
+│  cfg_server                                                  │
+│                                                               │
+└───────────────────────────────────────────────────────────────┘
+
+┌─ Quick Health Check ─────────────────────────────────────────┐
+│                                                               │
+│  ✅ CPU unter 50%? (dauerhaft >80% = Problem)                │
+│  ✅ RAM frei >30%? (unter 20% = Neustart empfohlen)          │
+│  ✅ Uptime? (>30 Tage ohne Reboot = beeindruckend)           │
+│  ✅ NVRAM frei >30%? (unter 10% = kritisch)                  │
+│                                                               │
+│  # Check auf Router:                                          │
+│  top -n 1 | head -5                                          │
+│  free                                                        │
+│  nvram show 2>&1 | tail -1                                   │
+│                                                               │
+└───────────────────────────────────────────────────────────────┘
+```
+
+### Bonus: Die ultimative Checkliste
+
+```
+📋 DIE ULTIMATIVE ASUS WIFI CHECKLISTE
+
+Vor dem Start:
+□ Merlin Firmware installiert?
+□ SSH aktiviert?
+□ Alle Nodes auf gleicher Firmware-Version?
+
+Grundkonfiguration:
+□ 2.4GHz: Kanal 1, 6 oder 11 (manuell, nicht Auto)
+□ 2.4GHz: Kanalbreite 20 MHz
+□ 5GHz: Kanal 36-48 oder 149-161 (kein DFS)
+□ 5GHz: Kanalbreite 80 MHz (160 nur wenn keine Nachbarn)
+□ Gleiche SSID auf allen Bändern ODER separate nach Strategie
+
+Roaming & Steering:
+□ Roaming Assistant: AN mit -75 dBm
+□ Smart Connect: Nach Strategie (AN oder AUS)
+□ Band Steering: Nach Strategie
+
+AiMesh:
+□ Wired Backhaul wenn möglich
+□ Nodes mittig platziert, nicht am Rand
+□ Max 2 Wireless Hops
+□ Gleiche Kanäle auf allen Nodes
+
+Für IoT:
+□ Separate 2.4GHz-only SSID
+□ WPA2 (nicht WPA3)
+□ Roaming/Steering AUS für IoT-SSID
+
+Für Gaming:
+□ 5GHz bevorzugen
+□ QoS mit Gaming-Priorität
+□ Ethernet wenn irgendwie möglich
+
+Zigbee:
+□ Zigbee-Kanal geprüft (25/26 optimal)
+□ Kein Overlap mit WiFi 2.4GHz Kanal
+
+Regelmäßig prüfen:
+□ Firmware-Updates (monatlich)
+□ CPU/RAM Auslastung
+□ NVRAM nicht voll
+□ Keine unbekannten Geräte verbunden
+```
+
+---
+
 *Diese Anleitung wird automatisch aktualisiert wenn neue Features hinzugefügt werden.*
