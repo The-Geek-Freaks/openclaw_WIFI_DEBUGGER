@@ -36,44 +36,55 @@ export class FrequencyOptimizer {
       
       const channelMap = new Map<number, ChannelScanResult>();
       
+      // Stateful parser for multi-line wl scanresults format
+      // Format: SSID: "name"\n BSSID: XX:XX\n Channel: N\n RSSI: -XX\n ...
+      let currentNetwork: { ssid: string; bssid: string; channel: number; rssi: number } | null = null;
+      
       for (const line of lines) {
-        let ssid = '';
-        let bssid = '';
-        let channel = 0;
-        let rssi = -100;
-
-        const ssidMatch = line.match(/SSID[:\s]+["']?([^"'\t\n]+)["']?/i);
-        if (ssidMatch) ssid = ssidMatch[1]?.trim() ?? '';
-
-        const bssidMatch = line.match(/([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}/);
-        if (bssidMatch) bssid = bssidMatch[0] ?? '';
-
-        const channelMatch = line.match(/(?:Channel|Chan)[:\s]*(\d+)/i);
-        if (channelMatch) channel = parseInt(channelMatch[1] ?? '0', 10);
-
-        const rssiMatch = line.match(/(?:RSSI|Signal)[:\s]*(-?\d+)/i);
-        if (rssiMatch) rssi = parseInt(rssiMatch[1] ?? '-100', 10);
-
-        if (channel > 0 && bssid) {
-          if (!channelMap.has(channel)) {
-            channelMap.set(channel, {
-              channel,
-              band: band === '2g' ? '2.4GHz' : '5GHz',
-              utilization: 0,
-              noiseFloor: -95,
-              interferingNetworks: [],
-            });
+        const trimmedLine = line.trim();
+        
+        // Start of new network block
+        if (trimmedLine.startsWith('SSID:')) {
+          // Save previous network if complete
+          if (currentNetwork && currentNetwork.channel > 0 && currentNetwork.bssid) {
+            this.addNetworkToChannelMap(channelMap, currentNetwork, band);
           }
-
-          const channelResult = channelMap.get(channel)!;
-          channelResult.interferingNetworks.push({
-            ssid,
-            bssid,
-            channel,
-            signalStrength: rssi,
-            overlap: 1,
-          });
+          
+          // Start new network
+          const ssidMatch = trimmedLine.match(/SSID:\s*"?([^"]*)"?/);
+          currentNetwork = {
+            ssid: ssidMatch?.[1]?.trim() ?? '',
+            bssid: '',
+            channel: 0,
+            rssi: -100,
+          };
+          continue;
         }
+        
+        if (!currentNetwork) continue;
+        
+        // Parse BSSID
+        if (trimmedLine.startsWith('BSSID:')) {
+          const bssidMatch = trimmedLine.match(/BSSID:\s*([0-9A-Fa-f:]+)/i);
+          if (bssidMatch) currentNetwork.bssid = bssidMatch[1] ?? '';
+        }
+        
+        // Parse Channel (multiple formats)
+        if (trimmedLine.includes('Channel:') || trimmedLine.includes('Chanspec:')) {
+          const channelMatch = trimmedLine.match(/(?:Channel|Chanspec):\s*(\d+)/i);
+          if (channelMatch) currentNetwork.channel = parseInt(channelMatch[1] ?? '0', 10);
+        }
+        
+        // Parse RSSI/Signal
+        if (trimmedLine.startsWith('RSSI:') || trimmedLine.includes('Signal:')) {
+          const rssiMatch = trimmedLine.match(/(?:RSSI|Signal):\s*(-?\d+)/i);
+          if (rssiMatch) currentNetwork.rssi = parseInt(rssiMatch[1] ?? '-100', 10);
+        }
+      }
+      
+      // Don't forget last network
+      if (currentNetwork && currentNetwork.channel > 0 && currentNetwork.bssid) {
+        this.addNetworkToChannelMap(channelMap, currentNetwork, band);
       }
 
       for (const result of channelMap.values()) {
@@ -84,12 +95,39 @@ export class FrequencyOptimizer {
       if (results.length === 0) {
         logger.warn({ band, linesCount: lines.length }, 'No channels found in scan output');
         logger.debug({ scanOutput: scanOutput.substring(0, 500) }, 'Scan output sample');
+      } else {
+        logger.info({ band, networksFound: channelMap.size, totalNetworks: results.reduce((s, r) => s + r.interferingNetworks.length, 0) }, 'Channel scan complete');
       }
     } catch (err) {
       logger.error({ err, band }, 'Failed to scan channels');
     }
 
     return results;
+  }
+
+  private addNetworkToChannelMap(
+    channelMap: Map<number, ChannelScanResult>,
+    network: { ssid: string; bssid: string; channel: number; rssi: number },
+    band: '2g' | '5g'
+  ): void {
+    if (!channelMap.has(network.channel)) {
+      channelMap.set(network.channel, {
+        channel: network.channel,
+        band: band === '2g' ? '2.4GHz' : '5GHz',
+        utilization: 0,
+        noiseFloor: -95,
+        interferingNetworks: [],
+      });
+    }
+
+    const channelResult = channelMap.get(network.channel)!;
+    channelResult.interferingNetworks.push({
+      ssid: network.ssid,
+      bssid: network.bssid,
+      channel: network.channel,
+      signalStrength: network.rssi,
+      overlap: 1,
+    });
   }
 
   async generateOptimizations(
