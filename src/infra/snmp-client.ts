@@ -135,6 +135,58 @@ export interface SnmpNetworkAnalysis {
   recommendations: string[];
 }
 
+export interface SwitchStatus {
+  host: string;
+  name: string;
+  vendor: string;
+  model: string;
+  uptime: number;
+  portCount: number;
+  activePorts: number;
+  totalTraffic: {
+    rxBytes: number;
+    txBytes: number;
+    rxBytesPerSec: number;
+    txBytesPerSec: number;
+  };
+  poeStatus?: {
+    totalPower: number;
+    usedPower: number;
+    availablePower: number;
+  } | undefined;
+  temperature?: number | undefined;
+  cpuLoad?: number | undefined;
+}
+
+export interface SwitchPortDetail {
+  port: number;
+  name: string;
+  description: string;
+  adminStatus: 'up' | 'down';
+  operStatus: 'up' | 'down' | 'unknown';
+  speed: number;
+  duplex: 'full' | 'half' | 'unknown';
+  vlan?: number;
+  poeEnabled?: boolean;
+  poePower?: number;
+  connectedDevice?: {
+    mac: string;
+    vendor?: string;
+    hostname?: string;
+  };
+  traffic: {
+    rxBytes: number;
+    txBytes: number;
+    rxPackets: number;
+    txPackets: number;
+    rxErrors: number;
+    txErrors: number;
+    rxBytesPerSec: number;
+    txBytesPerSec: number;
+    utilizationPercent: number;
+  };
+}
+
 export interface SnmpDetectedProblem {
   deviceHost: string;
   severity: 'info' | 'warning' | 'critical';
@@ -520,5 +572,132 @@ export class SnmpClient {
 
   clearCache(): void {
     this.cachedData.clear();
+  }
+
+  async getSwitchStatus(host: string, port: number = 161): Promise<SwitchStatus | null> {
+    const config = this.devices.get(`${host}:${port}`);
+    const community = config?.community ?? 'public';
+
+    const deviceInfo = await this.getDeviceInfo(host, port);
+    if (!deviceInfo) return null;
+
+    const ifNumber = await this.snmpGet(host, port, community, STANDARD_OIDS.ifNumber);
+    const portCount = typeof ifNumber === 'number' ? ifNumber : 0;
+
+    let activePorts = 0;
+    let totalRx = 0;
+    let totalTx = 0;
+
+    for (let i = 1; i <= Math.min(portCount, 48); i++) {
+      const operStatus = await this.snmpGet(host, port, community, `${STANDARD_OIDS.ifOperStatus}.${i}`);
+      if (operStatus === 1) activePorts++;
+
+      const rxBytes = await this.snmpGet(host, port, community, `${STANDARD_OIDS.ifInOctets}.${i}`);
+      const txBytes = await this.snmpGet(host, port, community, `${STANDARD_OIDS.ifOutOctets}.${i}`);
+      
+      if (typeof rxBytes === 'number') totalRx += rxBytes;
+      if (typeof txBytes === 'number') totalTx += txBytes;
+    }
+
+    let temperature: number | undefined;
+    let cpuLoad: number | undefined;
+    let poeStatus: SwitchStatus['poeStatus'];
+
+    if (deviceInfo.deviceType === 'mikrotik') {
+      const health = await this.getMikroTikHealth(host, port);
+      if (health) {
+        temperature = health.temperature;
+        cpuLoad = health.cpuLoad;
+      }
+
+      const poePower = await this.snmpGet(host, port, community, MIKROTIK_OIDS.mtxrPOEPower);
+      if (typeof poePower === 'number') {
+        poeStatus = {
+          totalPower: 150,
+          usedPower: poePower / 10,
+          availablePower: 150 - (poePower / 10),
+        };
+      }
+    }
+
+    return {
+      host,
+      name: deviceInfo.sysName,
+      vendor: deviceInfo.vendor ?? 'Unknown',
+      model: this.extractModel(deviceInfo.sysDescr),
+      uptime: deviceInfo.sysUptime,
+      portCount,
+      activePorts,
+      totalTraffic: {
+        rxBytes: totalRx,
+        txBytes: totalTx,
+        rxBytesPerSec: 0,
+        txBytesPerSec: 0,
+      },
+      poeStatus,
+      temperature,
+      cpuLoad,
+    };
+  }
+
+  async getSwitchPortDetails(host: string, port: number = 161): Promise<SwitchPortDetail[]> {
+    const config = this.devices.get(`${host}:${port}`);
+    const community = config?.community ?? 'public';
+
+    const ifNumber = await this.snmpGet(host, port, community, STANDARD_OIDS.ifNumber);
+    const portCount = typeof ifNumber === 'number' ? Math.min(ifNumber, 48) : 0;
+
+    const ports: SwitchPortDetail[] = [];
+
+    for (let i = 1; i <= portCount; i++) {
+      const [name, adminStatus, operStatus, speed, rxBytes, txBytes, rxPkts, txPkts, rxErr, txErr] = 
+        await Promise.all([
+          this.snmpGet(host, port, community, `${STANDARD_OIDS.ifDescr}.${i}`),
+          this.snmpGet(host, port, community, `${STANDARD_OIDS.ifAdminStatus}.${i}`),
+          this.snmpGet(host, port, community, `${STANDARD_OIDS.ifOperStatus}.${i}`),
+          this.snmpGet(host, port, community, `${STANDARD_OIDS.ifSpeed}.${i}`),
+          this.snmpGet(host, port, community, `${STANDARD_OIDS.ifInOctets}.${i}`),
+          this.snmpGet(host, port, community, `${STANDARD_OIDS.ifOutOctets}.${i}`),
+          this.snmpGet(host, port, community, `${STANDARD_OIDS.ifInUcastPkts}.${i}`),
+          this.snmpGet(host, port, community, `${STANDARD_OIDS.ifOutUcastPkts}.${i}`),
+          this.snmpGet(host, port, community, `${STANDARD_OIDS.ifInErrors}.${i}`),
+          this.snmpGet(host, port, community, `${STANDARD_OIDS.ifOutErrors}.${i}`),
+        ]);
+
+      const speedNum = typeof speed === 'number' ? speed : 0;
+      const rxBytesNum = typeof rxBytes === 'number' ? rxBytes : 0;
+      const txBytesNum = typeof txBytes === 'number' ? txBytes : 0;
+
+      ports.push({
+        port: i,
+        name: String(name ?? `Port ${i}`),
+        description: String(name ?? ''),
+        adminStatus: adminStatus === 1 ? 'up' : 'down',
+        operStatus: operStatus === 1 ? 'up' : operStatus === 2 ? 'down' : 'unknown',
+        speed: speedNum,
+        duplex: speedNum >= 1000000000 ? 'full' : 'unknown',
+        traffic: {
+          rxBytes: rxBytesNum,
+          txBytes: txBytesNum,
+          rxPackets: typeof rxPkts === 'number' ? rxPkts : 0,
+          txPackets: typeof txPkts === 'number' ? txPkts : 0,
+          rxErrors: typeof rxErr === 'number' ? rxErr : 0,
+          txErrors: typeof txErr === 'number' ? txErr : 0,
+          rxBytesPerSec: 0,
+          txBytesPerSec: 0,
+          utilizationPercent: speedNum > 0 ? Math.min(100, ((rxBytesNum + txBytesNum) * 8 / speedNum) * 100) : 0,
+        },
+      });
+    }
+
+    return ports;
+  }
+
+  private extractModel(sysDescr: string): string {
+    const match = sysDescr.match(/(?:RouterOS|SwOS|CRS|CSS|RB|CCR|hAP|hEX)\s*(\S+)/i);
+    if (match) return match[0];
+    
+    const parts = sysDescr.split(/[,\s]+/);
+    return parts[0] ?? 'Unknown';
   }
 }

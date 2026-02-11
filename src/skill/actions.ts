@@ -185,6 +185,19 @@ export const SkillActionSchema = z.discriminatedUnion('action', [
     action: z.literal('get_quick_diagnosis'),
     params: z.object({}).optional(),
   }),
+  z.object({
+    action: z.literal('get_switch_status'),
+    params: z.object({
+      host: z.string().optional(),
+    }).optional(),
+  }),
+  z.object({
+    action: z.literal('get_port_traffic'),
+    params: z.object({
+      host: z.string(),
+      port: z.number().optional(),
+    }),
+  }),
 ]);
 
 export type SkillAction = z.infer<typeof SkillActionSchema>;

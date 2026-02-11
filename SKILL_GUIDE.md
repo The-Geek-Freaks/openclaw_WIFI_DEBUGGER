@@ -1555,7 +1555,116 @@ Oder per Base64:
 | User will Überblick | `get_environment_summary` | Details nach Bedarf |
 | User hat Grundriss-Bilder | `set_floor_plan` | `get_floor_visualization` |
 | Gerät hat schlechtes Signal | `get_placement_recommendations` | Konkrete Tipps geben |
+| Switch-Monitoring | `get_switch_status` | `get_port_traffic` |
 | Alles prüfen | `full_intelligence_scan` | Detailanalysen |
+
+---
+
+## 🔌 Switch-Monitoring via SNMP
+
+### Switch-Status abfragen
+
+```json
+{
+  "action": "get_switch_status",
+  "params": { "host": "192.168.1.10" }
+}
+```
+
+Ohne `host` werden alle konfigurierten Switches abgefragt.
+
+**Response enthält:**
+
+- `name`, `vendor`, `model`: Switch-Identifikation
+- `portCount`, `activePorts`: Port-Übersicht
+- `totalTraffic`: RX/TX Bytes gesamt
+- `poeStatus`: PoE-Leistung (wenn verfügbar)
+- `temperature`, `cpuLoad`: Hardware-Monitoring
+
+### Port-Traffic Details
+
+```json
+{
+  "action": "get_port_traffic",
+  "params": {
+    "host": "192.168.1.10",
+    "port": 5
+  }
+}
+```
+
+Ohne `port` werden alle Ports zurückgegeben.
+
+**Response pro Port:**
+
+- `operStatus`: up/down
+- `speed`: Link-Geschwindigkeit
+- `traffic.rxBytes`, `traffic.txBytes`: Datenmenge
+- `traffic.rxErrors`, `traffic.txErrors`: Fehler
+- `traffic.utilizationPercent`: Auslastung
+
+---
+
+## 🏠 Home Assistant Sensoren für Port-Traffic
+
+### SNMP-Integration in configuration.yaml
+
+```yaml
+sensor:
+  - platform: snmp
+    name: "Switch Port 1 RX"
+    host: 192.168.1.10
+    community: public
+    baseoid: 1.3.6.1.2.1.2.2.1.10.1
+    unit_of_measurement: "bytes"
+    
+  - platform: snmp
+    name: "Switch Port 1 TX"
+    host: 192.168.1.10
+    community: public
+    baseoid: 1.3.6.1.2.1.2.2.1.16.1
+    unit_of_measurement: "bytes"
+
+  - platform: snmp
+    name: "Switch Port 1 Status"
+    host: 192.168.1.10
+    community: public
+    baseoid: 1.3.6.1.2.1.2.2.1.8.1
+    value_template: "{{ 'up' if value == '1' else 'down' }}"
+```
+
+### Template-Sensor für Traffic-Rate
+
+```yaml
+template:
+  - sensor:
+      - name: "Switch Port 1 RX Rate"
+        unit_of_measurement: "Mbit/s"
+        state: >
+          {% set current = states('sensor.switch_port_1_rx') | float %}
+          {% set previous = state_attr('sensor.switch_port_1_rx', 'previous') | float(0) %}
+          {% set delta = current - previous %}
+          {{ (delta * 8 / 1000000) | round(2) }}
+```
+
+### Wichtige SNMP OIDs
+
+| OID | Beschreibung |
+|-----|--------------|
+| `1.3.6.1.2.1.2.2.1.8.X` | Port X Status (1=up) |
+| `1.3.6.1.2.1.2.2.1.10.X` | Port X RX Bytes |
+| `1.3.6.1.2.1.2.2.1.16.X` | Port X TX Bytes |
+| `1.3.6.1.2.1.2.2.1.14.X` | Port X RX Errors |
+| `1.3.6.1.2.1.2.2.1.20.X` | Port X TX Errors |
+| `1.3.6.1.2.1.2.2.1.5.X` | Port X Speed |
+
+### MikroTik-spezifische OIDs
+
+| OID | Beschreibung |
+|-----|--------------|
+| `1.3.6.1.4.1.14988.1.1.3.10.0` | Temperatur |
+| `1.3.6.1.4.1.14988.1.1.3.14.0` | CPU-Last |
+| `1.3.6.1.4.1.14988.1.1.15.1.1.6.X` | PoE Power Port X |
 
 ---
 

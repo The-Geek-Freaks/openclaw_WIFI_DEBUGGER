@@ -266,6 +266,12 @@ export class OpenClawAsusMeshSkill {
         case 'get_quick_diagnosis':
           return await this.handleGetQuickDiagnosis();
         
+        case 'get_switch_status':
+          return await this.handleGetSwitchStatus(action.params?.host);
+        
+        case 'get_port_traffic':
+          return await this.handleGetPortTraffic(action.params.host, action.params.port);
+        
         default:
           return this.errorResponse('unknown', 'Unknown action');
       }
@@ -1250,5 +1256,118 @@ export class OpenClawAsusMeshSkill {
       quickFixes: quickFixes.slice(0, 5),
       topPriority: quickFixes[0] ?? null,
     }, nextSteps);
+  }
+
+  private async handleGetSwitchStatus(host?: string): Promise<SkillResponse> {
+    if (!this.snmpClient.isConfigured()) {
+      return this.errorResponse(
+        'get_switch_status',
+        'Keine SNMP-Geräte konfiguriert. Füge Switches in der Config hinzu.'
+      );
+    }
+
+    const devices = this.snmpClient.getConfiguredDevices();
+    const results: Array<{
+      host: string;
+      status: Awaited<ReturnType<SnmpClient['getSwitchStatus']>>;
+    }> = [];
+
+    const targetDevices = host 
+      ? devices.filter(d => d.host === host)
+      : devices;
+
+    for (const device of targetDevices) {
+      const status = await this.snmpClient.getSwitchStatus(device.host, device.port);
+      results.push({ host: device.host, status });
+    }
+
+    const successfulResults = results.filter(r => r.status !== null);
+    
+    if (successfulResults.length === 0) {
+      return this.errorResponse(
+        'get_switch_status',
+        host 
+          ? `Switch ${host} nicht erreichbar via SNMP`
+          : 'Keine Switches erreichbar via SNMP'
+      );
+    }
+
+    const suggestions: string[] = [];
+    
+    for (const r of successfulResults) {
+      if (r.status) {
+        suggestions.push(`${r.status.name}: ${r.status.activePorts}/${r.status.portCount} Ports aktiv`);
+        if (r.status.temperature && r.status.temperature > 60) {
+          suggestions.push(`⚠️ ${r.status.name}: Hohe Temperatur (${r.status.temperature}°C)`);
+        }
+        if (r.status.poeStatus) {
+          suggestions.push(`PoE: ${r.status.poeStatus.usedPower}W von ${r.status.poeStatus.totalPower}W`);
+        }
+      }
+    }
+
+    suggestions.push('Nutze get_port_traffic für Details zu einzelnen Ports');
+
+    return this.successResponse('get_switch_status', {
+      switches: successfulResults.map(r => r.status),
+      summary: {
+        totalSwitches: successfulResults.length,
+        totalPorts: successfulResults.reduce((sum, r) => sum + (r.status?.portCount ?? 0), 0),
+        activePorts: successfulResults.reduce((sum, r) => sum + (r.status?.activePorts ?? 0), 0),
+      },
+    }, suggestions);
+  }
+
+  private async handleGetPortTraffic(host: string, portNumber?: number): Promise<SkillResponse> {
+    if (!this.snmpClient.isConfigured()) {
+      return this.errorResponse(
+        'get_port_traffic',
+        'Keine SNMP-Geräte konfiguriert'
+      );
+    }
+
+    const ports = await this.snmpClient.getSwitchPortDetails(host);
+    
+    if (ports.length === 0) {
+      return this.errorResponse(
+        'get_port_traffic',
+        `Keine Port-Daten von ${host} erhalten. SNMP-Zugriff prüfen.`
+      );
+    }
+
+    const filteredPorts = portNumber 
+      ? ports.filter(p => p.port === portNumber)
+      : ports;
+
+    const activePorts = filteredPorts.filter(p => p.operStatus === 'up');
+    const portsWithErrors = filteredPorts.filter(p => 
+      p.traffic.rxErrors > 0 || p.traffic.txErrors > 0
+    );
+
+    const suggestions: string[] = [
+      `${activePorts.length} von ${filteredPorts.length} Ports aktiv`,
+    ];
+
+    if (portsWithErrors.length > 0) {
+      suggestions.push(`⚠️ ${portsWithErrors.length} Ports mit Fehlern - Kabel/Verbindung prüfen`);
+    }
+
+    const highUtilPorts = filteredPorts.filter(p => p.traffic.utilizationPercent > 80);
+    if (highUtilPorts.length > 0) {
+      suggestions.push(`📊 ${highUtilPorts.length} Ports mit hoher Auslastung (>80%)`);
+    }
+
+    suggestions.push('Richte HA-Sensoren ein für kontinuierliches Port-Traffic-Monitoring');
+
+    return this.successResponse('get_port_traffic', {
+      host,
+      ports: filteredPorts,
+      summary: {
+        totalPorts: filteredPorts.length,
+        activePorts: activePorts.length,
+        portsWithErrors: portsWithErrors.length,
+        highUtilizationPorts: highUtilPorts.length,
+      },
+    }, suggestions);
   }
 }
