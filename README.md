@@ -347,7 +347,7 @@ const openclawData = detector.exportForOpenClaw();
 #### Unterstützte Vendors
 
 | Vendor | SSID-Pattern | Erkannte Typen |
-|--------|-------------|----------------|
+| ------ | ------------ | -------------- |
 | Tuya | `SmartLife-*`, `TUYA*` | Setup-AP |
 | Shelly | `shelly*`, `ShellyPlus*` | Setup-AP |
 | Tasmota | `Tasmota-*`, `tasmota_*` | Config-Portal |
@@ -363,7 +363,7 @@ const openclawData = detector.exportForOpenClaw();
 #### OpenClaw Action Types
 
 | Action | Beschreibung | Unterstützte Vendors |
-|--------|-------------|---------------------|
+| ------ | ------------ | -------------------- |
 | `restart_device` | Gerät neustarten | Shelly, alle mit HA-Entity |
 | `disable_ap` | AP-Modus deaktivieren | Tasmota |
 | `reconfigure_wifi` | WiFi neu konfigurieren | Alle (manuell) |
@@ -382,6 +382,7 @@ const openclawData = detector.exportForOpenClaw();
 ### Empfohlene Konfiguration
 
 Für minimale Interferenz:
+
 - **WiFi 2.4GHz**: Kanal 1 oder 11
 - **Zigbee**: Kanal 25 (bei WiFi 1) oder Kanal 15 (bei WiFi 11)
 
