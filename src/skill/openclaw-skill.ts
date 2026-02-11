@@ -851,7 +851,31 @@ export class OpenClawAsusMeshSkill {
 
     const heatmap = this.heatmapGenerator.generateFloorHeatmap(floor ?? 0);
 
-    return this.successResponse('get_heatmap', heatmap);
+    const deviceCount = this.meshState?.devices?.length ?? 0;
+    const devicesWithSignal = this.meshState?.devices?.filter(d => d.signalStrength !== undefined).length ?? 0;
+    const telemetryQuality = deviceCount > 0 ? Math.round((devicesWithSignal / deviceCount) * 100) : 0;
+
+    const suggestions: string[] = [];
+    if (telemetryQuality < 50) {
+      suggestions.push('⚠️ Wenig Signal-Telemetrie verfügbar - führe scan_network durch für bessere Daten');
+    }
+    if (deviceCount < 5) {
+      suggestions.push('📶 Mehr Geräte-Messungen verbessern die Heatmap-Genauigkeit');
+    }
+    suggestions.push('📍 Für räumliche Analyse: get_placement_recommendations');
+    suggestions.push('📐 Für Triangulation: set_node_position mit bekannten Positionen');
+
+    return this.successResponse('get_heatmap', {
+      ...heatmap,
+      telemetryStats: {
+        totalDevices: deviceCount,
+        devicesWithSignalData: devicesWithSignal,
+        telemetryQuality: `${telemetryQuality}%`,
+        recommendation: telemetryQuality < 70 
+          ? 'Mehr Signal-Messungen sammeln für genauere Heatmap'
+          : 'Gute Telemetrie-Abdeckung',
+      },
+    }, suggestions);
   }
 
   private async handleRunBenchmark(): Promise<SkillResponse> {
