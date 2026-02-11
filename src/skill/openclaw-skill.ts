@@ -2,11 +2,16 @@ import { createChildLogger } from '../utils/logger.js';
 import { loadConfigFromEnv, type Config } from '../config/index.js';
 import { AsusSshClient } from '../infra/asus-ssh-client.js';
 import { HomeAssistantClient } from '../infra/homeassistant-client.js';
+import { SnmpClient } from '../infra/snmp-client.js';
 import { MeshAnalyzer } from '../core/mesh-analyzer.js';
 import { TriangulationEngine } from '../core/triangulation.js';
 import { ProblemDetector } from '../core/problem-detector.js';
 import { FrequencyOptimizer } from '../core/frequency-optimizer.js';
 import { ZigbeeAnalyzer } from '../core/zigbee-analyzer.js';
+import { HeatmapGenerator } from '../core/heatmap-generator.js';
+import { BenchmarkEngine } from '../core/benchmark-engine.js';
+import { IoTWifiDetector } from '../core/iot-wifi-detector.js';
+import { NetworkTopologyAnalyzer } from '../core/network-topology-analyzer.js';
 import type { SkillAction, SkillResponse } from './actions.js';
 import type { MeshNetworkState } from '../types/network.js';
 import type { ZigbeeNetworkState } from '../types/zigbee.js';
@@ -23,6 +28,11 @@ export class OpenClawAsusMeshSkill {
   private readonly problemDetector: ProblemDetector;
   private readonly frequencyOptimizer: FrequencyOptimizer;
   private readonly zigbeeAnalyzer: ZigbeeAnalyzer;
+  private readonly heatmapGenerator: HeatmapGenerator;
+  private readonly benchmarkEngine: BenchmarkEngine;
+  private readonly iotDetector: IoTWifiDetector;
+  private readonly topologyAnalyzer: NetworkTopologyAnalyzer;
+  private readonly snmpClient: SnmpClient;
   
   private meshState: MeshNetworkState | null = null;
   private zigbeeState: ZigbeeNetworkState | null = null;
@@ -39,6 +49,11 @@ export class OpenClawAsusMeshSkill {
     this.problemDetector = new ProblemDetector();
     this.frequencyOptimizer = new FrequencyOptimizer(this.sshClient);
     this.zigbeeAnalyzer = new ZigbeeAnalyzer(this.hassClient);
+    this.heatmapGenerator = new HeatmapGenerator();
+    this.benchmarkEngine = new BenchmarkEngine(this.sshClient);
+    this.iotDetector = new IoTWifiDetector(this.sshClient, this.hassClient);
+    this.snmpClient = new SnmpClient();
+    this.topologyAnalyzer = new NetworkTopologyAnalyzer(this.snmpClient);
   }
 
   async initialize(): Promise<void> {
@@ -155,6 +170,24 @@ export class OpenClawAsusMeshSkill {
         
         case 'get_channel_scan':
           return await this.handleGetChannelScan(action.params?.band);
+        
+        case 'scan_rogue_iot':
+          return await this.handleScanRogueIot();
+        
+        case 'get_heatmap':
+          return await this.handleGetHeatmap(action.params?.floor);
+        
+        case 'run_benchmark':
+          return await this.handleRunBenchmark();
+        
+        case 'sync_mesh_settings':
+          return await this.handleSyncMeshSettings(
+            action.params?.channel2g,
+            action.params?.channel5g
+          );
+        
+        case 'analyze_network_topology':
+          return await this.handleAnalyzeNetworkTopology();
         
         default:
           return this.errorResponse('unknown', 'Unknown action');
@@ -540,6 +573,77 @@ export class OpenClawAsusMeshSkill {
 
     return this.successResponse('get_channel_scan', {
       channels: results,
+    });
+  }
+
+  private async handleScanRogueIot(): Promise<SkillResponse> {
+    const result = await this.iotDetector.scanForRogueIoTNetworks();
+
+    return this.successResponse('scan_rogue_iot', {
+      rogueNetworks: result.rogueNetworks.length,
+      networks: result.rogueNetworks,
+      suggestedActions: result.suggestedActions,
+    });
+  }
+
+  private async handleGetHeatmap(floor?: number): Promise<SkillResponse> {
+    if (!this.meshState) {
+      this.meshState = await this.meshAnalyzer.scan();
+    }
+
+    const heatmap = this.heatmapGenerator.generateFloorHeatmap(floor ?? 0);
+
+    return this.successResponse('get_heatmap', heatmap);
+  }
+
+  private async handleRunBenchmark(): Promise<SkillResponse> {
+    const result = await this.benchmarkEngine.runFullBenchmark();
+
+    return this.successResponse('run_benchmark', {
+      id: result.id,
+      duration: result.duration,
+      tests: result.tests,
+      timestamp: result.timestamp,
+    });
+  }
+
+  private async handleSyncMeshSettings(
+    channel2g?: number,
+    channel5g?: number
+  ): Promise<SkillResponse> {
+    const changes: string[] = [];
+
+    if (channel2g !== undefined) {
+      await this.sshClient.setNvram('wl0_channel', String(channel2g));
+      changes.push(`2.4GHz channel set to ${channel2g}`);
+    }
+    if (channel5g !== undefined) {
+      await this.sshClient.setNvram('wl1_channel', String(channel5g));
+      changes.push(`5GHz channel set to ${channel5g}`);
+    }
+
+    if (changes.length > 0) {
+      await this.sshClient.commitNvram();
+    }
+
+    return this.successResponse('sync_mesh_settings', {
+      changes,
+      message: changes.length > 0 
+        ? 'Settings synced. Restart wireless to apply.' 
+        : 'No changes specified',
+    });
+  }
+
+  private async handleAnalyzeNetworkTopology(): Promise<SkillResponse> {
+    const topology = await this.topologyAnalyzer.discoverTopology();
+
+    return this.successResponse('analyze_network_topology', {
+      devices: topology.devices.length,
+      links: topology.links.length,
+      bottlenecks: topology.bottlenecks,
+      problemDevices: topology.problemDevices,
+      overallHealth: topology.overallHealthScore,
+      recommendations: topology.recommendations,
     });
   }
 

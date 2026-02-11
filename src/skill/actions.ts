@@ -105,6 +105,31 @@ export const SkillActionSchema = z.discriminatedUnion('action', [
       band: z.enum(['2.4GHz', '5GHz', 'both']).optional(),
     }).optional(),
   }),
+  z.object({
+    action: z.literal('scan_rogue_iot'),
+    params: z.object({}).optional(),
+  }),
+  z.object({
+    action: z.literal('get_heatmap'),
+    params: z.object({
+      floor: z.number().optional(),
+    }).optional(),
+  }),
+  z.object({
+    action: z.literal('run_benchmark'),
+    params: z.object({}).optional(),
+  }),
+  z.object({
+    action: z.literal('sync_mesh_settings'),
+    params: z.object({
+      channel2g: z.number().optional(),
+      channel5g: z.number().optional(),
+    }).optional(),
+  }),
+  z.object({
+    action: z.literal('analyze_network_topology'),
+    params: z.object({}).optional(),
+  }),
 ]);
 
 export type SkillAction = z.infer<typeof SkillActionSchema>;
