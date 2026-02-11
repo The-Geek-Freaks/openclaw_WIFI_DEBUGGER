@@ -247,16 +247,26 @@ Nach jeder erfolgreichen Optimierung schlägt der Skill automatisch diese Schrit
 │  📋 EMPFOHLENE NÄCHSTE SCHRITTE:                            │
 │  ├─ scan_network          → Verbesserungen messen           │
 │  ├─ get_network_health    → Health Score vergleichen        │
-│  └─ get_heatmap           → Signal-Coverage visualisieren   │
+│  └─ run_benchmark         → Speed/Latency mit iPerf3 testen │
 │                                                              │
-│  🚀 ERWEITERTE ANALYSE:                                      │
+│  📊 TELEMETRIE SAMMELN:                                      │
+│  ├─ get_device_list       → Signal-Stärke aller Geräte      │
+│  ├─ get_channel_scan      → Kanal-Auslastung analysieren    │
+│  └─ get_frequency_conflicts → Interferenz prüfen            │
+│                                                              │
+│  🗺️ VISUALISIERUNG:                                         │
+│  ├─ get_heatmap           → Signal-Coverage visualisieren   │
+│  └─ get_floor_visualization → Geräte auf Grundriss          │
+│                                                              │
+│  🚀 RÄUMLICHE ANALYSE:                                       │
 │  ├─ get_placement_recommendations → Geräte verschieben?     │
 │  ├─ set_floor_plan        → Grundriss-JPGs für Raum-Map     │
-│  ├─ get_roaming_analysis  → Client-Roaming prüfen           │
-│  └─ run_benchmark         → Speed/Latency testen            │
+│  └─ get_roaming_analysis  → Client-Roaming prüfen           │
 │                                                              │
 │  ❓ FRAGE DEN USER:                                          │
 │  • "Soll ich einen Verification-Scan durchführen?"          │
+│  • "Möchtest du einen Speed-Test (iPerf3) ausführen?"       │
+│  • "Soll ich Signal-Telemetrie für alle Geräte sammeln?"    │
 │  • "Möchtest du eine Heatmap sehen?"                        │
 │  • "Soll ich Triangulationsdaten sammeln?"                  │
 │  • "Hast du Grundriss-Bilder (JPG) für die Raum-Map?"       │

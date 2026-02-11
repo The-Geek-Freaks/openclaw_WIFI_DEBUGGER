@@ -634,6 +634,8 @@ export class OpenClawAsusMeshSkill {
     const followUpSuggestions = success ? [
       '🔄 Neuen Netzwerk-Scan durchführen um Verbesserungen zu messen (scan_network)',
       '📊 Health Score neu berechnen (get_network_health)',
+      '⚡ Speed/Latency Benchmark ausführen mit iPerf3 (run_benchmark)',
+      '📶 Signal-Stärke aller Geräte messen (get_device_list mit signal data)',
       '🗺️ Signal-Heatmap generieren für visuelle Analyse (get_heatmap)',
       '📍 Räumliche Platzierungsempfehlungen abrufen (get_placement_recommendations)',
       '📐 Triangulationsdaten für Geräte-Positionierung sammeln (get_device_positions)',
@@ -653,15 +655,26 @@ export class OpenClawAsusMeshSkill {
         recommended: [
           { action: 'scan_network', reason: 'Verify improvements after optimization' },
           { action: 'get_network_health', reason: 'Compare health score before/after' },
-          { action: 'get_heatmap', reason: 'Visualize signal coverage changes' },
+          { action: 'run_benchmark', reason: 'Measure speed/latency with iPerf3 before/after' },
         ],
-        advanced: [
+        telemetry: [
+          { action: 'get_device_list', reason: 'Collect signal strength for all devices' },
+          { action: 'get_channel_scan', reason: 'Analyze channel congestion levels' },
+          { action: 'get_frequency_conflicts', reason: 'Check WiFi/Zigbee interference' },
+        ],
+        visualization: [
+          { action: 'get_heatmap', reason: 'Visualize signal coverage changes' },
+          { action: 'get_floor_visualization', reason: 'See devices on floor plan' },
+        ],
+        spatial: [
           { action: 'get_placement_recommendations', reason: 'Optimize device/node positions' },
           { action: 'set_floor_plan', reason: 'Upload room images for spatial mapping' },
           { action: 'get_roaming_analysis', reason: 'Check client roaming behavior' },
         ],
         askUser: [
           'Soll ich einen Verification-Scan durchführen?',
+          'Möchtest du einen Speed-Test (iPerf3) ausführen?',
+          'Soll ich Signal-Telemetrie für alle Geräte sammeln?',
           'Möchtest du eine Heatmap sehen?',
           'Soll ich Triangulationsdaten sammeln für räumliche Empfehlungen?',
           'Hast du Grundriss-Bilder (JPG) die ich für die Raum-Map nutzen kann?',
@@ -1807,6 +1820,8 @@ export class OpenClawAsusMeshSkill {
     const suggestions: string[] = [
       '🔄 Netzwerk-Scan durchführen um Auswirkungen zu prüfen (scan_network)',
       '📊 Health Score neu berechnen (get_network_health)',
+      '⚡ Speed/Latency Benchmark mit iPerf3 ausführen (run_benchmark)',
+      '📶 Signal-Telemetrie aller Geräte sammeln (get_device_list)',
       '🗺️ Heatmap generieren für Signal-Visualisierung (get_heatmap)',
       '📍 Räumliche Platzierungsempfehlungen abrufen (get_placement_recommendations)',
     ];
@@ -1824,15 +1839,25 @@ export class OpenClawAsusMeshSkill {
         recommended: [
           { action: 'scan_network', reason: 'Verify tweak impact on network' },
           { action: 'get_network_health', reason: 'Check health score improvement' },
-          { action: 'check_router_tweaks', reason: 'Review remaining optimization opportunities' },
+          { action: 'run_benchmark', reason: 'Measure speed/latency with iPerf3' },
         ],
-        advanced: [
+        telemetry: [
+          { action: 'get_device_list', reason: 'Collect signal strength for all devices' },
+          { action: 'get_channel_scan', reason: 'Analyze channel congestion' },
+          { action: 'get_frequency_conflicts', reason: 'Check interference levels' },
+        ],
+        visualization: [
           { action: 'get_heatmap', reason: 'Visualize signal changes' },
+          { action: 'get_floor_visualization', reason: 'See coverage on floor plan' },
+        ],
+        spatial: [
           { action: 'get_placement_recommendations', reason: 'Optimize device positioning' },
-          { action: 'run_benchmark', reason: 'Measure speed/latency improvements' },
+          { action: 'get_roaming_analysis', reason: 'Analyze client handoff behavior' },
         ],
         askUser: [
           'Soll ich einen Verification-Scan durchführen?',
+          'Möchtest du einen Speed-Test (iPerf3) ausführen?',
+          'Soll ich Signal-Telemetrie für alle Geräte sammeln?',
           'Möchtest du weitere Tweaks anwenden?',
           'Soll ich eine Heatmap erstellen?',
           'Möchtest du Triangulationsdaten für räumliche Empfehlungen sammeln?',
