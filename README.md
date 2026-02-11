@@ -15,7 +15,7 @@
 <h3>🚀 Intelligente Mesh-Netzwerk Analyse & Optimierung für ASUS Router</h3>
 
 <p>
-  <strong>28 Actions</strong> • <strong>16 Core Modules</strong> • <strong>100+ Vendor OUIs</strong> • <strong>64 Tests</strong>
+  <strong>30 Actions</strong> • <strong>17 Core Modules</strong> • <strong>100+ Vendor OUIs</strong> • <strong>64 Tests</strong>
 </p>
 
 ![Node.js](https://img.shields.io/badge/Node.js-18%2B-green?style=for-the-badge&logo=node.js)
@@ -40,7 +40,7 @@
 | **Memory Leaks** | 0 | ✅ Geprüft |
 | **OpenClaw Ready** | v2.0+ | ✅ Kompatibel |
 
-**16 Core Modules** • **5 Infra Clients** • **10 Type Definitions** • **100% Reversible**
+**17 Core Modules** • **5 Infra Clients** • **10 Type Definitions** • **100% Reversible**
 
 </div>
 

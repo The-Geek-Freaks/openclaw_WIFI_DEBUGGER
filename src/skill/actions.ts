@@ -164,6 +164,23 @@ export const SkillActionSchema = z.discriminatedUnion('action', [
     action: z.literal('get_placement_recommendations'),
     params: z.object({}).optional(),
   }),
+  z.object({
+    action: z.literal('set_floor_plan'),
+    params: z.object({
+      floor: z.number(),
+      name: z.string(),
+      imagePath: z.string().optional(),
+      imageBase64: z.string().optional(),
+      widthMeters: z.number(),
+      heightMeters: z.number(),
+    }),
+  }),
+  z.object({
+    action: z.literal('get_floor_visualization'),
+    params: z.object({
+      floor: z.number(),
+    }),
+  }),
 ]);
 
 export type SkillAction = z.infer<typeof SkillActionSchema>;

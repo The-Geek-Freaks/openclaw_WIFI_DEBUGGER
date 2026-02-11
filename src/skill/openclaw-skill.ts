@@ -14,6 +14,7 @@ import { IoTWifiDetector } from '../core/iot-wifi-detector.js';
 import { NetworkTopologyAnalyzer } from '../core/network-topology-analyzer.js';
 import { NetworkIntelligence } from '../core/network-intelligence.js';
 import { SpatialRecommendationEngine } from '../core/spatial-recommendations.js';
+import { FloorPlanManager } from '../core/floor-plan-manager.js';
 import type { SkillAction, SkillResponse } from './actions.js';
 import type { MeshNetworkState } from '../types/network.js';
 import type { ZigbeeNetworkState } from '../types/zigbee.js';
@@ -37,6 +38,7 @@ export class OpenClawAsusMeshSkill {
   private readonly snmpClient: SnmpClient;
   private readonly networkIntelligence: NetworkIntelligence;
   private readonly spatialEngine: SpatialRecommendationEngine;
+  private readonly floorPlanManager: FloorPlanManager;
   
   private meshState: MeshNetworkState | null = null;
   private zigbeeState: ZigbeeNetworkState | null = null;
@@ -71,6 +73,7 @@ export class OpenClawAsusMeshSkill {
       this.topologyAnalyzer
     );
     this.spatialEngine = new SpatialRecommendationEngine();
+    this.floorPlanManager = new FloorPlanManager();
   }
 
   async initialize(): Promise<void> {
@@ -253,6 +256,12 @@ export class OpenClawAsusMeshSkill {
         
         case 'get_placement_recommendations':
           return await this.handleGetPlacementRecommendations();
+        
+        case 'set_floor_plan':
+          return await this.handleSetFloorPlan(action.params);
+        
+        case 'get_floor_visualization':
+          return await this.handleGetFloorVisualization(action.params.floor);
         
         default:
           return this.errorResponse('unknown', 'Unknown action');
@@ -1045,5 +1054,96 @@ export class OpenClawAsusMeshSkill {
       overlapZones: analysis.overlapZones,
       summary: analysis.summary,
     }, suggestions);
+  }
+
+  private async handleSetFloorPlan(params: {
+    floor: number;
+    name: string;
+    imagePath?: string | undefined;
+    imageBase64?: string | undefined;
+    widthMeters: number;
+    heightMeters: number;
+  }): Promise<SkillResponse> {
+    let result;
+
+    if (params.imageBase64) {
+      result = await this.floorPlanManager.setFloorPlanFromBase64({
+        floor: params.floor,
+        name: params.name,
+        imageBase64: params.imageBase64,
+        widthMeters: params.widthMeters,
+        heightMeters: params.heightMeters,
+      });
+    } else if (params.imagePath) {
+      result = await this.floorPlanManager.setFloorPlan({
+        floor: params.floor,
+        name: params.name,
+        imagePath: params.imagePath,
+        widthMeters: params.widthMeters,
+        heightMeters: params.heightMeters,
+      });
+    } else {
+      return this.errorResponse('set_floor_plan', 'Entweder imagePath oder imageBase64 muss angegeben werden');
+    }
+
+    if (!result.success) {
+      return this.errorResponse('set_floor_plan', result.message);
+    }
+
+    return this.successResponse('set_floor_plan', {
+      floor: params.floor,
+      name: params.name,
+      configured: true,
+      allFloors: this.floorPlanManager.getAllFloors(),
+    }, [
+      result.message,
+      'Nutze get_floor_visualization um die Etage mit Netzwerkdaten anzuzeigen',
+    ]);
+  }
+
+  private async handleGetFloorVisualization(floor: number): Promise<SkillResponse> {
+    if (!this.floorPlanManager.hasFloorPlans()) {
+      return this.errorResponse(
+        'get_floor_visualization',
+        'Keine Grundrisse konfiguriert. Nutze set_floor_plan zuerst.'
+      );
+    }
+
+    if (!this.meshState) {
+      this.meshState = await this.meshAnalyzer.scan();
+    }
+
+    const visualization = this.floorPlanManager.generateVisualization(
+      floor,
+      this.meshState.nodes,
+      this.meshState.devices
+    );
+
+    if (!visualization) {
+      return this.errorResponse(
+        'get_floor_visualization',
+        `Kein Grundriss für Etage ${floor} konfiguriert. Verfügbare Etagen: ${this.floorPlanManager.getAllFloors().join(', ')}`
+      );
+    }
+
+    return this.successResponse('get_floor_visualization', {
+      floor: visualization.floor,
+      floorName: visualization.floorName,
+      imageBase64: visualization.imageBase64,
+      svgOverlay: visualization.svgOverlay,
+      asciiPreview: visualization.asciiPreview,
+      nodes: visualization.nodes,
+      devices: visualization.devices,
+      legend: visualization.legend,
+      summary: {
+        nodeCount: visualization.nodes.length,
+        deviceCount: visualization.devices.length,
+        signalZones: visualization.signalZones.length,
+      },
+    }, [
+      `Etage ${floor}: ${visualization.nodes.length} Nodes, ${visualization.devices.length} Geräte`,
+      'Das SVG-Overlay kann über das Grundrissbild gelegt werden',
+      'asciiPreview zeigt eine Text-Vorschau der Etage',
+    ]);
   }
 }

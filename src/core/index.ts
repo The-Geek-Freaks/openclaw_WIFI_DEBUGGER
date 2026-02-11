@@ -10,6 +10,8 @@ export * from './neighbor-monitor.js';
 export { NetworkIntelligence } from './network-intelligence.js';
 export { SpatialRecommendationEngine } from './spatial-recommendations.js';
 export type { PlacementRecommendation, SpatialAnalysisResult } from './spatial-recommendations.js';
+export { FloorPlanManager } from './floor-plan-manager.js';
+export type { FloorPlanConfig, FloorVisualization, NodeMarker, DeviceMarker } from './floor-plan-manager.js';
 export * from './multi-node-coordinator.js';
 export * from './iot-wifi-detector.js';
 export * from './multi-gen-coordinator.js';
