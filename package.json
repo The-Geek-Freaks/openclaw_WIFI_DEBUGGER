@@ -55,14 +55,12 @@
     "node-cron": "^3.0.3",
     "pino": "^8.17.0",
     "snmp-native": "^1.2.0",
-    "ssh2": "^1.15.0",
     "ws": "^8.16.0",
     "zod": "^3.22.0"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
     "@types/node-cron": "^3.0.11",
-    "@types/ssh2": "^1.11.0",
     "@types/ws": "^8.5.10",
     "@typescript-eslint/eslint-plugin": "^6.18.0",
     "@typescript-eslint/parser": "^6.18.0",

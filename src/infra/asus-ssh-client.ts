@@ -1,6 +1,6 @@
-import { Client, ConnectConfig, Algorithms } from 'ssh2';
+import { spawn } from 'child_process';
 import { EventEmitter } from 'eventemitter3';
-import { readFile } from 'fs/promises';
+import { access, constants } from 'fs/promises';
 import { createChildLogger } from '../utils/logger.js';
 import { withTimeout, Semaphore } from '../utils/async-helpers.js';
 import type { Config } from '../config/index.js';
@@ -17,54 +17,10 @@ const SSH_CONNECT_TIMEOUT = 15000;
 const SSH_COMMAND_TIMEOUT = 30000;
 const MAX_CONCURRENT_COMMANDS = 5;
 
-const DROPBEAR_COMPATIBLE_ALGORITHMS: Algorithms = {
-  kex: [
-    'curve25519-sha256',
-    'curve25519-sha256@libssh.org',
-    'ecdh-sha2-nistp256',
-    'ecdh-sha2-nistp384',
-    'ecdh-sha2-nistp521',
-    'diffie-hellman-group-exchange-sha256',
-    'diffie-hellman-group14-sha256',
-    'diffie-hellman-group14-sha1',
-    'diffie-hellman-group1-sha1',
-  ],
-  cipher: [
-    'chacha20-poly1305@openssh.com',
-    'aes128-ctr',
-    'aes192-ctr',
-    'aes256-ctr',
-    'aes128-gcm@openssh.com',
-    'aes256-gcm@openssh.com',
-    'aes256-cbc',
-    'aes192-cbc',
-    'aes128-cbc',
-    '3des-cbc',
-  ],
-  serverHostKey: [
-    'ssh-ed25519',
-    'ecdsa-sha2-nistp256',
-    'ecdsa-sha2-nistp384',
-    'ecdsa-sha2-nistp521',
-    'rsa-sha2-512',
-    'rsa-sha2-256',
-    'ssh-rsa',
-  ],
-  hmac: [
-    'hmac-sha2-256-etm@openssh.com',
-    'hmac-sha2-512-etm@openssh.com',
-    'hmac-sha2-256',
-    'hmac-sha2-512',
-    'hmac-sha1',
-  ],
-};
-
 export class AsusSshClient extends EventEmitter<SshClientEvents> {
-  private client: Client | null = null;
   private connected: boolean = false;
   private readonly config: Config['asus'];
   private readonly commandSemaphore = new Semaphore(MAX_CONCURRENT_COMMANDS);
-  private reconnecting: boolean = false;
 
   constructor(config: Config['asus']) {
     super();
@@ -76,118 +32,105 @@ export class AsusSshClient extends EventEmitter<SshClientEvents> {
       return;
     }
 
-    const connectPromise = this.doConnect();
+    const connectPromise = this.testConnection();
     return withTimeout(connectPromise, SSH_CONNECT_TIMEOUT, 'SSH connection timed out');
   }
 
-  private async doConnect(): Promise<void> {
-    this.client = new Client();
+  private async testConnection(): Promise<void> {
+    try {
+      const result = await this.executeRaw('echo "connected"');
+      if (result.trim() === 'connected') {
+        this.connected = true;
+        logger.info({ host: this.config.host }, 'SSH connection established via system SSH');
+        this.emit('connected');
+      } else {
+        throw new Error('Unexpected response from SSH test');
+      }
+    } catch (err) {
+      this.connected = false;
+      this.emit('error', err instanceof Error ? err : new Error(String(err)));
+      throw err;
+    }
+  }
 
-    const connectConfig: ConnectConfig = {
-      host: this.config.host,
-      port: this.config.sshPort,
-      username: this.config.sshUser,
-      readyTimeout: SSH_CONNECT_TIMEOUT,
-      keepaliveInterval: 30000,
-      keepaliveCountMax: 3,
-      algorithms: DROPBEAR_COMPATIBLE_ALGORITHMS,
-    };
+  private buildSshArgs(): string[] {
+    const args: string[] = [
+      '-o', 'BatchMode=yes',
+      '-o', 'StrictHostKeyChecking=no',
+      '-o', 'UserKnownHostsFile=/dev/null',
+      '-o', 'ConnectTimeout=10',
+      '-o', 'ServerAliveInterval=30',
+      '-o', 'ServerAliveCountMax=3',
+      '-o', 'LogLevel=ERROR',
+      '-p', String(this.config.sshPort),
+    ];
 
     if (this.config.sshKeyPath) {
-      connectConfig.privateKey = await readFile(this.config.sshKeyPath);
-    } else if (this.config.sshPassword) {
-      connectConfig.password = this.config.sshPassword;
+      args.push('-i', this.config.sshKeyPath);
     }
 
+    args.push(`${this.config.sshUser}@${this.config.host}`);
+
+    return args;
+  }
+
+  private executeRaw(command: string): Promise<string> {
     return new Promise((resolve, reject) => {
-      this.client!.on('ready', () => {
-        this.connected = true;
-        this.reconnecting = false;
-        logger.info({ host: this.config.host }, 'SSH connection established');
-        this.emit('connected');
-        resolve();
+      const args = [...this.buildSshArgs(), command];
+      
+      logger.debug({ host: this.config.host, command: command.substring(0, 50) }, 'Executing SSH command');
+
+      const sshProcess = spawn('ssh', args, {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        windowsHide: true,
       });
 
-      this.client!.on('error', (err) => {
-        logger.error({ err }, 'SSH connection error');
-        this.connected = false;
-        this.emit('error', err);
-        reject(err);
+      let stdout = '';
+      let stderr = '';
+
+      sshProcess.stdout.on('data', (data: Buffer) => {
+        stdout += data.toString();
       });
 
-      this.client!.on('close', () => {
-        this.connected = false;
-        logger.info('SSH connection closed');
-        this.emit('disconnected');
+      sshProcess.stderr.on('data', (data: Buffer) => {
+        stderr += data.toString();
       });
 
-      this.client!.connect(connectConfig);
+      sshProcess.on('close', (code: number | null) => {
+        if (code === 0) {
+          resolve(stdout);
+        } else if (code === 255) {
+          const errorMsg = stderr || 'SSH connection failed';
+          logger.error({ code, stderr: errorMsg, host: this.config.host }, 'SSH connection error');
+          this.connected = false;
+          reject(new Error(`SSH connection failed: ${errorMsg}`));
+        } else {
+          resolve(stdout);
+        }
+      });
+
+      sshProcess.on('error', (err: Error) => {
+        logger.error({ err }, 'Failed to spawn SSH process');
+        reject(new Error(`Failed to spawn SSH: ${err.message}`));
+      });
     });
   }
 
   async ensureConnected(): Promise<void> {
     if (this.connected) return;
-    if (this.reconnecting) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      return this.ensureConnected();
-    }
-    this.reconnecting = true;
-    try {
-      await this.connect();
-    } finally {
-      this.reconnecting = false;
-    }
+    await this.connect();
   }
 
   async disconnect(): Promise<void> {
-    if (this.client && this.connected) {
-      this.client.end();
-      this.connected = false;
-    }
+    this.connected = false;
+    this.emit('disconnected');
+    logger.info('SSH client disconnected');
   }
 
   async execute(command: string): Promise<string> {
-    await this.ensureConnected();
-
     return this.commandSemaphore.withLock(async () => {
-      const executePromise = this.doExecute(command);
+      const executePromise = this.executeRaw(command);
       return withTimeout(executePromise, SSH_COMMAND_TIMEOUT, `Command timed out: ${command.substring(0, 50)}`);
-    });
-  }
-
-  private doExecute(command: string): Promise<string> {
-    return new Promise((resolve, reject) => {
-      if (!this.client) {
-        reject(new Error('SSH client not initialized'));
-        return;
-      }
-
-      this.client.exec(command, (err, stream) => {
-        if (err) {
-          reject(err);
-          return;
-        }
-
-        let stdout = '';
-        let stderr = '';
-
-        stream.on('close', (code: number) => {
-          if (code !== 0 && stderr) {
-            logger.debug({ command: command.substring(0, 50), code, stderr }, 'Command failed');
-            reject(new Error(`Command failed with code ${code}: ${stderr}`));
-          } else {
-            resolve(stdout);
-          }
-        });
-
-        stream.on('data', (data: Buffer) => {
-          stdout += data.toString();
-        });
-
-        stream.stderr.on('data', (data: Buffer) => {
-          stderr += data.toString();
-        });
-      });
     });
   }
 

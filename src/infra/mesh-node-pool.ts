@@ -1,4 +1,4 @@
-import { Client, Algorithms } from 'ssh2';
+import { spawn } from 'child_process';
 import { createChildLogger } from '../utils/logger.js';
 import { withTimeout, Semaphore } from '../utils/async-helpers.js';
 import type { Config } from '../config/index.js';
@@ -10,48 +10,6 @@ const COMMAND_TIMEOUT_MS = 30000;
 const MAX_CONCURRENT_COMMANDS = 3;
 const RECONNECT_INTERVAL_MS = 60000;
 const MAX_RECONNECT_ATTEMPTS = 3;
-
-const DROPBEAR_COMPATIBLE_ALGORITHMS: Algorithms = {
-  kex: [
-    'curve25519-sha256',
-    'curve25519-sha256@libssh.org',
-    'ecdh-sha2-nistp256',
-    'ecdh-sha2-nistp384',
-    'ecdh-sha2-nistp521',
-    'diffie-hellman-group-exchange-sha256',
-    'diffie-hellman-group14-sha256',
-    'diffie-hellman-group14-sha1',
-    'diffie-hellman-group1-sha1',
-  ],
-  cipher: [
-    'chacha20-poly1305@openssh.com',
-    'aes128-ctr',
-    'aes192-ctr',
-    'aes256-ctr',
-    'aes128-gcm@openssh.com',
-    'aes256-gcm@openssh.com',
-    'aes256-cbc',
-    'aes192-cbc',
-    'aes128-cbc',
-    '3des-cbc',
-  ],
-  serverHostKey: [
-    'ssh-ed25519',
-    'ecdsa-sha2-nistp256',
-    'ecdsa-sha2-nistp384',
-    'ecdsa-sha2-nistp521',
-    'rsa-sha2-512',
-    'rsa-sha2-256',
-    'ssh-rsa',
-  ],
-  hmac: [
-    'hmac-sha2-256-etm@openssh.com',
-    'hmac-sha2-512-etm@openssh.com',
-    'hmac-sha2-256',
-    'hmac-sha2-512',
-    'hmac-sha1',
-  ],
-};
 
 export interface MeshNodeInfo {
   id: string;
@@ -74,7 +32,6 @@ export interface MeshNodeInfo {
 export interface NodeConnection {
   nodeId: string;
   ipAddress: string;
-  client: Client;
   connected: boolean;
   lastCommand: Date;
   semaphore: Semaphore;
@@ -84,13 +41,12 @@ export interface NodeConnection {
 export class MeshNodePool {
   private readonly config: Config;
   private readonly mainRouterIp: string;
-  private mainConnection: Client | null = null;
+  private mainConnected: boolean = false;
   private nodeConnections: Map<string, NodeConnection> = new Map();
   private discoveredNodes: Map<string, MeshNodeInfo> = new Map();
   private readonly sshPort: number;
   private readonly sshUser: string;
-  private readonly sshPassword: string;
-  private readonly sshPrivateKey: string | undefined;
+  private readonly sshKeyPath: string | undefined;
   private readonly mainSemaphore: Semaphore;
   private reconnectInterval: NodeJS.Timeout | null = null;
 
@@ -99,8 +55,7 @@ export class MeshNodePool {
     this.mainRouterIp = config.asus.host;
     this.sshPort = config.asus.sshPort;
     this.sshUser = config.asus.sshUser;
-    this.sshPassword = config.asus.sshPassword ?? '';
-    this.sshPrivateKey = config.asus.sshKeyPath;
+    this.sshKeyPath = config.asus.sshKeyPath;
     this.mainSemaphore = new Semaphore(MAX_CONCURRENT_COMMANDS);
   }
 
@@ -118,48 +73,88 @@ export class MeshNodePool {
   }
 
   private async connectToMainRouter(): Promise<void> {
-    const connect = (): Promise<void> => new Promise((resolve, reject) => {
-      this.mainConnection = new Client();
-      
-      this.mainConnection.on('ready', () => {
-        logger.info({ host: this.mainRouterIp }, 'Connected to main router');
-        resolve();
-      });
-
-      this.mainConnection.on('error', (err: Error) => {
-        logger.error({ err, host: this.mainRouterIp }, 'Main router connection error');
-        reject(err);
-      });
-
-      this.mainConnection.on('close', () => {
-        logger.warn({ host: this.mainRouterIp }, 'Main router connection closed');
-      });
-
-      const connectConfig: Parameters<Client['connect']>[0] = {
-        host: this.mainRouterIp,
-        port: this.sshPort,
-        username: this.sshUser,
-        readyTimeout: CONNECTION_TIMEOUT_MS,
-        algorithms: DROPBEAR_COMPATIBLE_ALGORITHMS,
-      };
-
-      if (this.sshPrivateKey) {
-        connectConfig.privateKey = this.sshPrivateKey;
+    try {
+      const result = await this.executeSshCommand(this.mainRouterIp, 'echo "connected"');
+      if (result.trim() === 'connected') {
+        this.mainConnected = true;
+        logger.info({ host: this.mainRouterIp }, 'Connected to main router via system SSH');
       } else {
-        connectConfig.password = this.sshPassword;
+        throw new Error('Unexpected response from SSH test');
       }
+    } catch (err) {
+      this.mainConnected = false;
+      logger.error({ err, host: this.mainRouterIp }, 'Main router connection error');
+      throw err;
+    }
+  }
 
-      this.mainConnection.connect(connectConfig);
+  private buildSshArgs(host: string): string[] {
+    const args: string[] = [
+      '-o', 'BatchMode=yes',
+      '-o', 'StrictHostKeyChecking=no',
+      '-o', 'UserKnownHostsFile=/dev/null',
+      '-o', 'ConnectTimeout=10',
+      '-o', 'ServerAliveInterval=30',
+      '-o', 'ServerAliveCountMax=3',
+      '-o', 'LogLevel=ERROR',
+      '-p', String(this.sshPort),
+    ];
+
+    if (this.sshKeyPath) {
+      args.push('-i', this.sshKeyPath);
+    }
+
+    args.push(`${this.sshUser}@${host}`);
+
+    return args;
+  }
+
+  private executeSshCommand(host: string, command: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const args = [...this.buildSshArgs(host), command];
+      
+      logger.debug({ host, command: command.substring(0, 50) }, 'Executing SSH command');
+
+      const sshProcess = spawn('ssh', args, {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        windowsHide: true,
+      });
+
+      let stdout = '';
+      let stderr = '';
+
+      sshProcess.stdout.on('data', (data: Buffer) => {
+        stdout += data.toString();
+      });
+
+      sshProcess.stderr.on('data', (data: Buffer) => {
+        stderr += data.toString();
+      });
+
+      sshProcess.on('close', (code: number | null) => {
+        if (code === 0) {
+          resolve(stdout);
+        } else if (code === 255) {
+          const errorMsg = stderr || 'SSH connection failed';
+          logger.error({ code, stderr: errorMsg, host }, 'SSH connection error');
+          reject(new Error(`SSH connection failed: ${errorMsg}`));
+        } else {
+          resolve(stdout);
+        }
+      });
+
+      sshProcess.on('error', (err: Error) => {
+        logger.error({ err }, 'Failed to spawn SSH process');
+        reject(new Error(`Failed to spawn SSH: ${err.message}`));
+      });
     });
-
-    await withTimeout(connect(), CONNECTION_TIMEOUT_MS, 'Main router connection');
   }
 
   async discoverAllNodes(): Promise<MeshNodeInfo[]> {
     logger.info('Discovering all mesh nodes');
     this.discoveredNodes.clear();
 
-    if (!this.mainConnection) {
+    if (!this.mainConnected) {
       throw new Error('Main router not connected');
     }
 
@@ -332,53 +327,28 @@ export class MeshNodePool {
   }
 
   private async connectToNode(node: MeshNodeInfo): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const client = new Client();
-
-      client.on('ready', () => {
-        logger.info({ nodeId: node.id, ip: node.ipAddress }, 'Connected to mesh node');
+    try {
+      const result = await this.executeSshCommand(node.ipAddress, 'echo "connected"');
+      if (result.trim() === 'connected') {
+        logger.info({ nodeId: node.id, ip: node.ipAddress }, 'Connected to mesh node via system SSH');
         
         this.nodeConnections.set(node.id, {
           nodeId: node.id,
           ipAddress: node.ipAddress,
-          client,
           connected: true,
           lastCommand: new Date(),
           semaphore: new Semaphore(MAX_CONCURRENT_COMMANDS),
           reconnectAttempts: 0,
         });
 
-        this.updateNodeInfoFromConnection(node.id).then(resolve).catch(reject);
-      });
-
-      client.on('error', (err) => {
-        logger.warn({ err, nodeId: node.id }, 'Node connection error');
-        reject(err);
-      });
-
-      client.on('close', () => {
-        const conn = this.nodeConnections.get(node.id);
-        if (conn) {
-          conn.connected = false;
-        }
-      });
-
-      const connectConfig: Parameters<Client['connect']>[0] = {
-        host: node.ipAddress,
-        port: this.sshPort,
-        username: this.sshUser,
-        readyTimeout: CONNECTION_TIMEOUT_MS,
-        algorithms: DROPBEAR_COMPATIBLE_ALGORITHMS,
-      };
-
-      if (this.sshPrivateKey) {
-        connectConfig.privateKey = this.sshPrivateKey;
+        await this.updateNodeInfoFromConnection(node.id);
       } else {
-        connectConfig.password = this.sshPassword;
+        throw new Error('Unexpected response from SSH test');
       }
-
-      client.connect(connectConfig);
-    });
+    } catch (err) {
+      logger.warn({ err, nodeId: node.id }, 'Node connection error');
+      throw err;
+    }
   }
 
   private async updateNodeInfoFromConnection(nodeId: string): Promise<void> {
@@ -422,35 +392,13 @@ export class MeshNodePool {
   }
 
   private async executeOnMain(command: string): Promise<string> {
-    if (!this.mainConnection) {
+    if (!this.mainConnected) {
       throw new Error('Main router not connected');
     }
 
     return this.mainSemaphore.withLock(async () => {
-      const exec = (): Promise<string> => new Promise((resolve, reject) => {
-        this.mainConnection!.exec(command, (err, stream) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-
-          let output = '';
-
-          stream.on('data', (data: Buffer) => {
-            output += data.toString();
-          });
-
-          stream.stderr.on('data', (_data: Buffer) => {
-            // Ignore stderr
-          });
-
-          stream.on('close', () => {
-            resolve(output);
-          });
-        });
-      });
-
-      return withTimeout(exec(), COMMAND_TIMEOUT_MS, `Main router command: ${command.slice(0, 50)}`);
+      const exec = this.executeSshCommand(this.mainRouterIp, command);
+      return withTimeout(exec, COMMAND_TIMEOUT_MS, `Main router command: ${command.slice(0, 50)}`);
     });
   }
 
@@ -465,27 +413,10 @@ export class MeshNodePool {
     }
 
     return connection.semaphore.withLock(async () => {
-      const exec = (): Promise<string> => new Promise((resolve, reject) => {
-        connection.client.exec(command, (err, stream) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-
-          let output = '';
-
-          stream.on('data', (data: Buffer) => {
-            output += data.toString();
-          });
-
-          stream.on('close', () => {
-            connection.lastCommand = new Date();
-            resolve(output);
-          });
-        });
-      });
-
-      return withTimeout(exec(), COMMAND_TIMEOUT_MS, `Node ${nodeId} command`);
+      const exec = this.executeSshCommand(connection.ipAddress, command);
+      const result = await withTimeout(exec, COMMAND_TIMEOUT_MS, `Node ${nodeId} command`);
+      connection.lastCommand = new Date();
+      return result;
     });
   }
 
@@ -645,7 +576,7 @@ export class MeshNodePool {
   }
 
   isNodeConnected(nodeId: string): boolean {
-    if (nodeId === 'main') return this.mainConnection !== null;
+    if (nodeId === 'main') return this.mainConnected;
     return this.nodeConnections.get(nodeId)?.connected ?? false;
   }
 
@@ -682,15 +613,10 @@ export class MeshNodePool {
     }
 
     for (const conn of this.nodeConnections.values()) {
-      if (conn.connected) {
-        conn.client.end();
-      }
+      conn.connected = false;
     }
 
-    if (this.mainConnection) {
-      this.mainConnection.end();
-    }
-
+    this.mainConnected = false;
     this.nodeConnections.clear();
     this.discoveredNodes.clear();
     logger.info('Mesh Node Pool shutdown complete');
@@ -730,7 +656,7 @@ export class MeshNodePool {
     return {
       totalNodes: this.discoveredNodes.size,
       connectedNodes: this.getConnectedNodes().length,
-      mainConnected: this.mainConnection !== null,
+      mainConnected: this.mainConnected,
       pendingReconnects,
     };
   }
