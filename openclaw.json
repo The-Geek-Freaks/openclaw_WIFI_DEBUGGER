@@ -6,10 +6,10 @@
   "description": "Comprehensive ASUS Mesh WiFi network analysis and optimization with Home Assistant Zigbee integration",
   "author": "OpenClaw Community",
   "license": "MIT",
-  "homepage": "https://github.com/openclaw/asus-mesh-wifi-analyzer",
+  "homepage": "https://github.com/The-Geek-Freaks/openclaw_WIFI_DEBUGGER",
   "repository": {
     "type": "git",
-    "url": "https://github.com/openclaw/asus-mesh-wifi-analyzer.git"
+    "url": "https://github.com/The-Geek-Freaks/openclaw_WIFI_DEBUGGER.git"
   },
   "keywords": [
     "asus",
@@ -181,6 +181,108 @@
       "name": "analyze_network_topology",
       "description": "Analyze network topology via SNMP (MikroTik, OPNsense, etc.)",
       "parameters": []
+    },
+    {
+      "name": "check_router_tweaks",
+      "description": "Check router NVRAM settings against community best practices (SNBForums, Reddit, Merlin)",
+      "parameters": []
+    },
+    {
+      "name": "apply_router_tweak",
+      "description": "Apply a router optimization tweak",
+      "parameters": [
+        {
+          "name": "tweakId",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "confirm",
+          "type": "boolean",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "get_recommended_scripts",
+      "description": "Get recommended Merlin scripts (Diversion, Skynet, FlexQoS, etc.)",
+      "parameters": []
+    },
+    {
+      "name": "get_knowledge_stats",
+      "description": "Get overview of stored network knowledge",
+      "parameters": []
+    },
+    {
+      "name": "get_known_devices",
+      "description": "Get all known devices with custom names and types",
+      "parameters": [
+        {
+          "name": "filter",
+          "type": "string",
+          "enum": ["all", "known", "unknown"],
+          "default": "all"
+        }
+      ]
+    },
+    {
+      "name": "mark_device_known",
+      "description": "Mark a device as known with custom name and type",
+      "parameters": [
+        {
+          "name": "macAddress",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "customName",
+          "type": "string"
+        },
+        {
+          "name": "deviceType",
+          "type": "string",
+          "enum": ["router", "switch", "ap", "computer", "phone", "tablet", "iot", "smart_home", "media", "gaming", "unknown"]
+        },
+        {
+          "name": "notes",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "get_network_history",
+      "description": "Get historical network snapshots and health scores",
+      "parameters": [
+        {
+          "name": "limit",
+          "type": "number",
+          "default": 10
+        }
+      ]
+    },
+    {
+      "name": "export_knowledge",
+      "description": "Export complete network knowledge base as JSON",
+      "parameters": []
     }
-  ]
+  ],
+  "metadata": {
+    "openclaw": {
+      "emoji": "📡",
+      "os": ["darwin", "linux", "win32"],
+      "requires": {
+        "bins": ["ssh"],
+        "env": ["ASUS_HOST", "ASUS_USER", "ASUS_PASSWORD"]
+      },
+      "primaryEnv": "ASUS_HOST",
+      "install": [
+        {
+          "id": "npm",
+          "kind": "node",
+          "package": "openclaw-asus-mesh-skill",
+          "label": "Install via npm"
+        }
+      ]
+    }
+  }
 }
