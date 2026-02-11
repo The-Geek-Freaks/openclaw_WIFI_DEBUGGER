@@ -79,26 +79,87 @@ export class AsusSshClient extends EventEmitter<SshClientEvents> {
   }
 
   private async autoDetectInterfaces(): Promise<void> {
-    const possibleInterfaces = ['eth5', 'eth6', 'eth7', 'eth8', 'eth9', 'eth10', 'wl0', 'wl1', 'wl2', 'wl3'];
-    const detected: string[] = [];
+    const possibleInterfaces = ['eth4', 'eth5', 'eth6', 'eth7', 'eth8', 'eth9', 'eth10', 'wl0', 'wl1', 'wl2', 'wl3'];
+    const bandMap: { iface: string; band: '2g' | '5g' | '5g2' | '6g' }[] = [];
     
     for (const iface of possibleInterfaces) {
       try {
-        const result = await this.executeRaw(`wl -i ${iface} status 2>/dev/null | head -1`);
+        const result = await this.executeRaw(`wl -i ${iface} status 2>/dev/null`);
         if (result && !result.includes('No such device') && !result.includes('error')) {
-          detected.push(iface);
+          const band = this.detectBandFromStatus(result);
+          if (band) {
+            bandMap.push({ iface, band });
+            logger.debug({ iface, band }, 'Detected wireless interface band');
+          }
         }
       } catch {
         // Interface not available
       }
     }
     
-    if (detected.length >= 1) this.detectedInterfaces.wl0 = detected[0];
-    if (detected.length >= 2) this.detectedInterfaces.wl1 = detected[1];
-    if (detected.length >= 3) this.detectedInterfaces.wl2 = detected[2];
-    if (detected.length >= 4) this.detectedInterfaces.wl3 = detected[3];
+    // Assign interfaces by detected band
+    const iface2g = bandMap.find(b => b.band === '2g');
+    const iface5g = bandMap.filter(b => b.band === '5g');
+    const iface6g = bandMap.find(b => b.band === '6g');
     
-    logger.info({ detected, mapped: this.detectedInterfaces }, 'Auto-detected wireless interfaces');
+    if (iface2g) this.detectedInterfaces.wl0 = iface2g.iface;
+    if (iface5g.length >= 1) this.detectedInterfaces.wl1 = iface5g[0]!.iface;
+    if (iface5g.length >= 2) this.detectedInterfaces.wl2 = iface5g[1]!.iface;
+    if (iface6g) this.detectedInterfaces.wl3 = iface6g.iface;
+    
+    // Fallback: if no band detected, use nvram
+    if (bandMap.length === 0) {
+      await this.detectInterfacesFromNvram();
+    }
+    
+    logger.info({ bandMap, mapped: this.detectedInterfaces }, 'Auto-detected wireless interfaces by band');
+  }
+
+  private detectBandFromStatus(status: string): '2g' | '5g' | '6g' | null {
+    // Parse "wl status" output for frequency/channel info
+    // Example: "Chanspec: 6l (2437 MHz)" or "Chanspec: 36/80 (5180 MHz)"
+    const freqMatch = status.match(/\((\d{4,5})\s*MHz\)/i);
+    if (freqMatch) {
+      const freq = parseInt(freqMatch[1]!, 10);
+      if (freq >= 2400 && freq <= 2500) return '2g';
+      if (freq >= 5150 && freq <= 5900) return '5g';
+      if (freq >= 5925 && freq <= 7125) return '6g';
+    }
+    
+    // Alternative: Check channel number
+    const chanMatch = status.match(/Chanspec:\s*(\d+)/i);
+    if (chanMatch) {
+      const chan = parseInt(chanMatch[1]!, 10);
+      if (chan >= 1 && chan <= 14) return '2g';
+      if (chan >= 32 && chan <= 177) return '5g';
+      if (chan >= 1 && chan <= 233 && status.includes('6GHz')) return '6g';
+    }
+    
+    // Check for band indicator in status
+    if (status.includes('2.4GHz') || status.includes('2.4 GHz')) return '2g';
+    if (status.includes('5GHz') || status.includes('5 GHz')) return '5g';
+    if (status.includes('6GHz') || status.includes('6 GHz')) return '6g';
+    
+    return null;
+  }
+
+  private async detectInterfacesFromNvram(): Promise<void> {
+    try {
+      // Read interface names from nvram
+      const wl0 = (await this.executeRaw('nvram get wl0_ifname 2>/dev/null')).trim();
+      const wl1 = (await this.executeRaw('nvram get wl1_ifname 2>/dev/null')).trim();
+      const wl2 = (await this.executeRaw('nvram get wl2_ifname 2>/dev/null')).trim();
+      const wl3 = (await this.executeRaw('nvram get wl3_ifname 2>/dev/null')).trim();
+      
+      if (wl0) this.detectedInterfaces.wl0 = wl0;
+      if (wl1) this.detectedInterfaces.wl1 = wl1;
+      if (wl2) this.detectedInterfaces.wl2 = wl2;
+      if (wl3) this.detectedInterfaces.wl3 = wl3;
+      
+      logger.info({ wl0, wl1, wl2, wl3 }, 'Detected interfaces from nvram');
+    } catch (err) {
+      logger.warn({ err }, 'Failed to detect interfaces from nvram');
+    }
   }
 
   getInterface(band: '2g' | '5g' | '5g2' | '6g'): string {
