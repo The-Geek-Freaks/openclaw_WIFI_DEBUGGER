@@ -21,16 +21,59 @@ export interface MeshAnalyzerEvents {
   signalDrop: (device: NetworkDevice, oldRssi: number, newRssi: number) => void;
 }
 
+const MAX_SIGNAL_HISTORY_ENTRIES = 1000;
+const MAX_CONNECTION_EVENTS = 500;
+
 export class MeshAnalyzer extends EventEmitter<MeshAnalyzerEvents> {
   private readonly sshClient: AsusSshClient;
   private currentState: MeshNetworkState | null = null;
   private signalHistory: Map<string, SignalMeasurement[]> = new Map();
   private connectionEvents: ConnectionEvent[] = [];
   private readonly maxHistoryAge: number = 7 * 24 * 60 * 60 * 1000;
+  private cleanupInterval: NodeJS.Timeout | null = null;
 
   constructor(sshClient: AsusSshClient) {
     super();
     this.sshClient = sshClient;
+    this.startCleanupInterval();
+  }
+
+  private startCleanupInterval(): void {
+    this.cleanupInterval = setInterval(() => this.cleanupOldData(), 60 * 60 * 1000);
+  }
+
+  private cleanupOldData(): void {
+    const cutoff = Date.now() - this.maxHistoryAge;
+    
+    for (const [key, history] of this.signalHistory) {
+      const filtered = history.filter(m => m.timestamp.getTime() >= cutoff);
+      if (filtered.length === 0) {
+        this.signalHistory.delete(key);
+      } else if (filtered.length > MAX_SIGNAL_HISTORY_ENTRIES) {
+        this.signalHistory.set(key, filtered.slice(-MAX_SIGNAL_HISTORY_ENTRIES));
+      } else {
+        this.signalHistory.set(key, filtered);
+      }
+    }
+
+    this.connectionEvents = this.connectionEvents
+      .filter(e => e.timestamp.getTime() >= cutoff)
+      .slice(-MAX_CONNECTION_EVENTS);
+    
+    logger.debug({ 
+      signalHistorySize: this.signalHistory.size,
+      connectionEventsCount: this.connectionEvents.length 
+    }, 'Cleanup complete');
+  }
+
+  destroy(): void {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+      this.cleanupInterval = null;
+    }
+    this.signalHistory.clear();
+    this.connectionEvents = [];
+    this.removeAllListeners();
   }
 
   async scan(): Promise<MeshNetworkState> {
@@ -280,11 +323,13 @@ export class MeshAnalyzer extends EventEmitter<MeshAnalyzerEvents> {
 
   private recordSignalMeasurement(deviceMac: string, nodeMac: string, rssi: number): void {
     const key = `${deviceMac}:${nodeMac}`;
-    if (!this.signalHistory.has(key)) {
-      this.signalHistory.set(key, []);
+    let history = this.signalHistory.get(key);
+    
+    if (!history) {
+      history = [];
+      this.signalHistory.set(key, history);
     }
 
-    const history = this.signalHistory.get(key)!;
     history.push({
       timestamp: new Date(),
       deviceMac,
@@ -296,9 +341,8 @@ export class MeshAnalyzer extends EventEmitter<MeshAnalyzerEvents> {
       rxRate: 0,
     });
 
-    const cutoff = Date.now() - this.maxHistoryAge;
-    while (history.length > 0 && history[0]!.timestamp.getTime() < cutoff) {
-      history.shift();
+    if (history.length > MAX_SIGNAL_HISTORY_ENTRIES) {
+      this.signalHistory.set(key, history.slice(-MAX_SIGNAL_HISTORY_ENTRIES));
     }
   }
 

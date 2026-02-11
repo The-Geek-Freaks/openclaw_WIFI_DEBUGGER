@@ -2,6 +2,7 @@ import axios, { AxiosInstance } from 'axios';
 import WebSocket from 'ws';
 import { EventEmitter } from 'eventemitter3';
 import { createChildLogger } from '../utils/logger.js';
+import { withTimeout } from '../utils/async-helpers.js';
 import type { HassConfig, HassEntityState, HassEvent, ZhaDevice, Zigbee2MqttDevice } from '../types/homeassistant.js';
 
 const logger = createChildLogger('hass-client');
@@ -14,12 +15,18 @@ export interface HassClientEvents {
   error: (error: Error) => void;
 }
 
+const WS_TIMEOUT = 30000;
+const RECONNECT_DELAY = 5000;
+const MAX_RECONNECT_ATTEMPTS = 3;
+
 export class HomeAssistantClient extends EventEmitter<HassClientEvents> {
   private readonly config: HassConfig;
   private readonly http: AxiosInstance;
   private ws: WebSocket | null = null;
   private wsMessageId: number = 1;
-  private wsCallbacks: Map<number, { resolve: (data: unknown) => void; reject: (err: Error) => void }> = new Map();
+  private wsCallbacks: Map<number, { resolve: (data: unknown) => void; reject: (err: Error) => void; timeout: NodeJS.Timeout }> = new Map();
+  private reconnectAttempts: number = 0;
+  private isConnecting: boolean = false;
 
   constructor(config: HassConfig) {
     super();
@@ -52,7 +59,7 @@ export class HomeAssistantClient extends EventEmitter<HassClientEvents> {
         this.handleWsMessage(message, resolve, reject);
       });
 
-      this.ws.on('error', (err) => {
+      this.ws.on('error', (err: Error) => {
         logger.error({ err }, 'WebSocket error');
         this.emit('error', err);
         reject(err);
@@ -94,6 +101,7 @@ export class HomeAssistantClient extends EventEmitter<HassClientEvents> {
         if (message.id !== undefined) {
           const callback = this.wsCallbacks.get(message.id);
           if (callback) {
+            clearTimeout(callback.timeout);
             this.wsCallbacks.delete(message.id);
             if (message.success) {
               callback.resolve(message.result);
@@ -118,19 +126,21 @@ export class HomeAssistantClient extends EventEmitter<HassClientEvents> {
     const id = this.wsMessageId++;
     
     return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        const callback = this.wsCallbacks.get(id);
+        if (callback) {
+          this.wsCallbacks.delete(id);
+          reject(new Error(`WebSocket request timeout for ${type}`));
+        }
+      }, WS_TIMEOUT);
+
       this.wsCallbacks.set(id, { 
         resolve: resolve as (data: unknown) => void, 
-        reject 
+        reject,
+        timeout,
       });
       
       this.ws!.send(JSON.stringify({ id, type, ...data }));
-      
-      setTimeout(() => {
-        if (this.wsCallbacks.has(id)) {
-          this.wsCallbacks.delete(id);
-          reject(new Error('WebSocket request timeout'));
-        }
-      }, 30000);
     });
   }
 
