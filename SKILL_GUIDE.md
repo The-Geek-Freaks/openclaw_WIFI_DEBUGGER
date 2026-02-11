@@ -233,6 +233,63 @@ Dieser Scan sammelt **alle verfügbaren Daten** und gibt dir:
 
 ---
 
+## 🔄 Post-Optimization Follow-Up (Automatisch!)
+
+Nach jeder erfolgreichen Optimierung schlägt der Skill automatisch diese Schritte vor:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│              POST-OPTIMIZATION WORKFLOW                      │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  ✅ Optimierung erfolgreich angewendet                       │
+│                                                              │
+│  📋 EMPFOHLENE NÄCHSTE SCHRITTE:                            │
+│  ├─ scan_network          → Verbesserungen messen           │
+│  ├─ get_network_health    → Health Score vergleichen        │
+│  └─ get_heatmap           → Signal-Coverage visualisieren   │
+│                                                              │
+│  🚀 ERWEITERTE ANALYSE:                                      │
+│  ├─ get_placement_recommendations → Geräte verschieben?     │
+│  ├─ set_floor_plan        → Grundriss-JPGs für Raum-Map     │
+│  ├─ get_roaming_analysis  → Client-Roaming prüfen           │
+│  └─ run_benchmark         → Speed/Latency testen            │
+│                                                              │
+│  ❓ FRAGE DEN USER:                                          │
+│  • "Soll ich einen Verification-Scan durchführen?"          │
+│  • "Möchtest du eine Heatmap sehen?"                        │
+│  • "Soll ich Triangulationsdaten sammeln?"                  │
+│  • "Hast du Grundriss-Bilder (JPG) für die Raum-Map?"       │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Beispiel: Vollständiger Optimization-Flow
+
+```
+1. User: "Optimiere mein WiFi"
+   → get_optimization_suggestions
+   → apply_optimization (mit confirm=true)
+
+2. Skill antwortet mit nextSteps:
+   "Optimierung erfolgreich! Soll ich..."
+   - einen Verification-Scan durchführen?
+   - eine Heatmap erstellen?
+   - Triangulationsdaten sammeln für räumliche Empfehlungen?
+
+3. User: "Ja, zeig mir die Heatmap"
+   → get_heatmap
+
+4. User: "Wo soll ich den Router verschieben?"
+   → get_placement_recommendations
+
+5. User: "Ich hab Grundriss-Bilder"
+   → set_floor_plan (mit imagePath zum JPG)
+   → get_floor_visualization
+```
+
+---
+
 ## 🎨 Daten visualisieren
 
 ### Environment Score anzeigen

@@ -631,6 +631,15 @@ export class OpenClawAsusMeshSkill {
       this.pendingOptimizations.delete(suggestionId);
     }
 
+    const followUpSuggestions = success ? [
+      '🔄 Neuen Netzwerk-Scan durchführen um Verbesserungen zu messen (scan_network)',
+      '📊 Health Score neu berechnen (get_network_health)',
+      '🗺️ Signal-Heatmap generieren für visuelle Analyse (get_heatmap)',
+      '📍 Räumliche Platzierungsempfehlungen abrufen (get_placement_recommendations)',
+      '📐 Triangulationsdaten für Geräte-Positionierung sammeln (get_device_positions)',
+      '🏠 Grundriss konfigurieren mit Raum-JPGs für bessere Visualisierung (set_floor_plan)',
+    ] : [];
+
     return this.successResponse('apply_optimization', {
       suggestionId,
       applied: success,
@@ -640,7 +649,25 @@ export class OpenClawAsusMeshSkill {
           ? 'Optimization applied and wireless restarted' 
           : 'Optimization applied - reboot router for full effect'
         : 'Failed to apply optimization',
-    });
+      nextSteps: success ? {
+        recommended: [
+          { action: 'scan_network', reason: 'Verify improvements after optimization' },
+          { action: 'get_network_health', reason: 'Compare health score before/after' },
+          { action: 'get_heatmap', reason: 'Visualize signal coverage changes' },
+        ],
+        advanced: [
+          { action: 'get_placement_recommendations', reason: 'Optimize device/node positions' },
+          { action: 'set_floor_plan', reason: 'Upload room images for spatial mapping' },
+          { action: 'get_roaming_analysis', reason: 'Check client roaming behavior' },
+        ],
+        askUser: [
+          'Soll ich einen Verification-Scan durchführen?',
+          'Möchtest du eine Heatmap sehen?',
+          'Soll ich Triangulationsdaten sammeln für räumliche Empfehlungen?',
+          'Hast du Grundriss-Bilder (JPG) die ich für die Raum-Map nutzen kann?',
+        ],
+      } : undefined,
+    }, followUpSuggestions);
   }
 
   private async handleScanZigbee(): Promise<SkillResponse> {
@@ -1777,9 +1804,15 @@ export class OpenClawAsusMeshSkill {
       return this.errorResponse('apply_router_tweak', result.message);
     }
 
-    const suggestions: string[] = [];
+    const suggestions: string[] = [
+      '🔄 Netzwerk-Scan durchführen um Auswirkungen zu prüfen (scan_network)',
+      '📊 Health Score neu berechnen (get_network_health)',
+      '🗺️ Heatmap generieren für Signal-Visualisierung (get_heatmap)',
+      '📍 Räumliche Platzierungsempfehlungen abrufen (get_placement_recommendations)',
+    ];
+    
     if (result.requiresReboot) {
-      suggestions.push('Router-Neustart erforderlich für volle Wirkung');
+      suggestions.unshift('⚠️ Router-Neustart erforderlich für volle Wirkung');
     }
 
     return this.successResponse('apply_router_tweak', {
@@ -1787,6 +1820,24 @@ export class OpenClawAsusMeshSkill {
       applied: true,
       requiresReboot: result.requiresReboot,
       message: result.message,
+      nextSteps: {
+        recommended: [
+          { action: 'scan_network', reason: 'Verify tweak impact on network' },
+          { action: 'get_network_health', reason: 'Check health score improvement' },
+          { action: 'check_router_tweaks', reason: 'Review remaining optimization opportunities' },
+        ],
+        advanced: [
+          { action: 'get_heatmap', reason: 'Visualize signal changes' },
+          { action: 'get_placement_recommendations', reason: 'Optimize device positioning' },
+          { action: 'run_benchmark', reason: 'Measure speed/latency improvements' },
+        ],
+        askUser: [
+          'Soll ich einen Verification-Scan durchführen?',
+          'Möchtest du weitere Tweaks anwenden?',
+          'Soll ich eine Heatmap erstellen?',
+          'Möchtest du Triangulationsdaten für räumliche Empfehlungen sammeln?',
+        ],
+      },
     }, suggestions);
   }
 
