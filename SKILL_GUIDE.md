@@ -111,9 +111,11 @@ Dieser Scan sammelt **alle verfügbaren Daten** und gibt dir:
 
 ### 🏠 Smart Home Actions
 
+> **Hinweis:** In Home Assistant heißt die Zigbee-Integration offiziell **"Zigbee Home Automation" (ZHA)**. Alternativ wird auch **Zigbee2MQTT** unterstützt. Beide werden automatisch erkannt.
+
 | Action | Wann verwenden | Output |
 |--------|----------------|--------|
-| `scan_zigbee` | Zigbee-Netzwerk scannen | Devices, Links, LQI |
+| `scan_zigbee` | Zigbee-Netzwerk scannen (ZHA/Z2M) | Devices, Links, LQI |
 | `get_zigbee_devices` | Zigbee-Geräte-Liste | Alle Zigbee-Devices |
 | `analyze_network_topology` | SNMP-Topologie | Switches, Bottlenecks |
 | `run_benchmark` | Performance-Test | iPerf3 Ergebnisse |
@@ -947,7 +949,7 @@ Diese Action sammelt **alle netzwerkrelevanten Daten** aus Home Assistant:
 │  📡 HOME ASSISTANT DATENQUELLEN                             │
 ├─────────────────────────────────────────────────────────────┤
 │                                                              │
-│  🔷 ZIGBEE (ZHA oder Zigbee2MQTT)                           │
+│  🔷 ZIGBEE (ZHA = Zigbee Home Automation, oder Zigbee2MQTT) │
 │     • Kanal und PAN-ID                                       │
 │     • Alle Geräte mit LQI/RSSI                              │
 │     • Netzwerk-Topologie (Coordinator → Router → EndDevice)  │
