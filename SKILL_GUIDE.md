@@ -1036,7 +1036,7 @@ Diese Action sammelt **alle netzwerkrelevanten Daten** aus Home Assistant:
 
 ---
 
-## �🏆 Community Wisdom & Pro Tipps
+## � Community Wisdom & Pro Tipps
 
 > Gesammelte Weisheiten aus Reddit, SNBForums und der ASUS Community
 
@@ -1467,6 +1467,95 @@ Regelmäßig prüfen:
 □ NVRAM nicht voll
 □ Keine unbekannten Geräte verbunden
 ```
+
+---
+
+## 🆕 Neue Features (v1.1.0)
+
+### Quick Diagnosis - Schnelle Problemerkennung
+
+```json
+{
+  "action": "get_quick_diagnosis"
+}
+```
+
+**Response enthält:**
+- `status`: 🔴 KRITISCH / 🟠 PROBLEME / 🟡 HINWEISE / 🟢 OPTIMAL
+- `healthScore`: 0-100
+- `quickFixes`: Priorisierte Liste mit Lösungen
+- `topPriority`: Das wichtigste Problem zuerst
+- `suggestions`: Konkrete nächste Schritte
+
+**Ideal für:** Schneller erster Check, bevor du full_intelligence_scan startest.
+
+### Floor Plan Visualization - Grundriss-Ansicht
+
+**1. Grundriss laden:**
+```json
+{
+  "action": "set_floor_plan",
+  "params": {
+    "floor": 0,
+    "name": "Erdgeschoss",
+    "imagePath": "C:/Haus/EG.jpg",
+    "widthMeters": 12,
+    "heightMeters": 10
+  }
+}
+```
+
+Oder per Base64:
+```json
+{
+  "params": {
+    "imageBase64": "data:image/jpeg;base64,/9j/4AAQ...",
+    ...
+  }
+}
+```
+
+**2. Visualisierung abrufen:**
+```json
+{
+  "action": "get_floor_visualization",
+  "params": { "floor": 0 }
+}
+```
+
+**Response enthält:**
+- `svgOverlay`: SVG zum Überlagern auf dem Grundriss
+- `asciiPreview`: Text-Vorschau der Etage
+- `nodes`: Router/Nodes mit Pixelpositionen
+- `devices`: Geräte mit Signalqualität
+- `legend`: Farbcodes und Icons
+
+### Placement Recommendations - Platzierungsempfehlungen
+
+```json
+{
+  "action": "get_placement_recommendations"
+}
+```
+
+**Response enthält:**
+- Konkrete Empfehlungen zum Verschieben von Geräten/Nodes
+- Richtungsangaben (1-2 Meter nach links/rechts)
+- Stockwerk-Wechsel-Empfehlungen
+- ASCII-Visualisierungen
+- Konfidenz-Werte für jede Empfehlung
+
+---
+
+## 📊 Empfohlene Action-Reihenfolge
+
+| Situation | Erste Action | Dann |
+|-----------|--------------|------|
+| User fragt nach WiFi-Problem | `get_quick_diagnosis` | `full_intelligence_scan` |
+| User will Überblick | `get_environment_summary` | Details nach Bedarf |
+| User hat Grundriss-Bilder | `set_floor_plan` | `get_floor_visualization` |
+| Gerät hat schlechtes Signal | `get_placement_recommendations` | Konkrete Tipps geben |
+| Alles prüfen | `full_intelligence_scan` | Detailanalysen |
 
 ---
 

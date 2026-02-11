@@ -181,6 +181,10 @@ export const SkillActionSchema = z.discriminatedUnion('action', [
       floor: z.number(),
     }),
   }),
+  z.object({
+    action: z.literal('get_quick_diagnosis'),
+    params: z.object({}).optional(),
+  }),
 ]);
 
 export type SkillAction = z.infer<typeof SkillActionSchema>;

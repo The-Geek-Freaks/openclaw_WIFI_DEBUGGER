@@ -263,6 +263,9 @@ export class OpenClawAsusMeshSkill {
         case 'get_floor_visualization':
           return await this.handleGetFloorVisualization(action.params.floor);
         
+        case 'get_quick_diagnosis':
+          return await this.handleGetQuickDiagnosis();
+        
         default:
           return this.errorResponse('unknown', 'Unknown action');
       }
@@ -1145,5 +1148,107 @@ export class OpenClawAsusMeshSkill {
       'Das SVG-Overlay kann über das Grundrissbild gelegt werden',
       'asciiPreview zeigt eine Text-Vorschau der Etage',
     ]);
+  }
+
+  private async handleGetQuickDiagnosis(): Promise<SkillResponse> {
+    const startTime = Date.now();
+    
+    if (!this.meshState) {
+      this.meshState = await this.meshAnalyzer.scan();
+    }
+
+    const problems = this.problemDetector.analyze(this.meshState, []);
+    const health = this.problemDetector.calculateHealthScore(this.meshState, problems);
+    const spatialAnalysis = this.spatialEngine.analyzeAndRecommend(this.meshState);
+
+    const criticalProblems = problems.filter(p => p.severity === 'critical');
+    const highProblems = problems.filter(p => p.severity === 'error');
+    const warnings = problems.filter(p => p.severity === 'warning');
+
+    const quickFixes: Array<{
+      priority: number;
+      severity: 'critical' | 'high' | 'medium' | 'low';
+      problem: string;
+      solution: string;
+      action: string;
+      autoFixable: boolean;
+    }> = [];
+
+    for (const problem of criticalProblems) {
+      quickFixes.push({
+        priority: 1,
+        severity: 'critical',
+        problem: problem.description,
+        solution: problem.recommendation,
+        action: problem.autoFixAvailable ? `apply_optimization mit id: ${problem.id}` : 'Manuell beheben',
+        autoFixable: problem.autoFixAvailable,
+      });
+    }
+
+    for (const problem of highProblems) {
+      quickFixes.push({
+        priority: 2,
+        severity: 'high',
+        problem: problem.description,
+        solution: problem.recommendation,
+        action: problem.autoFixAvailable ? `apply_optimization mit id: ${problem.id}` : 'Manuell beheben',
+        autoFixable: problem.autoFixAvailable,
+      });
+    }
+
+    for (const rec of spatialAnalysis.recommendations.slice(0, 3)) {
+      quickFixes.push({
+        priority: rec.priority === 'critical' ? 1 : rec.priority === 'high' ? 2 : 3,
+        severity: rec.priority === 'critical' ? 'critical' : rec.priority === 'high' ? 'high' : 'medium',
+        problem: `${rec.target.name}: ${rec.recommendation.reason}`,
+        solution: rec.humanReadable.split('\n')[0],
+        action: 'Gerät/Node manuell verschieben',
+        autoFixable: false,
+      });
+    }
+
+    quickFixes.sort((a, b) => a.priority - b.priority);
+
+    const status = criticalProblems.length > 0 ? '🔴 KRITISCH' :
+                   highProblems.length > 0 ? '🟠 PROBLEME' :
+                   warnings.length > 0 ? '🟡 HINWEISE' : '🟢 OPTIMAL';
+
+    const nextSteps: string[] = [];
+    
+    if (quickFixes.length > 0) {
+      nextSteps.push(`🔧 ${quickFixes.length} Probleme gefunden - erste Priorität: ${quickFixes[0].problem.substring(0, 50)}...`);
+      if (quickFixes.some(f => f.autoFixable)) {
+        nextSteps.push('💡 Einige Probleme können automatisch behoben werden mit apply_optimization');
+      }
+    } else {
+      nextSteps.push('✅ Keine kritischen Probleme - Netzwerk läuft optimal');
+    }
+
+    nextSteps.push(`📊 Health Score: ${health.overall}/100 - ${health.overall >= 80 ? 'Gut' : health.overall >= 60 ? 'Verbesserungspotential' : 'Optimierung empfohlen'}`);
+    
+    if (this.meshState.devices.length > 0) {
+      const weakDevices = this.meshState.devices.filter(d => (d.signalStrength ?? -100) < -75);
+      if (weakDevices.length > 0) {
+        nextSteps.push(`📶 ${weakDevices.length} Geräte mit schwachem Signal - nutze get_placement_recommendations`);
+      }
+    }
+
+    nextSteps.push('📋 Für detaillierte Analyse: full_intelligence_scan');
+    nextSteps.push('🗣️ Für Zusammenfassung an Benutzer: get_environment_summary');
+
+    return this.successResponse('get_quick_diagnosis', {
+      status,
+      diagnosisTime: `${Date.now() - startTime}ms`,
+      healthScore: health.overall,
+      summary: {
+        criticalCount: criticalProblems.length,
+        highCount: highProblems.length,
+        warningCount: warnings.length,
+        totalDevices: this.meshState.devices.length,
+        totalNodes: this.meshState.nodes.length,
+      },
+      quickFixes: quickFixes.slice(0, 5),
+      topPriority: quickFixes[0] ?? null,
+    }, nextSteps);
   }
 }
