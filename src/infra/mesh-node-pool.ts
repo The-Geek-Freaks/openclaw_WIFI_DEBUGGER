@@ -5,7 +5,7 @@ import type { Config } from '../config/index.js';
 
 const logger = createChildLogger('mesh-node-pool');
 
-const CONNECTION_TIMEOUT_MS = 15000;
+const _CONNECTION_TIMEOUT_MS = 15000;
 const COMMAND_TIMEOUT_MS = 30000;
 const MAX_CONCURRENT_COMMANDS = 3;
 const RECONNECT_INTERVAL_MS = 60000;
@@ -217,7 +217,7 @@ export class MeshNodePool {
 
     try {
       const cfgClientList = await this.executeOnMain('nvram get cfg_clientlist');
-      const cfgAlias = await this.executeOnMain('nvram get cfg_alias');
+      const _cfgAlias = await this.executeOnMain('nvram get cfg_alias');
       
       const macList = cfgClientList.split('<').filter(Boolean).map(entry => {
         const parts = entry.split('>');

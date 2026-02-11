@@ -1,10 +1,7 @@
 import { createChildLogger } from '../utils/logger.js';
 import { 
   SnmpClient, 
-  SnmpDeviceInfo, 
-  MikroTikHealthData,
-  STANDARD_OIDS,
-  MIKROTIK_OIDS 
+  SnmpDeviceInfo
 } from '../infra/snmp-client.js';
 
 const logger = createChildLogger('network-topology');

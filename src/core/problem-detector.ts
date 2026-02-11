@@ -323,7 +323,7 @@ export class ProblemDetector {
       e => e.deviceMac === deviceMac && e.timestamp.getTime() > cutoff
     ).sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 
-    let totalConnections = 0;
+    let _totalConnections = 0;
     let totalDisconnections = 0;
     const connectionDurations: number[] = [];
     const disconnectReasons: Map<string, number> = new Map();
@@ -331,7 +331,7 @@ export class ProblemDetector {
 
     for (const event of deviceEvents) {
       if (event.eventType === 'connect') {
-        totalConnections++;
+        _totalConnections++;
         lastConnectTime = event.timestamp.getTime();
       } else if (event.eventType === 'disconnect') {
         totalDisconnections++;

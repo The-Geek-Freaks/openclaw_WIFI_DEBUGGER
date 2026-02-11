@@ -1,3 +1,4 @@
+import dgram from 'dgram';
 import { createChildLogger } from '../utils/logger.js';
 import { withTimeout } from '../utils/async-helpers.js';
 
@@ -234,7 +235,6 @@ export class SnmpClient {
   private async snmpGet(host: string, port: number, community: string, oid: string): Promise<string | number | null> {
     return new Promise((resolve) => {
       try {
-        const dgram = require('dgram');
         const socket = dgram.createSocket('udp4');
 
         const requestId = Math.floor(Math.random() * 0x7FFFFFFF);
@@ -463,7 +463,7 @@ export class SnmpClient {
     const mikrotikHealth = new Map<string, MikroTikHealthData>();
     const problems: SnmpDetectedProblem[] = [];
 
-    for (const [key, config] of this.devices) {
+    for (const [_key, config] of this.devices) {
       try {
         const info = await withTimeout(
           this.getDeviceInfo(config.host, config.port),

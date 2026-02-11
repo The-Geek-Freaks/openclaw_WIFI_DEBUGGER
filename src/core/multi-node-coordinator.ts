@@ -1,6 +1,6 @@
 import { createChildLogger } from '../utils/logger.js';
-import { wifiChannelToFrequency, getWifi2gZigbeeOverlap } from '../utils/frequency.js';
-import type { MeshNodePool, MeshNodeInfo } from '../infra/mesh-node-pool.js';
+import { getWifi2gZigbeeOverlap } from '../utils/frequency.js';
+import type { MeshNodePool } from '../infra/mesh-node-pool.js';
 import type { WifiSettings } from '../types/network.js';
 
 const logger = createChildLogger('multi-node-coordinator');

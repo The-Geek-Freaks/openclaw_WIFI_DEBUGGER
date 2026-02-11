@@ -1,7 +1,7 @@
 import { createChildLogger } from '../utils/logger.js';
 import type { MeshNetworkState, NetworkDevice, MeshNode } from '../types/network.js';
 
-const logger = createChildLogger('spatial-recommendations');
+const _logger = createChildLogger('spatial-recommendations');
 
 export interface PlacementRecommendation {
   id: string;
