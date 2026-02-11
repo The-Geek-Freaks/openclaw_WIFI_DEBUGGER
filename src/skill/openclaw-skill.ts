@@ -17,6 +17,7 @@ import { NetworkIntelligence } from '../core/network-intelligence.js';
 import { SpatialRecommendationEngine } from '../core/spatial-recommendations.js';
 import { FloorPlanManager } from '../core/floor-plan-manager.js';
 import { AlertingService } from '../core/alerting-service.js';
+import { RouterTweaksChecker } from '../core/router-tweaks-checker.js';
 import type { SkillAction, SkillResponse } from './actions.js';
 import type { MeshNetworkState } from '../types/network.js';
 import type { ZigbeeNetworkState } from '../types/zigbee.js';
@@ -43,6 +44,7 @@ export class OpenClawAsusMeshSkill {
   private readonly floorPlanManager: FloorPlanManager;
   private readonly alertingService: AlertingService;
   private readonly knowledgeBase: NetworkKnowledgeBase;
+  private readonly tweaksChecker: RouterTweaksChecker;
   
   private meshState: MeshNetworkState | null = null;
   private zigbeeState: ZigbeeNetworkState | null = null;
@@ -80,6 +82,7 @@ export class OpenClawAsusMeshSkill {
     this.floorPlanManager = new FloorPlanManager();
     this.alertingService = new AlertingService();
     this.knowledgeBase = new NetworkKnowledgeBase();
+    this.tweaksChecker = new RouterTweaksChecker(this.sshClient);
   }
 
   async initialize(): Promise<void> {
@@ -328,6 +331,15 @@ export class OpenClawAsusMeshSkill {
         
         case 'export_knowledge':
           return this.handleExportKnowledge();
+        
+        case 'check_router_tweaks':
+          return await this.handleCheckRouterTweaks();
+        
+        case 'apply_router_tweak':
+          return await this.handleApplyRouterTweak(action.params.tweakId, action.params.confirm);
+        
+        case 'get_recommended_scripts':
+          return await this.handleGetRecommendedScripts();
         
         default:
           return this.errorResponse('unknown', 'Unknown action');
@@ -1715,5 +1727,88 @@ export class OpenClawAsusMeshSkill {
       snmpDevices: knowledge.snmpDevices,
       zigbeeDevices: knowledge.zigbeeDevices,
     });
+  }
+
+  private async handleCheckRouterTweaks(): Promise<SkillResponse> {
+    const report = await this.tweaksChecker.checkAllTweaks();
+
+    const suggestions = report.topRecommendations.map(r => 
+      `[${r.tweak.category}] ${r.tweak.name}: ${r.recommendation}`
+    );
+
+    if (report.recommendedScripts.length > 0) {
+      suggestions.push(
+        `Empfohlene Merlin Scripts: ${report.recommendedScripts.map(s => s.name).join(', ')}`
+      );
+    }
+
+    return this.successResponse('check_router_tweaks', {
+      overallScore: report.overallScore,
+      firmwareVersion: report.firmwareVersion,
+      isMerlin: report.isMerlin,
+      isAiMesh: report.isAiMesh,
+      nodeCount: report.nodeCount,
+      categories: report.categories,
+      tweaksChecked: report.results.length,
+      optimalCount: report.results.filter(r => r.status === 'optimal').length,
+      suboptimalCount: report.results.filter(r => r.status === 'suboptimal').length,
+      topRecommendations: report.topRecommendations.map(r => ({
+        id: r.tweak.id,
+        name: r.tweak.name,
+        category: r.tweak.category,
+        risk: r.tweak.risk,
+        status: r.status,
+        currentValues: r.currentValues,
+        optimalValues: r.optimalValues,
+        recommendation: r.recommendation,
+        canAutoApply: r.canAutoApply,
+        impact: r.impactDescription,
+        source: r.tweak.source,
+      })),
+      installedScripts: report.installedScripts,
+      recommendedScripts: report.recommendedScripts,
+    }, suggestions);
+  }
+
+  private async handleApplyRouterTweak(tweakId: string, confirm: boolean): Promise<SkillResponse> {
+    const result = await this.tweaksChecker.applyTweak(tweakId, confirm);
+
+    if (!result.success) {
+      return this.errorResponse('apply_router_tweak', result.message);
+    }
+
+    const suggestions: string[] = [];
+    if (result.requiresReboot) {
+      suggestions.push('Router-Neustart erforderlich für volle Wirkung');
+    }
+
+    return this.successResponse('apply_router_tweak', {
+      tweakId,
+      applied: true,
+      requiresReboot: result.requiresReboot,
+      message: result.message,
+    }, suggestions);
+  }
+
+  private async handleGetRecommendedScripts(): Promise<SkillResponse> {
+    const report = await this.tweaksChecker.checkAllTweaks();
+
+    const allScripts = this.tweaksChecker.getMerlinScripts();
+
+    return this.successResponse('get_recommended_scripts', {
+      isMerlin: report.isMerlin,
+      installedScripts: report.installedScripts,
+      recommendedScripts: report.recommendedScripts,
+      allAvailableScripts: allScripts.map(s => ({
+        name: s.name,
+        description: s.description,
+        benefit: s.benefit,
+        category: s.category,
+        installed: report.installedScripts.includes(s.name),
+      })),
+    }, report.isMerlin
+      ? [`${report.installedScripts.length} Scripts installiert, ${report.recommendedScripts.length} empfohlen`]
+      : ['Merlin Firmware wird empfohlen für Script-Support']
+    );
   }
 }

@@ -326,6 +326,24 @@ await skill.shutdown();
 
 **Device Types:** `router`, `switch`, `ap`, `computer`, `phone`, `tablet`, `iot`, `smart_home`, `media`, `gaming`, `unknown`
 
+### 🔧 Router Tweaks & Optimization (NEU!)
+
+> **Community-basierte Optimierungen** - Prüft NVRAM-Einstellungen und Merlin Scripts basierend auf Empfehlungen von SNBForums, Reddit und der Merlin Community.
+
+| Action | Beschreibung | Parameter |
+|--------|-------------|-----------|
+| `check_router_tweaks` | Prüft alle bekannten Optimierungen | - |
+| `apply_router_tweak` | Wendet einen Tweak an | `tweakId: string, confirm: boolean` |
+| `get_recommended_scripts` | Empfohlene Merlin Scripts | - |
+
+**Geprüfte Tweaks (16+):**
+- **WiFi:** Disable 802.11b, Beamforming, MU-MIMO, OFDMA, Airtime Fairness
+- **Mesh:** Roaming Assistant, Band Steering, Wired Backhaul
+- **Performance:** NAT Acceleration (CTF/FA), ACK Suppression, AMPDU RTS
+- **Stability:** Target Wake Time (TWT), DNS Optimization, STP
+
+**Merlin Scripts (10+):** Diversion, Skynet, FlexQoS, YazFi, connmon, spdMerlin, BACKUPMON, ntpMerlin, scMerlin, Unbound Manager
+
 ## 🏗️ Architektur
 
 ```

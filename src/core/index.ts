@@ -18,3 +18,5 @@ export * from './multi-gen-coordinator.js';
 export * from './network-topology-analyzer.js';
 export { AlertingService } from './alerting-service.js';
 export type { AlertConfig, Alert, AlertHistory } from './alerting-service.js';
+export { RouterTweaksChecker } from './router-tweaks-checker.js';
+export type { TweakDefinition, TweakCheckResult, TweaksReport, TweakCategory, TweakStatus } from './router-tweaks-checker.js';

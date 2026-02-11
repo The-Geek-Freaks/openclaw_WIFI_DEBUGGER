@@ -132,6 +132,23 @@ Dieser Scan sammelt **alle verfügbaren Daten** und gibt dir:
 | `get_network_history` | Historische Snapshots abrufen | Health-Scores über Zeit |
 | `export_knowledge` | Komplette Knowledge Base exportieren | Alle Daten als JSON |
 
+### 🔧 Router Tweaks & Optimierung (NEU!)
+
+> **Community-basierte Optimierungen** - Prüft NVRAM-Einstellungen und Merlin Scripts basierend auf Empfehlungen von SNBForums, Reddit und der Merlin Community.
+
+| Action | Wann verwenden | Output |
+|--------|----------------|--------|
+| `check_router_tweaks` | Router-Einstellungen prüfen | Score, Empfehlungen |
+| `apply_router_tweak` | Tweak anwenden (mit confirm) | Ergebnis |
+| `get_recommended_scripts` | Merlin Scripts Empfehlungen | Installierte/Empfohlene Scripts |
+
+**Geprüfte Kategorien:**
+- **performance** - NAT Acceleration, MU-MIMO, OFDMA
+- **wifi_optimization** - 802.11b deaktivieren, Beamforming
+- **mesh_optimization** - Roaming Assistant, Wired Backhaul
+- **security** - Diversion, Skynet
+- **stability** - TWT, DNS, STP
+
 **Beispiel: Gerät als bekannt markieren**
 ```json
 {

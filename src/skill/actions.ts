@@ -270,6 +270,21 @@ export const SkillActionSchema = z.discriminatedUnion('action', [
     action: z.literal('export_knowledge'),
     params: z.object({}).optional(),
   }),
+  z.object({
+    action: z.literal('check_router_tweaks'),
+    params: z.object({}).optional(),
+  }),
+  z.object({
+    action: z.literal('apply_router_tweak'),
+    params: z.object({
+      tweakId: z.string(),
+      confirm: z.boolean(),
+    }),
+  }),
+  z.object({
+    action: z.literal('get_recommended_scripts'),
+    params: z.object({}).optional(),
+  }),
 ]);
 
 export type SkillAction = z.infer<typeof SkillActionSchema>;
