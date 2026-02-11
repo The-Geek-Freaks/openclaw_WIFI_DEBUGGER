@@ -175,6 +175,10 @@ export class SnmpClient {
     logger.info({ host }, 'SNMP device removed');
   }
 
+  isConfigured(): boolean {
+    return this.devices.size > 0;
+  }
+
   private async snmpGet(host: string, port: number, community: string, oid: string): Promise<string | number | null> {
     return new Promise((resolve) => {
       try {

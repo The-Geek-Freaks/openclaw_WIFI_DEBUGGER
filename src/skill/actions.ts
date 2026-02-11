@@ -130,6 +130,23 @@ export const SkillActionSchema = z.discriminatedUnion('action', [
     action: z.literal('analyze_network_topology'),
     params: z.object({}).optional(),
   }),
+  z.object({
+    action: z.literal('full_intelligence_scan'),
+    params: z.object({
+      targets: z.array(z.enum([
+        'minimize_interference',
+        'maximize_throughput',
+        'balance_coverage',
+        'protect_zigbee',
+        'reduce_neighbor_overlap',
+        'improve_roaming',
+      ])).optional(),
+    }).optional(),
+  }),
+  z.object({
+    action: z.literal('get_environment_summary'),
+    params: z.object({}).optional(),
+  }),
 ]);
 
 export type SkillAction = z.infer<typeof SkillActionSchema>;

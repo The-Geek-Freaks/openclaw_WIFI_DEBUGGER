@@ -15,14 +15,14 @@
 <h3>🚀 Intelligente Mesh-Netzwerk Analyse & Optimierung für ASUS Router</h3>
 
 <p>
-  <strong>12 Actions</strong> • <strong>13 Core Modules</strong> • <strong>100+ Vendor OUIs</strong> • <strong>56 Tests</strong>
+  <strong>26 Actions</strong> • <strong>14 Core Modules</strong> • <strong>100+ Vendor OUIs</strong> • <strong>64 Tests</strong>
 </p>
 
 ![Node.js](https://img.shields.io/badge/Node.js-18%2B-green?style=for-the-badge&logo=node.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue?style=for-the-badge&logo=typescript)
 ![OpenClaw](https://img.shields.io/badge/OpenClaw-2.0%2B-purple?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)
-![Tests](https://img.shields.io/badge/Tests-56%20passed-brightgreen?style=for-the-badge)
+![Tests](https://img.shields.io/badge/Tests-64%20passed-brightgreen?style=for-the-badge)
 
 </div>
 
@@ -35,12 +35,12 @@
 | Metrik | Score | Status |
 |--------|-------|--------|
 | **TypeScript Strict** | 100% | ✅ Keine Fehler |
-| **Test Coverage** | 56 Tests | ✅ Bestanden |
+| **Test Coverage** | 64 Tests | ✅ Bestanden |
 | **ESLint** | Clean | ✅ Keine Errors |
 | **Memory Leaks** | 0 | ✅ Geprüft |
 | **OpenClaw Ready** | v2.0+ | ✅ Kompatibel |
 
-**13 Core Modules** • **5 Infra Clients** • **9 Type Definitions** • **100% Reversible**
+**14 Core Modules** • **5 Infra Clients** • **10 Type Definitions** • **100% Reversible**
 
 </div>
 
@@ -118,6 +118,47 @@
 - **Zigbee Coordination** - WiFi/Zigbee Abstimmung
 - **Multi-Node Sync** - Einstellungen synchronisieren
 - **Auto-Apply** - Änderungen mit Bestätigung anwenden
+
+### 🧠 Network Intelligence Engine (NEU!)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  🧠 FULL INTELLIGENCE SCAN FLOW                             │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  1️⃣ COLLECT ──────────────────────────────────────────────  │
+│     ├─ Router Data (SSH)     ✅ Mesh Nodes, Clients         │
+│     ├─ Neighbor Scan         ✅ 12 networks found           │
+│     ├─ Zigbee (Home Asst.)   ✅ Channel 15, 28 devices      │
+│     └─ SNMP Topology         ⚠️ Not configured              │
+│                                                              │
+│  2️⃣ ANALYZE ──────────────────────────────────────────────  │
+│     ├─ Build Spectrum Maps   2.4GHz: 65% congestion         │
+│     ├─ Detect Conflicts      WiFi Ch6 ↔ Zigbee Ch15 ⚠️      │
+│     └─ Calculate Scores      Environment: 72/100            │
+│                                                              │
+│  3️⃣ RECOMMEND ────────────────────────────────────────────  │
+│     ├─ #1 Change 2.4GHz → Ch1  (protect Zigbee)  [90%]     │
+│     ├─ #2 Increase 5GHz width  (throughput)      [70%]     │
+│     └─ #3 Enable MU-MIMO       (multi-device)    [65%]     │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+Die **NetworkIntelligence Engine** sammelt Daten aus allen verfügbaren Quellen und generiert kontextbezogene Optimierungsempfehlungen:
+
+| Datenquelle | Informationen | Priorität |
+|-------------|---------------|-----------|
+| **Router SSH** | Mesh-Nodes, Clients, WiFi-Settings | Kritisch |
+| **Neighbor Scan** | Nachbar-Netzwerke, Kanalnutzung | Hoch |
+| **Home Assistant** | Zigbee-Kanal, Geräte, LQI | Hoch |
+| **SNMP** | Switch-Topologie, Bottlenecks | Optional |
+
+**Optimization Targets:**
+- `minimize_interference` - Weniger Störungen von Nachbarn
+- `protect_zigbee` - Zigbee-Kanal vor WiFi-Overlap schützen
+- `maximize_throughput` - Höhere Geschwindigkeit
+- `reduce_neighbor_overlap` - Nachbar-Konflikte vermeiden
 
 ### 🏠 Home Assistant Integration
 

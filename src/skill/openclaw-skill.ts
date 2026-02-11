@@ -12,6 +12,7 @@ import { HeatmapGenerator } from '../core/heatmap-generator.js';
 import { BenchmarkEngine } from '../core/benchmark-engine.js';
 import { IoTWifiDetector } from '../core/iot-wifi-detector.js';
 import { NetworkTopologyAnalyzer } from '../core/network-topology-analyzer.js';
+import { NetworkIntelligence } from '../core/network-intelligence.js';
 import type { SkillAction, SkillResponse } from './actions.js';
 import type { MeshNetworkState } from '../types/network.js';
 import type { ZigbeeNetworkState } from '../types/zigbee.js';
@@ -33,6 +34,7 @@ export class OpenClawAsusMeshSkill {
   private readonly iotDetector: IoTWifiDetector;
   private readonly topologyAnalyzer: NetworkTopologyAnalyzer;
   private readonly snmpClient: SnmpClient;
+  private readonly networkIntelligence: NetworkIntelligence;
   
   private meshState: MeshNetworkState | null = null;
   private zigbeeState: ZigbeeNetworkState | null = null;
@@ -57,6 +59,15 @@ export class OpenClawAsusMeshSkill {
     this.iotDetector = new IoTWifiDetector(this.sshClient, this.hassClient);
     this.snmpClient = new SnmpClient();
     this.topologyAnalyzer = new NetworkTopologyAnalyzer(this.snmpClient);
+    this.networkIntelligence = new NetworkIntelligence(
+      this.sshClient,
+      this.hassClient,
+      this.snmpClient,
+      this.meshAnalyzer,
+      this.zigbeeAnalyzer,
+      this.frequencyOptimizer,
+      this.topologyAnalyzer
+    );
   }
 
   async initialize(): Promise<void> {
@@ -227,6 +238,12 @@ export class OpenClawAsusMeshSkill {
         
         case 'analyze_network_topology':
           return await this.handleAnalyzeNetworkTopology();
+        
+        case 'full_intelligence_scan':
+          return await this.handleFullIntelligenceScan(action.params?.targets);
+        
+        case 'get_environment_summary':
+          return await this.handleGetEnvironmentSummary();
         
         default:
           return this.errorResponse('unknown', 'Unknown action');
@@ -684,6 +701,100 @@ export class OpenClawAsusMeshSkill {
       overallHealth: topology.overallHealthScore,
       recommendations: topology.recommendations,
     });
+  }
+
+  private async handleFullIntelligenceScan(
+    targets?: Array<'minimize_interference' | 'maximize_throughput' | 'balance_coverage' | 'protect_zigbee' | 'reduce_neighbor_overlap' | 'improve_roaming'>
+  ): Promise<SkillResponse> {
+    const defaultTargets = targets ?? ['minimize_interference', 'protect_zigbee'];
+    
+    const result = await this.networkIntelligence.performFullScan(defaultTargets);
+
+    this.meshState = result.context.topologyState ? {
+      nodes: [],
+      devices: [],
+      wifiSettings: result.context.wifiState.ownNetworks.map(n => ({
+        ssid: n.ssid,
+        band: n.band as '2.4GHz' | '5GHz',
+        channel: n.channel,
+        channelWidth: n.channelWidth,
+        txPower: 100,
+        standard: '802.11ax' as const,
+        security: 'WPA3' as const,
+        bandSteering: false,
+        smartConnect: false,
+        roamingAssistant: false,
+        beamforming: false,
+        muMimo: false,
+      })),
+      lastUpdated: new Date(),
+    } : this.meshState;
+
+    return this.successResponse('full_intelligence_scan', {
+      duration: result.duration,
+      environmentScore: result.context.environmentScore,
+      dataSources: result.context.dataSources.map(ds => ({
+        source: ds.source,
+        available: ds.available,
+        freshness: ds.dataFreshness,
+      })),
+      spectrumOverview: result.context.spectrumMaps.map(m => ({
+        band: m.band,
+        congestion: m.congestionScore,
+        recommendedChannels: m.recommendedChannels,
+        neighborCount: m.occupants.filter(o => o.type === 'wifi_neighbor').length,
+      })),
+      zigbeeStatus: result.context.zigbeeState ? {
+        channel: result.context.zigbeeState.channel,
+        devices: result.context.zigbeeState.deviceCount,
+        wifiConflict: result.context.zigbeeState.hasConflictWithWifi,
+      } : null,
+      recommendations: result.recommendations.slice(0, 5).map(r => ({
+        id: r.id,
+        priority: r.priority,
+        target: r.target,
+        action: r.action.type,
+        reasoning: r.reasoning,
+        confidence: r.confidence,
+        requiresRestart: r.requiresRestart,
+      })),
+      warnings: result.warnings,
+      errors: result.errors,
+    }, this.generateIntelligenceSuggestions(result));
+  }
+
+  private async handleGetEnvironmentSummary(): Promise<SkillResponse> {
+    const summary = this.networkIntelligence.getEnvironmentSummary();
+    const lastResult = this.networkIntelligence.getLastScanResult();
+
+    return this.successResponse('get_environment_summary', {
+      summary,
+      lastScanTime: lastResult?.endTime?.toISOString() ?? null,
+      phase: this.networkIntelligence.getCurrentPhase(),
+    });
+  }
+
+  private generateIntelligenceSuggestions(result: { 
+    recommendations: Array<{ priority: number; target: string }>; 
+    context: { environmentScore: { overall: number } };
+    errors: string[];
+  }): string[] {
+    const suggestions: string[] = [];
+
+    if (result.context.environmentScore.overall < 50) {
+      suggestions.push('Network environment needs attention - follow recommendations');
+    }
+
+    const highPriorityRecs = result.recommendations.filter(r => r.priority >= 8);
+    if (highPriorityRecs.length > 0) {
+      suggestions.push(`${highPriorityRecs.length} high-priority recommendations available`);
+    }
+
+    if (result.errors.length > 0) {
+      suggestions.push('Some data sources unavailable - results may be incomplete');
+    }
+
+    return suggestions;
   }
 
   private generateHealthSuggestions(health: NetworkHealthScore): string[] {
