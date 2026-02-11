@@ -245,6 +245,9 @@ export class OpenClawAsusMeshSkill {
         case 'get_environment_summary':
           return await this.handleGetEnvironmentSummary();
         
+        case 'get_homeassistant_data':
+          return await this.handleGetHomeAssistantData(action.params?.include);
+        
         default:
           return this.errorResponse('unknown', 'Unknown action');
       }
@@ -905,5 +908,100 @@ export class OpenClawAsusMeshSkill {
 
   isReady(): boolean {
     return this.initialized && this.sshClient.isConnected();
+  }
+
+  private async handleGetHomeAssistantData(
+    include?: Array<'zigbee' | 'bluetooth' | 'snmp' | 'device_trackers' | 'router_entities' | 'all'>
+  ): Promise<SkillResponse> {
+    if (!this.hassClient) {
+      return this.errorResponse('get_homeassistant_data', 'Home Assistant not configured');
+    }
+
+    const includeSet = new Set(include ?? ['all']);
+    const includeAll = includeSet.has('all');
+
+    const result: Record<string, unknown> = {
+      source: 'home_assistant',
+      timestamp: new Date().toISOString(),
+    };
+
+    try {
+      if (includeAll) {
+        const allData = await this.hassClient.getAllNetworkData();
+        return this.successResponse('get_homeassistant_data', {
+          ...result,
+          ...allData,
+          dataSources: {
+            zigbee: allData.zigbee.available,
+            bluetooth: allData.bluetooth.available,
+            snmp: allData.networkEntities.snmp.length > 0,
+            deviceTrackers: allData.deviceTrackers.length,
+            routerEntities: allData.routerEntities.length,
+          },
+        }, [
+          'Nutze get_zigbee_devices für detaillierte Zigbee-Analyse',
+          'Nutze full_intelligence_scan für vollständige Netzwerk-Analyse',
+          allData.zigbee.available 
+            ? `Zigbee aktiv auf Kanal ${allData.zigbee.channel} mit ${allData.zigbee.deviceCount} Geräten` 
+            : 'Zigbee nicht verfügbar - ZHA oder Zigbee2MQTT nicht konfiguriert?',
+        ]);
+      }
+
+      if (includeSet.has('zigbee')) {
+        const topology = await this.hassClient.getZigbeeTopology();
+        const networkInfo = await this.hassClient.getZhaNetworkInfo();
+        const devices = await this.hassClient.getZhaDevices();
+        result['zigbee'] = {
+          channel: networkInfo?.channel ?? null,
+          deviceCount: devices.length,
+          topology,
+          devices: devices.map(d => ({
+            ieee: d.ieee,
+            name: d.name,
+            type: d.device_type,
+            manufacturer: d.manufacturer,
+            model: d.model,
+            lqi: d.lqi,
+            rssi: d.rssi,
+            available: d.available,
+            powerSource: d.power_source,
+          })),
+        };
+      }
+
+      if (includeSet.has('bluetooth')) {
+        result['bluetooth'] = await this.hassClient.getBluetoothDevices();
+      }
+
+      if (includeSet.has('snmp')) {
+        const networkEntities = await this.hassClient.getNetworkEntities();
+        result['snmp'] = networkEntities.snmp;
+        result['networkMonitoring'] = {
+          speedtest: networkEntities.speedtest,
+          ping: networkEntities.ping,
+          uptime: networkEntities.uptime,
+          bandwidth: networkEntities.bandwidth,
+        };
+      }
+
+      if (includeSet.has('device_trackers')) {
+        result['deviceTrackers'] = await this.hassClient.getDeviceTrackers();
+      }
+
+      if (includeSet.has('router_entities')) {
+        result['routerEntities'] = await this.hassClient.getRouterEntities();
+      }
+
+      return this.successResponse('get_homeassistant_data', result, [
+        'Home Assistant Daten erfolgreich abgerufen',
+        'Nutze full_intelligence_scan für vollständige Analyse mit allen Quellen',
+      ]);
+    } catch (err) {
+      logger.error({ err }, 'Failed to get Home Assistant data');
+      return this.errorResponse(
+        'get_homeassistant_data',
+        `Failed to get Home Assistant data: ${err instanceof Error ? err.message : 'Unknown error'}`
+      );
+    }
   }
 }

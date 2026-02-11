@@ -78,6 +78,7 @@ Dieser Scan sammelt **alle verfügbaren Daten** und gibt dir:
 | `get_device_list` | Alle verbundenen Geräte | MAC, IP, Signal, Typ |
 | `get_mesh_nodes` | Status aller Mesh-Knoten | Nodes mit CPU, RAM, Clients |
 | `get_wifi_settings` | Aktuelle WiFi-Konfiguration | Kanäle, Breiten, Features |
+| `get_homeassistant_data` | Alle Daten von Home Assistant | Zigbee, Bluetooth, SNMP, Tracker |
 
 ### 🔬 Diagnose Actions
 
@@ -924,7 +925,118 @@ Aktueller Status: ⚠️ PROBLEME ERKANNT
 
 ---
 
-## 🏆 Community Wisdom & Pro Tipps
+## � Home Assistant Datenquellen
+
+### `get_homeassistant_data` - Alle Daten von Home Assistant
+
+Diese Action sammelt **alle netzwerkrelevanten Daten** aus Home Assistant:
+
+```json
+{
+  "action": "get_homeassistant_data",
+  "params": {
+    "include": ["all"]  // oder: ["zigbee", "bluetooth", "snmp", "device_trackers", "router_entities"]
+  }
+}
+```
+
+### Verfügbare Datenquellen
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  📡 HOME ASSISTANT DATENQUELLEN                             │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  🔷 ZIGBEE (ZHA oder Zigbee2MQTT)                           │
+│     • Kanal und PAN-ID                                       │
+│     • Alle Geräte mit LQI/RSSI                              │
+│     • Netzwerk-Topologie (Coordinator → Router → EndDevice)  │
+│     • Nachbar-Tabellen und Routing                          │
+│                                                              │
+│  📶 BLUETOOTH                                                │
+│     • Alle erkannten BLE-Geräte                             │
+│     • RSSI-Werte für Abstandsschätzung                      │
+│     • Quell-Adapter (ESPHome, Proxy, etc.)                  │
+│                                                              │
+│  📊 SNMP ENTITIES                                            │
+│     • Alle SNMP-Sensoren aus Home Assistant                 │
+│     • Router/Switch-Metriken wenn konfiguriert              │
+│                                                              │
+│  🌐 NETWORK MONITORING                                       │
+│     • Speedtest-Ergebnisse (wenn Integration aktiv)         │
+│     • Ping-Sensoren für Erreichbarkeit                      │
+│     • Uptime-Sensoren                                       │
+│     • Bandbreiten-Verbrauch                                 │
+│                                                              │
+│  📱 DEVICE TRACKERS                                          │
+│     • Alle Geräte mit Anwesenheitsstatus                    │
+│     • IP- und MAC-Adressen                                  │
+│     • Source-Type (Router, Bluetooth, GPS)                  │
+│                                                              │
+│  🔌 ROUTER ENTITIES                                          │
+│     • ASUS-spezifische Sensoren                             │
+│     • Mesh-Status wenn über HA integriert                   │
+│     • FritzBox/UniFi wenn vorhanden                         │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Beispiel-Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "zigbee": {
+      "available": true,
+      "channel": 25,
+      "deviceCount": 47,
+      "topology": {
+        "coordinator": { "ieee": "00:11:22:33:44:55:66:77", "channel": 25 },
+        "routers": [
+          { "ieee": "...", "name": "IKEA Repeater", "lqi": 255, "children": 5 }
+        ],
+        "endDevices": [
+          { "ieee": "...", "name": "Aqara Sensor", "parent": "...", "lqi": 180 }
+        ]
+      }
+    },
+    "bluetooth": {
+      "available": true,
+      "devices": [
+        { "address": "AA:BB:CC:DD:EE:FF", "name": "iPhone", "rssi": -65 }
+      ]
+    },
+    "networkEntities": {
+      "snmp": [...],
+      "speedtest": [...],
+      "ping": [...],
+      "bandwidth": [...]
+    },
+    "deviceTrackers": [
+      { "entityId": "device_tracker.iphone", "state": "home", "ip": "192.168.1.50" }
+    ],
+    "dataSources": {
+      "zigbee": true,
+      "bluetooth": true,
+      "snmp": false,
+      "deviceTrackers": 23,
+      "routerEntities": 5
+    }
+  }
+}
+```
+
+### Wann verwenden?
+
+- **Vor `full_intelligence_scan`** - Um zu sehen was verfügbar ist
+- **Bei Zigbee-Problemen** - Detaillierte Topologie-Analyse
+- **Für Bluetooth-Triangulation** - RSSI-Daten von mehreren Quellen
+- **Wenn Router kein SSH hat** - Alternative Datenquelle über HA
+
+---
+
+## �🏆 Community Wisdom & Pro Tipps
 
 > Gesammelte Weisheiten aus Reddit, SNBForums und der ASUS Community
 

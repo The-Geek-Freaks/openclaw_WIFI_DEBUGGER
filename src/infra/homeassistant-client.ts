@@ -264,4 +264,321 @@ export class HomeAssistantClient extends EventEmitter<HassClientEvents> {
   isConnected(): boolean {
     return this.ws !== null && this.ws.readyState === WebSocket.OPEN;
   }
+
+  async getNetworkEntities(): Promise<{
+    snmp: HassEntityState[];
+    speedtest: HassEntityState[];
+    ping: HassEntityState[];
+    uptime: HassEntityState[];
+    bandwidth: HassEntityState[];
+  }> {
+    try {
+      const states = await this.getStates();
+      
+      return {
+        snmp: states.filter(s => 
+          s.entity_id.includes('snmp') || 
+          s.attributes['integration'] === 'snmp'
+        ),
+        speedtest: states.filter(s => 
+          s.entity_id.includes('speedtest') ||
+          s.entity_id.includes('speed_test')
+        ),
+        ping: states.filter(s => 
+          s.entity_id.includes('ping') ||
+          (s.attributes['device_class'] === 'connectivity')
+        ),
+        uptime: states.filter(s => 
+          s.entity_id.includes('uptime') ||
+          s.attributes['device_class'] === 'duration'
+        ),
+        bandwidth: states.filter(s => 
+          s.entity_id.includes('bandwidth') ||
+          s.entity_id.includes('download') ||
+          s.entity_id.includes('upload') ||
+          s.entity_id.includes('bytes')
+        ),
+      };
+    } catch (err) {
+      logger.warn({ err }, 'Failed to get network entities from Home Assistant');
+      return { snmp: [], speedtest: [], ping: [], uptime: [], bandwidth: [] };
+    }
+  }
+
+  async getBluetoothDevices(): Promise<Array<{
+    address: string;
+    name: string;
+    rssi: number;
+    source: string;
+    lastSeen: string;
+  }>> {
+    try {
+      const states = await this.getStates();
+      const btDevices: Array<{
+        address: string;
+        name: string;
+        rssi: number;
+        source: string;
+        lastSeen: string;
+      }> = [];
+
+      for (const state of states) {
+        if (state.entity_id.startsWith('sensor.') && 
+            state.attributes['source_type'] === 'bluetooth') {
+          btDevices.push({
+            address: String(state.attributes['address'] ?? state.entity_id),
+            name: String(state.attributes['friendly_name'] ?? state.entity_id),
+            rssi: Number(state.attributes['rssi'] ?? -100),
+            source: String(state.attributes['source'] ?? 'unknown'),
+            lastSeen: state.last_updated,
+          });
+        }
+
+        if (state.entity_id.includes('ble_') || state.entity_id.includes('bluetooth')) {
+          const rssi = state.attributes['rssi'] ?? state.attributes['signal_strength'];
+          if (rssi !== undefined) {
+            btDevices.push({
+              address: String(state.attributes['mac'] ?? state.attributes['address'] ?? state.entity_id),
+              name: String(state.attributes['friendly_name'] ?? state.entity_id),
+              rssi: Number(rssi),
+              source: 'bluetooth_integration',
+              lastSeen: state.last_updated,
+            });
+          }
+        }
+      }
+
+      return btDevices;
+    } catch (err) {
+      logger.warn({ err }, 'Failed to get Bluetooth devices from Home Assistant');
+      return [];
+    }
+  }
+
+  async getRouterEntities(): Promise<Array<{
+    entityId: string;
+    name: string;
+    state: string;
+    deviceClass: string | null;
+    attributes: Record<string, unknown>;
+  }>> {
+    try {
+      const states = await this.getStates();
+      const routerKeywords = ['router', 'asus', 'mesh', 'wifi', 'wlan', 'network', 'fritzbox', 'unifi'];
+      
+      return states
+        .filter(s => routerKeywords.some(kw => s.entity_id.toLowerCase().includes(kw)))
+        .map(s => ({
+          entityId: s.entity_id,
+          name: String(s.attributes['friendly_name'] ?? s.entity_id),
+          state: s.state,
+          deviceClass: String(s.attributes['device_class'] ?? null),
+          attributes: s.attributes,
+        }));
+    } catch (err) {
+      logger.warn({ err }, 'Failed to get router entities from Home Assistant');
+      return [];
+    }
+  }
+
+  async getDeviceTrackers(): Promise<Array<{
+    entityId: string;
+    name: string;
+    state: string;
+    sourceType: string;
+    ip: string | null;
+    mac: string | null;
+    hostname: string | null;
+    isConnected: boolean;
+  }>> {
+    try {
+      const states = await this.getStates();
+      
+      return states
+        .filter(s => s.entity_id.startsWith('device_tracker.'))
+        .map(s => ({
+          entityId: s.entity_id,
+          name: String(s.attributes['friendly_name'] ?? s.entity_id),
+          state: s.state,
+          sourceType: String(s.attributes['source_type'] ?? 'unknown'),
+          ip: s.attributes['ip'] ? String(s.attributes['ip']) : null,
+          mac: s.attributes['mac'] ? String(s.attributes['mac']) : null,
+          hostname: s.attributes['hostname'] ? String(s.attributes['hostname']) : null,
+          isConnected: s.state === 'home',
+        }));
+    } catch (err) {
+      logger.warn({ err }, 'Failed to get device trackers from Home Assistant');
+      return [];
+    }
+  }
+
+  async getZhaDeviceDetails(ieee: string): Promise<{
+    device: ZhaDevice | null;
+    neighbors: Array<{ ieee: string; lqi: number; depth: number }>;
+    routes: Array<{ destination: string; nextHop: string; status: string }>;
+  }> {
+    try {
+      const devices = await this.getZhaDevices();
+      const device = devices.find(d => d.ieee === ieee) ?? null;
+      
+      let neighbors: Array<{ ieee: string; lqi: number; depth: number }> = [];
+      let routes: Array<{ destination: string; nextHop: string; status: string }> = [];
+      
+      try {
+        const neighborsResult = await this.sendWsCommand<Array<{ ieee: string; lqi: number; depth: number }>>(
+          'zha/devices/neighbors', 
+          { ieee }
+        );
+        neighbors = neighborsResult ?? [];
+      } catch {
+        logger.debug({ ieee }, 'No neighbor data available for device');
+      }
+
+      try {
+        const routesResult = await this.sendWsCommand<Array<{ destination: string; nextHop: string; status: string }>>(
+          'zha/devices/routes',
+          { ieee }
+        );
+        routes = routesResult ?? [];
+      } catch {
+        logger.debug({ ieee }, 'No routing data available for device');
+      }
+
+      return { device, neighbors, routes };
+    } catch (err) {
+      logger.warn({ err, ieee }, 'Failed to get ZHA device details');
+      return { device: null, neighbors: [], routes: [] };
+    }
+  }
+
+  async getZigbeeTopology(): Promise<{
+    coordinator: { ieee: string; channel: number } | null;
+    routers: Array<{ ieee: string; name: string; lqi: number; children: number }>;
+    endDevices: Array<{ ieee: string; name: string; parent: string; lqi: number }>;
+    links: Array<{ source: string; target: string; lqi: number; rssi: number }>;
+  }> {
+    try {
+      const networkInfo = await this.getZhaNetworkInfo();
+      const devices = await this.getZhaDevices();
+      
+      const coordinator = networkInfo ? {
+        ieee: devices.find(d => d.device_type === 'Coordinator')?.ieee ?? 'unknown',
+        channel: networkInfo.channel,
+      } : null;
+
+      const routers = devices
+        .filter(d => d.device_type === 'Router')
+        .map(d => ({
+          ieee: d.ieee,
+          name: d.name,
+          lqi: d.lqi ?? 0,
+          children: 0,
+        }));
+
+      const endDevices = devices
+        .filter(d => d.device_type === 'EndDevice')
+        .map(d => ({
+          ieee: d.ieee,
+          name: d.name,
+          parent: 'unknown',
+          lqi: d.lqi ?? 0,
+        }));
+
+      const links: Array<{ source: string; target: string; lqi: number; rssi: number }> = [];
+      
+      for (const device of devices) {
+        if (device.lqi && device.lqi > 0) {
+          links.push({
+            source: coordinator?.ieee ?? 'coordinator',
+            target: device.ieee,
+            lqi: device.lqi,
+            rssi: device.rssi ?? -100,
+          });
+        }
+      }
+
+      return { coordinator, routers, endDevices, links };
+    } catch (err) {
+      logger.warn({ err }, 'Failed to get Zigbee topology');
+      return { coordinator: null, routers: [], endDevices: [], links: [] };
+    }
+  }
+
+  async getAllNetworkData(): Promise<{
+    zigbee: {
+      available: boolean;
+      channel: number | null;
+      deviceCount: number;
+      topology: {
+        coordinator: { ieee: string; channel: number } | null;
+        routers: Array<{ ieee: string; name: string; lqi: number; children: number }>;
+        endDevices: Array<{ ieee: string; name: string; parent: string; lqi: number }>;
+        links: Array<{ source: string; target: string; lqi: number; rssi: number }>;
+      };
+    };
+    bluetooth: {
+      available: boolean;
+      devices: Array<{ address: string; name: string; rssi: number; source: string; lastSeen: string }>;
+    };
+    networkEntities: {
+      snmp: HassEntityState[];
+      speedtest: HassEntityState[];
+      ping: HassEntityState[];
+      uptime: HassEntityState[];
+      bandwidth: HassEntityState[];
+    };
+    deviceTrackers: Array<{
+      entityId: string;
+      name: string;
+      state: string;
+      sourceType: string;
+      ip: string | null;
+      mac: string | null;
+      hostname: string | null;
+      isConnected: boolean;
+    }>;
+    routerEntities: Array<{
+      entityId: string;
+      name: string;
+      state: string;
+      deviceClass: string | null;
+      attributes: Record<string, unknown>;
+    }>;
+  }> {
+    logger.info('Collecting all network data from Home Assistant');
+
+    const [
+      zigbeeTopology,
+      networkInfo,
+      bluetoothDevices,
+      networkEntities,
+      deviceTrackers,
+      routerEntities,
+    ] = await Promise.all([
+      this.getZigbeeTopology(),
+      this.getZhaNetworkInfo(),
+      this.getBluetoothDevices(),
+      this.getNetworkEntities(),
+      this.getDeviceTrackers(),
+      this.getRouterEntities(),
+    ]);
+
+    const zhaDevices = await this.getZhaDevices();
+
+    return {
+      zigbee: {
+        available: zigbeeTopology.coordinator !== null || zhaDevices.length > 0,
+        channel: networkInfo?.channel ?? null,
+        deviceCount: zhaDevices.length,
+        topology: zigbeeTopology,
+      },
+      bluetooth: {
+        available: bluetoothDevices.length > 0,
+        devices: bluetoothDevices,
+      },
+      networkEntities,
+      deviceTrackers,
+      routerEntities,
+    };
+  }
 }

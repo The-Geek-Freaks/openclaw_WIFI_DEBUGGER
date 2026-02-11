@@ -147,6 +147,19 @@ export const SkillActionSchema = z.discriminatedUnion('action', [
     action: z.literal('get_environment_summary'),
     params: z.object({}).optional(),
   }),
+  z.object({
+    action: z.literal('get_homeassistant_data'),
+    params: z.object({
+      include: z.array(z.enum([
+        'zigbee',
+        'bluetooth',
+        'snmp',
+        'device_trackers',
+        'router_entities',
+        'all',
+      ])).optional(),
+    }).optional(),
+  }),
 ]);
 
 export type SkillAction = z.infer<typeof SkillActionSchema>;
