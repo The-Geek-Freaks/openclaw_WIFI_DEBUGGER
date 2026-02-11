@@ -173,7 +173,6 @@ export class AsusSshClient extends EventEmitter<SshClientEvents> {
 
   private buildSshArgs(): string[] {
     const args: string[] = [
-      '-o', 'BatchMode=yes',
       '-o', 'StrictHostKeyChecking=no',
       '-o', 'UserKnownHostsFile=/dev/null',
       '-o', 'ConnectTimeout=10',
@@ -182,6 +181,11 @@ export class AsusSshClient extends EventEmitter<SshClientEvents> {
       '-o', 'LogLevel=ERROR',
       '-p', String(this.config.sshPort),
     ];
+
+    // BatchMode only for key-based auth (incompatible with password)
+    if (!this.config.sshPassword) {
+      args.unshift('-o', 'BatchMode=yes');
+    }
 
     if (this.config.sshKeyPath) {
       args.push('-i', this.config.sshKeyPath);
@@ -194,11 +198,18 @@ export class AsusSshClient extends EventEmitter<SshClientEvents> {
 
   private executeRaw(command: string): Promise<string> {
     return new Promise((resolve, reject) => {
-      const args = [...this.buildSshArgs(), command];
+      const sshArgs = [...this.buildSshArgs(), command];
       
-      logger.debug({ host: this.config.host, command: command.substring(0, 50) }, 'Executing SSH command');
+      // Use sshpass wrapper if password is configured
+      const usePassword = this.config.sshPassword && !this.config.sshKeyPath;
+      const executable = usePassword ? 'sshpass' : 'ssh';
+      const args = usePassword 
+        ? ['-p', this.config.sshPassword!, 'ssh', ...sshArgs]
+        : sshArgs;
+      
+      logger.debug({ host: this.config.host, command: command.substring(0, 50), usePassword }, 'Executing SSH command');
 
-      const sshProcess = spawn('ssh', args, {
+      const sshProcess = spawn(executable, args, {
         stdio: ['pipe', 'pipe', 'pipe'],
         windowsHide: true,
       });
