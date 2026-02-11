@@ -37,13 +37,24 @@ export class FrequencyOptimizer {
       const channelMap = new Map<number, ChannelScanResult>();
       
       for (const line of lines) {
-        const match = line.match(/SSID:\s*(.+?)\s+BSSID:\s*([0-9A-Fa-f:]+)\s+.*Channel:\s*(\d+)\s+.*RSSI:\s*(-?\d+)/);
-        if (match) {
-          const ssid = match[1]?.trim() ?? '';
-          const bssid = match[2] ?? '';
-          const channel = parseInt(match[3] ?? '0', 10);
-          const rssi = parseInt(match[4] ?? '-100', 10);
+        let ssid = '';
+        let bssid = '';
+        let channel = 0;
+        let rssi = -100;
 
+        const ssidMatch = line.match(/SSID[:\s]+["']?([^"'\t\n]+)["']?/i);
+        if (ssidMatch) ssid = ssidMatch[1]?.trim() ?? '';
+
+        const bssidMatch = line.match(/([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}/);
+        if (bssidMatch) bssid = bssidMatch[0] ?? '';
+
+        const channelMatch = line.match(/(?:Channel|Chan)[:\s]*(\d+)/i);
+        if (channelMatch) channel = parseInt(channelMatch[1] ?? '0', 10);
+
+        const rssiMatch = line.match(/(?:RSSI|Signal)[:\s]*(-?\d+)/i);
+        if (rssiMatch) rssi = parseInt(rssiMatch[1] ?? '-100', 10);
+
+        if (channel > 0 && bssid) {
           if (!channelMap.has(channel)) {
             channelMap.set(channel, {
               channel,
@@ -68,6 +79,11 @@ export class FrequencyOptimizer {
       for (const result of channelMap.values()) {
         result.utilization = Math.min(100, result.interferingNetworks.length * 15);
         results.push(result);
+      }
+
+      if (results.length === 0) {
+        logger.warn({ band, linesCount: lines.length }, 'No channels found in scan output');
+        logger.debug({ scanOutput: scanOutput.substring(0, 500) }, 'Scan output sample');
       }
     } catch (err) {
       logger.error({ err, band }, 'Failed to scan channels');
@@ -274,24 +290,32 @@ export class FrequencyOptimizer {
     try {
       switch (suggestion.category) {
         case 'channel':
-          if (suggestion.id.includes('2g')) {
+          if (suggestion.id.includes('channel-2g')) {
             await this.sshClient.setNvram('wl0_channel', String(suggestion.suggestedValue));
-          } else if (suggestion.id.includes('5g')) {
+          } else if (suggestion.id.includes('channel-5g')) {
             await this.sshClient.setNvram('wl1_channel', String(suggestion.suggestedValue));
           } else if (suggestion.id.includes('width')) {
             await this.sshClient.setNvram('wl1_bw', String(suggestion.suggestedValue));
+          } else if (suggestion.id.includes('mu-mimo')) {
+            const nvramKey = suggestion.id.includes('2.4GHz') ? 'wl0_mumimo' : 'wl1_mumimo';
+            await this.sshClient.setNvram(nvramKey, suggestion.suggestedValue ? '1' : '0');
           }
           break;
 
         case 'roaming':
           if (suggestion.id.includes('2.4GHz')) {
             await this.sshClient.setNvram('wl0_bsd_steering_policy', suggestion.suggestedValue ? '1' : '0');
-          } else {
+          } else if (suggestion.id.includes('5GHz')) {
             await this.sshClient.setNvram('wl1_bsd_steering_policy', suggestion.suggestedValue ? '1' : '0');
           }
           break;
 
         case 'power':
+          if (suggestion.id.includes('2g')) {
+            await this.sshClient.setNvram('wl0_txpower', String(suggestion.suggestedValue));
+          } else if (suggestion.id.includes('5g')) {
+            await this.sshClient.setNvram('wl1_txpower', String(suggestion.suggestedValue));
+          }
           break;
 
         case 'zigbee':

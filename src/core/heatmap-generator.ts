@@ -44,16 +44,32 @@ export class HeatmapGenerator {
     }
   }
 
+  private generatePlaceholderHeatmap(floorNumber: number): FloorHeatmap {
+    const floorName = floorNumber === 0 ? 'ground_floor' : floorNumber > 0 ? 'upper_floor' : 'basement';
+    return {
+      floor: floorName as FloorHeatmap['floor'],
+      floorNumber,
+      resolution: 1,
+      points: [],
+      deadZones: [],
+      recommendations: [
+        'Keine Gebäudekonfiguration vorhanden. Bitte Building Config setzen für detaillierte Heatmap.',
+        'Nutze set_node_position um Mesh-Nodes zu positionieren.',
+        'Ohne Gebäudeplan kann keine Signal-Simulation durchgeführt werden.',
+      ],
+    };
+  }
+
   generateFloorHeatmap(floorNumber: number, resolution: number = 1): FloorHeatmap | null {
     if (!this.building) {
-      logger.error('No building configuration set');
-      return null;
+      logger.warn('No building configuration set - returning placeholder heatmap');
+      return this.generatePlaceholderHeatmap(floorNumber);
     }
 
     const floor = this.building.floors.find(f => f.floorNumber === floorNumber);
     if (!floor) {
-      logger.error({ floorNumber }, 'Floor not found');
-      return null;
+      logger.warn({ floorNumber }, 'Floor not found - returning placeholder heatmap');
+      return this.generatePlaceholderHeatmap(floorNumber);
     }
 
     const points: HeatmapPoint[] = [];

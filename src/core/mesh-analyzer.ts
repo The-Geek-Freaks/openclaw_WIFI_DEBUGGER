@@ -246,12 +246,17 @@ export class MeshAnalyzer extends EventEmitter<MeshAnalyzerEvents> {
     try {
       const nvram = await this.sshClient.getWifiSettings();
 
+      const parseChannel = (val: string | undefined): number => {
+        const parsed = parseInt(val ?? '0', 10);
+        return isNaN(parsed) ? 0 : parsed;
+      };
+
       settings.push({
         ssid: nvram['wl0_ssid'] ?? '',
         band: '2.4GHz',
-        channel: parseInt(nvram['wl0_channel'] ?? '0', 10),
-        channelWidth: parseInt(nvram['wl0_bw'] ?? '20', 10),
-        txPower: parseInt(nvram['wl0_txpower'] ?? '100', 10),
+        channel: parseChannel(nvram['wl0_channel']),
+        channelWidth: parseChannel(nvram['wl0_bw']) || 20,
+        txPower: parseChannel(nvram['wl0_txpower']) || 100,
         standard: '802.11ax',
         security: 'WPA3',
         bandSteering: nvram['wl0_bsd_steering_policy'] !== '0',
@@ -264,9 +269,9 @@ export class MeshAnalyzer extends EventEmitter<MeshAnalyzerEvents> {
       settings.push({
         ssid: nvram['wl1_ssid'] ?? '',
         band: '5GHz',
-        channel: parseInt(nvram['wl1_channel'] ?? '0', 10),
-        channelWidth: parseInt(nvram['wl1_bw'] ?? '80', 10),
-        txPower: parseInt(nvram['wl1_txpower'] ?? '100', 10),
+        channel: parseChannel(nvram['wl1_channel']),
+        channelWidth: parseChannel(nvram['wl1_bw']) || 80,
+        txPower: parseChannel(nvram['wl1_txpower']) || 100,
         standard: '802.11ax',
         security: 'WPA3',
         bandSteering: nvram['wl1_bsd_steering_policy'] !== '0',
