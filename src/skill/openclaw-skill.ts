@@ -1055,7 +1055,8 @@ export class OpenClawAsusMeshSkill {
       suggestions.push('📶 Mehr Geräte-Messungen verbessern die Heatmap-Genauigkeit');
     }
     suggestions.push('📍 Für räumliche Analyse: get_placement_recommendations');
-    suggestions.push('📐 Für Triangulation: set_node_position mit bekannten Positionen');
+    suggestions.push('🗺️ get_auto_map - ASCII-Karte der Geräte-Positionen');
+    suggestions.push('🖼️ set_floor_plan - Grundriss-JPG hochladen für visuelle Karte');
 
     return this.successResponse('get_heatmap', {
       ...heatmap,
@@ -2278,6 +2279,11 @@ export class OpenClawAsusMeshSkill {
     }
     if (avgConfidence < 0.5) {
       suggestions.push('📶 Niedrige Konfidenz. Mehr Signal-Daten sammeln für bessere Positionierung.');
+    }
+    
+    if (results.length > 0) {
+      suggestions.push('🗺️ get_auto_map - ASCII-Karte mit Geräte-Positionen anzeigen');
+      suggestions.push('🖼️ get_floor_visualization - Grundriss mit Overlay (wenn set_floor_plan gesetzt)');
     }
 
     return this.successResponse('triangulate_devices', {
