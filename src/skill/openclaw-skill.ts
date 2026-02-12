@@ -577,11 +577,17 @@ export class OpenClawAsusMeshSkill {
     const signalQuality = this.meshAnalyzer.getDeviceSignalQuality(macAddress);
     const events = this.meshAnalyzer.getConnectionEvents(macAddress);
 
+    const suggestions: string[] = [
+      '📶 get_device_signal_history - Signal-Verlauf anzeigen',
+      '📊 get_connection_stability - Verbindungsstabilität prüfen',
+      '🏷️ mark_device_known - Gerät benennen',
+    ];
+
     return this.successResponse('get_device_details', {
       device,
       signalQuality,
       recentEvents: events.slice(-10),
-    });
+    }, suggestions);
   }
 
   private async handleGetDeviceSignalHistory(
@@ -593,11 +599,16 @@ export class OpenClawAsusMeshSkill {
     const cutoff = Date.now() - (hours ?? 24) * 60 * 60 * 1000;
     const filtered = history.filter(m => m.timestamp.getTime() > cutoff);
 
+    const suggestions: string[] = [
+      '📊 get_connection_stability - Stabilitätsanalyse',
+      '🔍 get_device_details - Gerätedetails anzeigen',
+    ];
+
     return this.successResponse('get_device_signal_history', {
       macAddress,
       measurements: filtered,
       count: filtered.length,
-    });
+    }, suggestions);
   }
 
   private async handleGetMeshNodes(): Promise<SkillResponse> {
@@ -622,9 +633,15 @@ export class OpenClawAsusMeshSkill {
       this.meshState = await this.meshAnalyzer.scan();
     }
 
+    const suggestions: string[] = [
+      '📡 set_wifi_channel - Kanal ändern',
+      '🔧 check_router_tweaks - Router-Optimierungen prüfen',
+      '📊 get_channel_scan - Kanal-Interferenz analysieren',
+    ];
+
     return this.successResponse('get_wifi_settings', {
       settings: this.meshState.wifiSettings,
-    });
+    }, suggestions);
   }
 
   private async handleSetWifiChannel(
@@ -853,6 +870,11 @@ export class OpenClawAsusMeshSkill {
 
     const health = this.zigbeeAnalyzer.getDeviceHealth();
 
+    const suggestions: string[] = [
+      '📡 get_frequency_conflicts - WiFi/Zigbee Konflikte prüfen',
+      '📊 scan_zigbee - Zigbee-Netzwerk neu scannen',
+    ];
+
     return this.successResponse('get_zigbee_devices', {
       devices: health.map(h => ({
         ieee: h.device.ieeeAddress,
@@ -863,7 +885,7 @@ export class OpenClawAsusMeshSkill {
         healthScore: h.healthScore,
         issues: h.issues,
       })),
-    });
+    }, suggestions);
   }
 
   private async handleGetFrequencyConflicts(): Promise<SkillResponse> {
@@ -916,7 +938,10 @@ export class OpenClawAsusMeshSkill {
       deviceSignals
     );
 
-    return this.successResponse('get_spatial_map', spatialMap);
+    return this.successResponse('get_spatial_map', spatialMap, [
+      '📍 set_node_position_3d - Node-Position setzen',
+      '📰 triangulate_devices - Geräte triangulieren',
+    ]);
   }
 
   private async handleSetNodePosition(params: {
@@ -938,7 +963,7 @@ export class OpenClawAsusMeshSkill {
       nodeId: params.nodeId,
       position: { x: params.x, y: params.y, z: params.z ?? 0 },
       room: params.room,
-    });
+    }, ['📍 Setze Position für weitere Nodes', '📰 triangulate_devices - Wenn alle Nodes gesetzt']);
   }
 
   private async handleGetConnectionStability(
@@ -952,7 +977,10 @@ export class OpenClawAsusMeshSkill {
       hours ?? 24
     );
 
-    return this.successResponse('get_connection_stability', report);
+    return this.successResponse('get_connection_stability', report, [
+      '📶 get_device_signal_history - Signal-Verlauf',
+      '📈 get_roaming_analysis - Roaming-Analyse',
+    ]);
   }
 
   private async handleRestartWireless(confirm: boolean): Promise<SkillResponse> {
@@ -968,7 +996,7 @@ export class OpenClawAsusMeshSkill {
     return this.successResponse('restart_wireless', {
       status: 'restarted',
       message: 'Wireless service restarted. Clients will reconnect shortly.',
-    });
+    }, ['⏱️ Warte 30 Sekunden, dann scan_network für Verifikation']);
   }
 
   private async handleGetChannelScan(
@@ -996,11 +1024,16 @@ export class OpenClawAsusMeshSkill {
   private async handleScanRogueIot(): Promise<SkillResponse> {
     const result = await this.iotDetector.scanForRogueIoTNetworks();
 
+    const suggestions: string[] = [
+      '🛡️ Unbekannte IoT-Netze können Sicherheitsrisiken sein',
+      '🔍 get_device_list - Alle Netzwerk-Geräte prüfen',
+    ];
+
     return this.successResponse('scan_rogue_iot', {
       rogueNetworks: result.rogueNetworks.length,
       networks: result.rogueNetworks,
       suggestedActions: result.suggestedActions,
-    });
+    }, suggestions);
   }
 
   private async handleGetHeatmap(floor?: number): Promise<SkillResponse> {
@@ -1040,12 +1073,17 @@ export class OpenClawAsusMeshSkill {
   private async handleRunBenchmark(): Promise<SkillResponse> {
     const result = await this.benchmarkEngine.runFullBenchmark();
 
+    const suggestions: string[] = [
+      '📊 get_network_health - Vergleiche mit Gesundheits-Score',
+      '📈 get_optimization_suggestions - Weitere Verbesserungen',
+    ];
+
     return this.successResponse('run_benchmark', {
       id: result.id,
       duration: result.duration,
       tests: result.tests,
       timestamp: result.timestamp,
-    });
+    }, suggestions);
   }
 
   private async handleSyncMeshSettings(
@@ -1067,16 +1105,25 @@ export class OpenClawAsusMeshSkill {
       await this.sshClient.commitNvram();
     }
 
+    const suggestions = changes.length > 0 
+      ? ['🔄 restart_wireless(confirm=true) - Änderungen anwenden']
+      : [];
+
     return this.successResponse('sync_mesh_settings', {
       changes,
       message: changes.length > 0 
         ? 'Settings synced. Restart wireless to apply.' 
         : 'No changes specified',
-    });
+    }, suggestions);
   }
 
   private async handleAnalyzeNetworkTopology(): Promise<SkillResponse> {
     const topology = await this.topologyAnalyzer.discoverTopology();
+
+    const suggestions: string[] = [
+      '📊 get_switch_status - Switch-Details abrufen',
+      '🔌 get_port_traffic - Port-Traffic analysieren',
+    ];
 
     return this.successResponse('analyze_network_topology', {
       devices: topology.devices.length,
@@ -1085,7 +1132,7 @@ export class OpenClawAsusMeshSkill {
       problemDevices: topology.problemDevices,
       overallHealth: topology.overallHealthScore,
       recommendations: topology.recommendations,
-    });
+    }, suggestions);
   }
 
   private async handleFullIntelligenceScan(
@@ -1152,11 +1199,16 @@ export class OpenClawAsusMeshSkill {
     const summary = this.networkIntelligence.getEnvironmentSummary();
     const lastResult = this.networkIntelligence.getLastScanResult();
 
+    const suggestions: string[] = [
+      '📊 get_optimization_suggestions - Optimierungen abrufen',
+      '✅ apply_optimization - Empfehlungen anwenden',
+    ];
+
     return this.successResponse('get_environment_summary', {
       summary,
       lastScanTime: lastResult?.endTime?.toISOString() ?? null,
       phase: this.networkIntelligence.getCurrentPhase(),
-    });
+    }, suggestions);
   }
 
   private generateIntelligenceSuggestions(result: { 
@@ -1929,7 +1981,7 @@ export class OpenClawAsusMeshSkill {
       customName,
       deviceType,
       marked: true,
-    });
+    }, ['📝 get_known_devices - Alle bekannten Geräte anzeigen']);
   }
 
   private handleGetNetworkHistory(limit?: number): SkillResponse {

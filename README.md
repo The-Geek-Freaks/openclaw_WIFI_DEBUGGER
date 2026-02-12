@@ -706,6 +706,25 @@ npm run clean && npm run build
 
 ## 📝 Changelog
 
+### v1.5.0 (2026-02-12)
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│  🧪 EXPERT PANEL V: 25 Flow-Simulationen - VOLLSTÄNDIG      │
+├─────────────────────────────────────────────────────────────┤
+│  ✅ 16 Actions ohne suggestions[] gefunden + gefixt:        │
+│     - get_device_details, get_device_signal_history         │
+│     - get_wifi_settings, restart_wireless, scan_rogue_iot   │
+│     - run_benchmark, sync_mesh_settings                     │
+│     - analyze_network_topology, get_environment_summary     │
+│     - get_zigbee_devices, get_spatial_map, set_node_position│
+│     - get_connection_stability, mark_device_known           │
+│  ✅ ALLE 47 Actions haben jetzt suggestions[]               │
+│  ✅ OpenClaw kann JEDEN Flow komplett durchführen           │
+│  ✅ 64/64 Tests passed                                      │
+└─────────────────────────────────────────────────────────────┘
+```
+
 ### v1.4.2 (2026-02-12)
 
 ```text
