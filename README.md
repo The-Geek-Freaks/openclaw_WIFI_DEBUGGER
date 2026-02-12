@@ -706,6 +706,25 @@ npm run clean && npm run build
 
 ## 📝 Changelog
 
+### v1.3.0 (2026-02-12)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  🏛️ EXPERT PANEL: 10 Architecture Improvements              │
+├─────────────────────────────────────────────────────────────┤
+│  ✅ SSH Circuit Breaker - exponential backoff, 5 failures   │
+│  ✅ Typed Response Interfaces - no more unknown data        │
+│  ✅ SKILL.md compressed - 289→79 lines (73% token save)     │
+│  ✅ Intent Keywords - user phrase → flow mapping            │
+│  ✅ Handler Module Structure - BaseHandler for refactoring  │
+│  ✅ Metrics System - counters, gauges, histograms           │
+│  ✅ Lazy Loading Utility - dynamic imports with caching     │
+│  ✅ Tree-Shaking Entry Points - modular package.json        │
+│  ✅ esbuild Bundling - production builds with splitting     │
+│  ✅ JSON Schema Export - actions.schema.json for AI tools   │
+└─────────────────────────────────────────────────────────────┘
+```
+
 ### v1.2.0 (2026-02-12)
 
 ```
