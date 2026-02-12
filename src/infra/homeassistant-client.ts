@@ -54,8 +54,12 @@ export class HomeAssistantClient extends EventEmitter<HassClientEvents> {
       });
 
       this.ws.on('message', (data: WebSocket.Data) => {
-        const message = JSON.parse(data.toString());
-        this.handleWsMessage(message, resolve, reject);
+        try {
+          const message = JSON.parse(data.toString());
+          this.handleWsMessage(message, resolve, reject);
+        } catch (err) {
+          logger.error({ err, data: data.toString().substring(0, 100) }, 'Failed to parse WebSocket message');
+        }
       });
 
       this.ws.on('error', (err: Error) => {

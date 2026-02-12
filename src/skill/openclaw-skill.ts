@@ -162,12 +162,15 @@ export class OpenClawAsusMeshSkill {
     process.on('SIGTERM', () => shutdown('SIGTERM'));
     
     // SIGHUP for config reload (Linus Torvalds recommendation)
-    process.on('SIGHUP', () => {
-      logger.info('Received SIGHUP - reloading configuration');
-      this.reloadConfig().catch(err => {
-        logger.error({ err }, 'Failed to reload config on SIGHUP');
+    // Note: SIGHUP does not exist on Windows - guard with platform check
+    if (process.platform !== 'win32') {
+      process.on('SIGHUP', () => {
+        logger.info('Received SIGHUP - reloading configuration');
+        this.reloadConfig().catch(err => {
+          logger.error({ err }, 'Failed to reload config on SIGHUP');
+        });
       });
-    });
+    }
     
     process.on('uncaughtException', (err) => {
       logger.error({ err }, 'Uncaught exception');
