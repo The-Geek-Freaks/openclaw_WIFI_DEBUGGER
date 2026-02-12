@@ -706,6 +706,25 @@ npm run clean && npm run build
 
 ## 📝 Changelog
 
+### v1.4.0 (2026-02-12)
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│  🧪 EXPERT PANEL: suggestions[] für alle Actions            │
+├─────────────────────────────────────────────────────────────┤
+│  ✅ scan_network: Next-Step Vorschläge                      │
+│  ✅ get_device_list: Device-Management Tipps                │
+│  ✅ get_mesh_nodes: Triangulation Flow Hinweise             │
+│  ✅ get_problems: Kontextbasierte Fix-Vorschläge            │
+│  ✅ scan_zigbee: Zigbee-Flow Vorschläge                     │
+│  ✅ get_frequency_conflicts: Konflikt-Lösungen              │
+│  ✅ get_channel_scan: Optimierungs-Hinweise                 │
+│  ✅ get_optimization_suggestions: full_scan Warnung         │
+│  ✅ OpenClaw kann jetzt intelligenter Flows leiten          │
+│  ✅ 64/64 Tests passed                                      │
+└─────────────────────────────────────────────────────────────┘
+```
+
 ### v1.3.3 (2026-02-12)
 
 ```text

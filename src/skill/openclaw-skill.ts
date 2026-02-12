@@ -451,12 +451,19 @@ export class OpenClawAsusMeshSkill {
     
     this.persistScanData();
     
+    const suggestions: string[] = [
+      '📊 get_network_health - Netzwerk-Gesundheit prüfen',
+      '📋 get_device_list - Alle Geräte auflisten',
+      '⚠️ get_problems - Erkannte Probleme anzeigen',
+      '💡 get_optimization_suggestions - Optimierungsvorschläge',
+    ];
+
     return this.successResponse('scan_network', {
       nodes: this.meshState.nodes.length,
       devices: this.meshState.devices.length,
       wifiSettings: this.meshState.wifiSettings,
       lastUpdated: this.meshState.lastUpdated,
-    });
+    }, suggestions);
   }
 
   private persistScanData(): void {
@@ -537,6 +544,12 @@ export class OpenClawAsusMeshSkill {
         break;
     }
 
+    const suggestions: string[] = [
+      '🔍 get_device_details(macAddress) - Details zu einem Gerät',
+      '📶 get_connection_stability(macAddress) - Verbindungsstabilität prüfen',
+      '🏷️ mark_device_known(macAddress) - Gerät benennen und kategorisieren',
+    ];
+
     return this.successResponse('get_device_list', {
       count: devices.length,
       devices: devices.map(d => ({
@@ -547,7 +560,7 @@ export class OpenClawAsusMeshSkill {
         signal: d.signalStrength,
         status: d.status,
       })),
-    });
+    }, suggestions);
   }
 
   private async handleGetDeviceDetails(macAddress: string): Promise<SkillResponse> {
@@ -591,9 +604,16 @@ export class OpenClawAsusMeshSkill {
       this.meshState = await this.meshAnalyzer.scan();
     }
 
+    const suggestions: string[] = [
+      '🏠 set_house_config - Haus-Layout für Triangulation konfigurieren',
+      '📍 set_node_position_3d - Node-Position setzen (für jeden Node)',
+      '📐 triangulate_devices - Geräte-Positionen berechnen',
+      '🗺️ get_auto_map - Auto-generierte Karte anzeigen',
+    ];
+
     return this.successResponse('get_mesh_nodes', {
       nodes: this.meshState.nodes,
-    });
+    }, suggestions);
   }
 
   private async handleGetWifiSettings(): Promise<SkillResponse> {
@@ -640,6 +660,18 @@ export class OpenClawAsusMeshSkill {
       problems = problems.filter(p => p.severity === severity);
     }
 
+    const suggestions: string[] = [];
+    const autoFixable = problems.filter(p => p.autoFixAvailable);
+    if (autoFixable.length > 0) {
+      suggestions.push(`💡 ${autoFixable.length} Probleme können automatisch behoben werden - get_optimization_suggestions`);
+    }
+    if (problems.some(p => p.category === 'frequency_overlap')) {
+      suggestions.push('📡 get_frequency_conflicts - WiFi/Zigbee Konflikte analysieren');
+    }
+    if (problems.some(p => p.category === 'signal_weakness')) {
+      suggestions.push('🗺️ get_heatmap - Signal-Heatmap für Problemzonen');
+    }
+
     return this.successResponse('get_problems', {
       count: problems.length,
       problems: problems.map(p => ({
@@ -650,7 +682,7 @@ export class OpenClawAsusMeshSkill {
         recommendation: p.recommendation,
         autoFixAvailable: p.autoFixAvailable,
       })),
-    });
+    }, suggestions);
   }
 
   private async handleGetOptimizationSuggestions(): Promise<SkillResponse> {
@@ -675,6 +707,18 @@ export class OpenClawAsusMeshSkill {
 
     const operationMode = apModeSuggestions.length > 0 ? 'ap' : 'router';
 
+    const responseSuggestions: string[] = [];
+    
+    // Warnung wenn full_intelligence_scan nicht ausgeführt wurde
+    const lastScan = this.networkIntelligence.getLastScanResult();
+    if (!lastScan) {
+      responseSuggestions.push('⚠️ Tipp: full_intelligence_scan liefert bessere Ergebnisse (inkl. Zigbee, SNMP, Nachbar-Netze)');
+    }
+    
+    if (allSuggestions.length > 0) {
+      responseSuggestions.push('✅ apply_optimization(suggestionId, confirm=true) - Optimierung anwenden');
+    }
+
     return this.successResponse('get_optimization_suggestions', {
       operationMode,
       count: allSuggestions.length,
@@ -687,7 +731,7 @@ export class OpenClawAsusMeshSkill {
         expectedImprovement: s.expectedImprovement,
         riskLevel: s.riskLevel,
       })),
-    });
+    }, responseSuggestions);
   }
 
   private async handleApplyOptimization(
@@ -788,11 +832,17 @@ export class OpenClawAsusMeshSkill {
       logger.warn({ err }, 'Failed to persist Zigbee devices');
     }
 
+    const suggestions: string[] = [
+      '📡 get_frequency_conflicts - WiFi/Zigbee Interferenz prüfen',
+      '🔧 get_zigbee_devices - Alle Zigbee-Geräte mit Health-Status',
+      '🧠 full_intelligence_scan(targets=["protect_zigbee"]) - Zigbee-optimierte Analyse',
+    ];
+
     return this.successResponse('scan_zigbee', {
       channel: this.zigbeeState.channel,
       deviceCount: this.zigbeeState.devices.length,
       stats: this.zigbeeAnalyzer.getNetworkStats(),
-    });
+    }, suggestions);
   }
 
   private async handleGetZigbeeDevices(): Promise<SkillResponse> {
@@ -827,10 +877,20 @@ export class OpenClawAsusMeshSkill {
       this.meshState.wifiSettings
     );
 
+    const hasConflicts = conflicts.some(c => c.conflictSeverity !== 'none');
+    const suggestions: string[] = [];
+    
+    if (hasConflicts) {
+      suggestions.push('🧠 full_intelligence_scan(targets=["protect_zigbee"]) - Optimierung berechnen');
+      suggestions.push('💡 get_optimization_suggestions - Kanal-Änderungen vorschlagen');
+    } else {
+      suggestions.push('✅ Keine Konflikte - WiFi und Zigbee arbeiten harmonisch');
+    }
+
     return this.successResponse('get_frequency_conflicts', {
       conflicts,
-      hasConflicts: conflicts.some(c => c.conflictSeverity !== 'none'),
-    });
+      hasConflicts,
+    }, suggestions);
   }
 
   private async handleGetSpatialMap(): Promise<SkillResponse> {
@@ -922,9 +982,14 @@ export class OpenClawAsusMeshSkill {
       results.push(...await this.frequencyOptimizer.scanChannels('5g'));
     }
 
+    const suggestions: string[] = [
+      '💡 get_optimization_suggestions - Beste Kanäle berechnen',
+      '📊 get_network_health - Gesundheits-Score prüfen',
+    ];
+
     return this.successResponse('get_channel_scan', {
       channels: results,
-    });
+    }, suggestions);
   }
 
   private async handleScanRogueIot(): Promise<SkillResponse> {
