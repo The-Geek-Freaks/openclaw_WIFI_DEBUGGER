@@ -455,6 +455,7 @@ export class OpenClawAsusMeshSkill {
       '📊 get_network_health - Netzwerk-Gesundheit prüfen',
       '📋 get_device_list - Alle Geräte auflisten',
       '⚠️ get_problems - Erkannte Probleme anzeigen',
+      '📡 get_channel_scan - Kanal-Interferenz analysieren (für Speed-Optimierung)',
       '💡 get_optimization_suggestions - Optimierungsvorschläge',
     ];
 
