@@ -1,4 +1,5 @@
 import { createChildLogger, logSkillAction, getCurrentLogFile } from '../utils/logger.js';
+import { metrics } from '../utils/metrics.js';
 import { loadConfigFromEnv, type Config } from '../config/index.js';
 import { AsusSshClient } from '../infra/asus-ssh-client.js';
 import { HomeAssistantClient } from '../infra/homeassistant-client.js';
@@ -159,6 +160,15 @@ export class OpenClawAsusMeshSkill {
 
     process.on('SIGINT', () => shutdown('SIGINT'));
     process.on('SIGTERM', () => shutdown('SIGTERM'));
+    
+    // SIGHUP for config reload (Linus Torvalds recommendation)
+    process.on('SIGHUP', () => {
+      logger.info('Received SIGHUP - reloading configuration');
+      this.reloadConfig().catch(err => {
+        logger.error({ err }, 'Failed to reload config on SIGHUP');
+      });
+    });
+    
     process.on('uncaughtException', (err) => {
       logger.error({ err }, 'Uncaught exception');
       shutdown('uncaughtException').catch(() => process.exit(1));
@@ -166,6 +176,17 @@ export class OpenClawAsusMeshSkill {
     process.on('unhandledRejection', (reason) => {
       logger.error({ reason }, 'Unhandled rejection');
     });
+  }
+
+  private async reloadConfig(): Promise<void> {
+    logger.info('Reloading skill configuration...');
+    try {
+      await this.knowledgeBase.initialize();
+      logger.info('Configuration reloaded successfully');
+    } catch (err) {
+      logger.error({ err }, 'Config reload failed');
+      throw err;
+    }
   }
 
   async execute(action: SkillAction): Promise<SkillResponse> {
@@ -187,18 +208,27 @@ export class OpenClawAsusMeshSkill {
 
     try {
       const result = await this.executeAction(action);
+      const durationMs = Date.now() - startTime;
+      
+      // Record metrics (Kelsey Hightower recommendation)
+      metrics.recordAction(action.action, durationMs, result.success);
       
       // Log successful completion
       logSkillAction(action.action, actionParams, 'success', {
-        durationMs: Date.now() - startTime,
+        durationMs,
         success: result.success,
       });
       
       return result;
     } catch (err) {
+      const durationMs = Date.now() - startTime;
+      
+      // Record metrics for failed action
+      metrics.recordAction(action.action, durationMs, false);
+      
       // Log error
       logSkillAction(action.action, actionParams, 'error', {
-        durationMs: Date.now() - startTime,
+        durationMs,
         error: err instanceof Error ? err.message : String(err),
       });
       
@@ -401,6 +431,12 @@ export class OpenClawAsusMeshSkill {
         
         case 'get_log_info':
           return this.handleGetLogInfo();
+        
+        case 'get_metrics':
+          return this.handleGetMetrics();
+        
+        case 'reset_circuit_breaker':
+          return this.handleResetCircuitBreaker();
         
         default:
           return this.errorResponse('unknown', 'Unknown action');
@@ -2248,6 +2284,36 @@ export class OpenClawAsusMeshSkill {
       `📄 Log-Datei: ${logFile}`,
       '💡 Setze OPENCLAW_LOG_DIR um Log-Verzeichnis zu ändern',
       '💡 Setze LOG_LEVEL=debug für detaillierte Logs',
+    ]);
+  }
+
+  private handleGetMetrics(): SkillResponse {
+    const summary = metrics.getSummary();
+    const circuitState = this.sshClient.getCircuitState();
+    
+    return this.successResponse('get_metrics', {
+      ...summary,
+      circuitBreaker: circuitState,
+      meshState: this.meshState ? {
+        nodes: this.meshState.nodes.length,
+        devices: this.meshState.devices.length,
+      } : null,
+    }, [
+      '📊 Metriken zeigen Skill-Performance',
+      '🔄 reset_circuit_breaker um SSH-Fehler zurückzusetzen',
+    ]);
+  }
+
+  private handleResetCircuitBreaker(): SkillResponse {
+    this.sshClient.resetCircuit();
+    const newState = this.sshClient.getCircuitState();
+    
+    return this.successResponse('reset_circuit_breaker', {
+      message: 'Circuit breaker reset successfully',
+      newState,
+    }, [
+      '✅ SSH-Verbindung kann jetzt wieder versucht werden',
+      '📡 scan_network um Verbindung zu testen',
     ]);
   }
 }

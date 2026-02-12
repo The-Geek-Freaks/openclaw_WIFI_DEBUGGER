@@ -344,6 +344,12 @@ export const SkillActionSchema = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('get_log_info'),
   }),
+  z.object({
+    action: z.literal('get_metrics'),
+  }),
+  z.object({
+    action: z.literal('reset_circuit_breaker'),
+  }),
 ]);
 
 export type SkillAction = z.infer<typeof SkillActionSchema>;

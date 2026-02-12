@@ -68,6 +68,7 @@ set_node_position_3d (x3) → triangulate_devices → get_auto_map
 | Zigbee | `scan_zigbee`, `get_frequency_conflicts` |
 | Location | `set_house_config`, `set_node_position_3d`, `triangulate_devices`, `get_auto_map` |
 | Knowledge | `get_known_devices`, `mark_device_known`, `get_network_history` |
+| Debug | `get_log_info`, `get_metrics`, `reset_circuit_breaker` |
 
 ## Config
 
