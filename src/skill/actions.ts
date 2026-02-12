@@ -356,6 +356,28 @@ export const SkillActionSchema = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('reset_circuit_breaker'),
   }),
+  z.object({
+    action: z.literal('set_location'),
+    params: z.object({
+      address: z.string().optional(),
+      latitude: z.number().optional(),
+      longitude: z.number().optional(),
+      widthMeters: z.number().optional(),
+      heightMeters: z.number().optional(),
+    }),
+  }),
+  z.object({
+    action: z.literal('generate_floor_plans'),
+    params: z.object({
+      floorCount: z.number().default(2),
+      hasBasement: z.boolean().default(false),
+      hasAttic: z.boolean().default(false),
+    }).optional(),
+  }),
+  z.object({
+    action: z.literal('get_property_info'),
+    params: z.object({}).optional(),
+  }),
 ]);
 
 export type SkillAction = z.infer<typeof SkillActionSchema>;

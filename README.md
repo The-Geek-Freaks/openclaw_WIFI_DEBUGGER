@@ -706,6 +706,26 @@ npm run clean && npm run build
 
 ## 📝 Changelog
 
+### v1.6.0 (2026-02-12)
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│  🌍 GEO-LOCATION FEATURES - Adresse/GPS → Grundrisse        │
+├─────────────────────────────────────────────────────────────┤
+│  ✅ set_location: Adresse ODER GPS-Koordinaten eingeben     │
+│     - Nominatim/OpenStreetMap API für Geocoding             │
+│     - Automatische Grundstücksgröße aus Bounding Box        │
+│  ✅ generate_floor_plans: Auto-generierte Grundrisse        │
+│     - SVG + ASCII für jede Etage                            │
+│     - Keller, EG, Stockwerke, Dachgeschoss                  │
+│     - Placeholder-Räume (Wohnzimmer, Küche, Bad, etc.)      │
+│  ✅ get_property_info: Alle Grundstücks-Details             │
+│  ✅ Expert Panel VIII: 5/5 Geo-Tests erfolgreich            │
+│  ✅ 50 Actions total (47 + 3 neue Geo-Actions)              │
+│  ✅ 64/64 Tests passed                                      │
+└─────────────────────────────────────────────────────────────┘
+```
+
 ### v1.5.1 (2026-02-12)
 
 ```text

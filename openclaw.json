@@ -1,7 +1,7 @@
 {
   "$schema": "https://openclaw.io/schemas/skill.json",
   "name": "asus-mesh-wifi-analyzer",
-  "version": "1.5.1",
+  "version": "1.6.0",
   "displayName": "ASUS Mesh WiFi Analyzer",
   "description": "Comprehensive ASUS Mesh WiFi network analysis and optimization with Home Assistant Zigbee integration",
   "author": "OpenClaw Community",
@@ -248,7 +248,20 @@
     ]},
     { "name": "get_log_info", "description": "Get log file info and status", "parameters": [] },
     { "name": "get_metrics", "description": "Get skill performance metrics", "parameters": [] },
-    { "name": "reset_circuit_breaker", "description": "Reset SSH circuit breaker", "parameters": [] }
+    { "name": "reset_circuit_breaker", "description": "Reset SSH circuit breaker", "parameters": [] },
+    { "name": "set_location", "description": "Set property location by address or GPS coordinates", "parameters": [
+      { "name": "address", "type": "string", "description": "Street address to geocode (e.g. 'Musterstraße 1, 12345 Berlin')" },
+      { "name": "latitude", "type": "number", "description": "GPS latitude (alternative to address)" },
+      { "name": "longitude", "type": "number", "description": "GPS longitude (alternative to address)" },
+      { "name": "widthMeters", "type": "number", "description": "Property width in meters (optional override)" },
+      { "name": "heightMeters", "type": "number", "description": "Property height in meters (optional override)" }
+    ]},
+    { "name": "generate_floor_plans", "description": "Auto-generate floor plans based on property dimensions", "parameters": [
+      { "name": "floorCount", "type": "number", "default": 2, "description": "Number of regular floors" },
+      { "name": "hasBasement", "type": "boolean", "default": false, "description": "Include basement floor" },
+      { "name": "hasAttic", "type": "boolean", "default": false, "description": "Include attic floor" }
+    ]},
+    { "name": "get_property_info", "description": "Get property location and floor plan information", "parameters": [] }
   ],
   "metadata": {
     "openclaw": {

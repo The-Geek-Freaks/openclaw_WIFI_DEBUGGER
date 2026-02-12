@@ -20,6 +20,7 @@ import { FloorPlanManager } from '../core/floor-plan-manager.js';
 import { AlertingService } from '../core/alerting-service.js';
 import { RouterTweaksChecker } from '../core/router-tweaks-checker.js';
 import { RealTriangulationEngine } from '../core/real-triangulation.js';
+import { GeoLocationService } from '../core/geo-location-service.js';
 import type { HouseConfig } from '../core/real-triangulation.js';
 import type { SkillAction, SkillResponse } from './actions.js';
 import type { FloorType } from '../types/building.js';
@@ -50,6 +51,7 @@ export class OpenClawAsusMeshSkill {
   private readonly knowledgeBase: NetworkKnowledgeBase;
   private readonly tweaksChecker: RouterTweaksChecker;
   private readonly realTriangulation: RealTriangulationEngine;
+  private readonly geoLocationService: GeoLocationService;
   
   private meshState: MeshNetworkState | null = null;
   private zigbeeState: ZigbeeNetworkState | null = null;
@@ -89,6 +91,7 @@ export class OpenClawAsusMeshSkill {
     this.knowledgeBase = new NetworkKnowledgeBase();
     this.tweaksChecker = new RouterTweaksChecker(this.sshClient);
     this.realTriangulation = new RealTriangulationEngine();
+    this.geoLocationService = new GeoLocationService();
   }
 
   async initialize(): Promise<void> {
@@ -440,6 +443,15 @@ export class OpenClawAsusMeshSkill {
         
         case 'reset_circuit_breaker':
           return this.handleResetCircuitBreaker();
+        
+        case 'set_location':
+          return await this.handleSetLocation(action.params);
+        
+        case 'generate_floor_plans':
+          return this.handleGenerateFloorPlans(action.params);
+        
+        case 'get_property_info':
+          return this.handleGetPropertyInfo();
         
         default:
           return this.errorResponse('unknown', 'Unknown action');
@@ -2465,6 +2477,114 @@ export class OpenClawAsusMeshSkill {
     }, [
       '✅ SSH-Verbindung kann jetzt wieder versucht werden',
       '📡 scan_network um Verbindung zu testen',
+    ]);
+  }
+
+  private async handleSetLocation(params: {
+    address?: string | undefined;
+    latitude?: number | undefined;
+    longitude?: number | undefined;
+    widthMeters?: number | undefined;
+    heightMeters?: number | undefined;
+  }): Promise<SkillResponse> {
+    let result;
+
+    if (params.address) {
+      result = await this.geoLocationService.setLocationByAddress(params.address);
+      if (!result) {
+        return this.errorResponse('set_location', `Adresse nicht gefunden: ${params.address}`);
+      }
+    } else if (params.latitude !== undefined && params.longitude !== undefined) {
+      result = this.geoLocationService.setLocationByCoordinates(
+        params.latitude,
+        params.longitude,
+        params.widthMeters ?? 20,
+        params.heightMeters ?? 15
+      );
+    } else {
+      return this.errorResponse('set_location', 'Entweder address ODER latitude+longitude angeben');
+    }
+
+    return this.successResponse('set_location', {
+      coordinates: result.coordinates,
+      address: result.address,
+      estimatedDimensions: result.estimatedDimensions,
+      source: result.source,
+    }, [
+      '🏠 generate_floor_plans - Grundrisse für alle Stockwerke generieren',
+      '📐 Dimensionen können mit widthMeters/heightMeters überschrieben werden',
+    ]);
+  }
+
+  private handleGenerateFloorPlans(params?: {
+    floorCount?: number;
+    hasBasement?: boolean;
+    hasAttic?: boolean;
+  }): SkillResponse {
+    const floorCount = params?.floorCount ?? 2;
+    const hasBasement = params?.hasBasement ?? false;
+    const hasAttic = params?.hasAttic ?? false;
+
+    const floors = this.geoLocationService.generateFloorPlans(floorCount, hasBasement, hasAttic);
+
+    if (floors.length === 0) {
+      return this.errorResponse('generate_floor_plans', 'Keine Grundrisse generiert. Erst set_location aufrufen.');
+    }
+
+    return this.successResponse('generate_floor_plans', {
+      generatedFloors: floors.length,
+      floors: floors.map(f => ({
+        floorNumber: f.floorNumber,
+        floorName: f.floorName,
+        dimensions: `${f.widthMeters}m × ${f.heightMeters}m`,
+        rooms: f.placeholderRooms.length,
+        hasSvg: true,
+        hasAscii: true,
+      })),
+      asciiPreviews: floors.map(f => ({
+        floor: f.floorNumber,
+        name: f.floorName,
+        ascii: f.asciiPreview,
+      })),
+    }, [
+      '🗺️ get_property_info - Grundstücks- und Stockwerk-Details anzeigen',
+      '📍 set_node_position_3d - Mesh-Nodes auf Grundrissen positionieren',
+      '📐 triangulate_devices - Geräte auf Karte lokalisieren',
+      '🖼️ SVG-Grundrisse können für Visualisierung genutzt werden',
+    ]);
+  }
+
+  private handleGetPropertyInfo(): SkillResponse {
+    const propertyData = this.geoLocationService.getPropertyData();
+    const floors = this.geoLocationService.getAllGeneratedFloors();
+
+    if (!propertyData) {
+      return this.errorResponse('get_property_info', 'Keine Location gesetzt. Erst set_location aufrufen.');
+    }
+
+    return this.successResponse('get_property_info', {
+      location: {
+        coordinates: propertyData.coordinates,
+        address: propertyData.address,
+        source: propertyData.source,
+      },
+      property: {
+        dimensions: propertyData.estimatedDimensions,
+        boundingBox: propertyData.boundingBox,
+      },
+      floors: floors.map(f => ({
+        floorNumber: f.floorNumber,
+        floorName: f.floorName,
+        widthMeters: f.widthMeters,
+        heightMeters: f.heightMeters,
+        rooms: f.placeholderRooms.map(r => r.name),
+        svgAvailable: true,
+      })),
+      floorCount: floors.length,
+    }, [
+      '📐 triangulate_devices - Geräte auf Karte positionieren',
+      '🗺️ get_auto_map - ASCII-Karte mit Geräten anzeigen',
+      '📍 set_node_position_3d - Mesh-Nodes manuell positionieren',
     ]);
   }
 }
