@@ -384,6 +384,12 @@ export const SkillActionSchema = z.discriminatedUnion('action', [
       zoom: z.number().min(1).max(20).default(18),
     }).optional(),
   }),
+  z.object({
+    action: z.literal('detect_walls'),
+    params: z.object({
+      floorNumber: z.number().default(0),
+    }).optional(),
+  }),
 ]);
 
 export type SkillAction = z.infer<typeof SkillActionSchema>;

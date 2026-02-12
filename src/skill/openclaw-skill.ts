@@ -21,6 +21,7 @@ import { AlertingService } from '../core/alerting-service.js';
 import { RouterTweaksChecker } from '../core/router-tweaks-checker.js';
 import { RealTriangulationEngine } from '../core/real-triangulation.js';
 import { GeoLocationService } from '../core/geo-location-service.js';
+import { WallDetector } from '../core/wall-detector.js';
 import type { HouseConfig } from '../core/real-triangulation.js';
 import type { SkillAction, SkillResponse } from './actions.js';
 import type { FloorType } from '../types/building.js';
@@ -52,6 +53,7 @@ export class OpenClawAsusMeshSkill {
   private readonly tweaksChecker: RouterTweaksChecker;
   private readonly realTriangulation: RealTriangulationEngine;
   private readonly geoLocationService: GeoLocationService;
+  private readonly wallDetector: WallDetector;
   
   private meshState: MeshNetworkState | null = null;
   private zigbeeState: ZigbeeNetworkState | null = null;
@@ -92,6 +94,7 @@ export class OpenClawAsusMeshSkill {
     this.tweaksChecker = new RouterTweaksChecker(this.sshClient);
     this.realTriangulation = new RealTriangulationEngine();
     this.geoLocationService = new GeoLocationService();
+    this.wallDetector = new WallDetector();
   }
 
   async initialize(): Promise<void> {
@@ -455,6 +458,9 @@ export class OpenClawAsusMeshSkill {
         
         case 'fetch_map_image':
           return await this.handleFetchMapImage(action.params?.zoom);
+        
+        case 'detect_walls':
+          return this.handleDetectWalls(action.params?.floorNumber);
         
         default:
           return this.errorResponse('unknown', 'Unknown action');
@@ -2622,6 +2628,73 @@ export class OpenClawAsusMeshSkill {
       '📍 set_node_position_3d - Nodes auf Karte positionieren',
       '📐 triangulate_devices - Geräte auf Karte anzeigen',
       '🖼️ imageBase64 kann direkt als <img src="..."> verwendet werden',
+    ]);
+  }
+
+  private handleDetectWalls(floorNumber?: number | undefined): SkillResponse {
+    const floor = floorNumber ?? 0;
+
+    // Feed triangulation data to wall detector
+    const positions = this.realTriangulation.getCachedPositions();
+    const nodePositions = this.realTriangulation.getNodePositions();
+
+    for (const pos of positions) {
+      for (const reading of pos.signalReadings) {
+        const nodePos = nodePositions.find(n => n.nodeMac === reading.nodeMac);
+        if (nodePos) {
+          this.wallDetector.addSignalMeasurement({
+            deviceMac: pos.deviceMac,
+            devicePosition: pos.position,
+            nodeMac: reading.nodeMac,
+            nodePosition: nodePos.position,
+            rssi: reading.rssi,
+            floorNumber: pos.floorNumber,
+          });
+        }
+      }
+    }
+
+    const result = this.wallDetector.detectWalls(floor);
+    const asciiMap = this.wallDetector.generateWallAscii(floor);
+
+    if (result.detectedWalls.length === 0) {
+      return this.successResponse('detect_walls', {
+        floorNumber: floor,
+        wallsDetected: 0,
+        hinweis: 'Keine Wände erkannt. Mehr Signal-Daten nötig.',
+        requirements: [
+          '1. Mindestens 3 Mesh-Nodes positioniert (set_node_position_3d)',
+          '2. Geräte trianguliert (triangulate_devices)',
+          '3. Signal-Messungen aus verschiedenen Räumen',
+        ],
+      }, [
+        '📍 set_node_position_3d - Mesh-Nodes positionieren',
+        '📐 triangulate_devices - Geräte lokalisieren',
+        '📡 record_signal_measurement - Manuelle Messung hinzufügen',
+      ]);
+    }
+
+    return this.successResponse('detect_walls', {
+      floorNumber: floor,
+      wallsDetected: result.detectedWalls.length,
+      roomsInferred: result.roomBoundaries.length,
+      anomalies: result.signalAnomalies.length,
+      walls: result.detectedWalls.map(w => ({
+        material: w.material,
+        attenuation: `${Math.round(w.estimatedAttenuation)} dB`,
+        confidence: `${Math.round(w.confidence * 100)}%`,
+        detections: w.detectedFrom.length,
+      })),
+      rooms: result.roomBoundaries.map(r => ({
+        name: r.name,
+        bounds: r.bounds,
+        confidence: `${Math.round(r.confidence * 100)}%`,
+      })),
+      asciiMap,
+    }, [
+      '🏠 Wände aus Signal-Dämpfung erkannt',
+      '🗺️ get_auto_map - Geräte-Karte mit Wänden anzeigen',
+      '📐 generate_floor_plans - Grundrisse aktualisieren',
     ]);
   }
 }
