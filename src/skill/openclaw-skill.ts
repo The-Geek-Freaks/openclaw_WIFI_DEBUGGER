@@ -2536,21 +2536,27 @@ export class OpenClawAsusMeshSkill {
       return this.errorResponse('generate_floor_plans', 'Keine Grundrisse generiert. Erst set_location aufrufen.');
     }
 
+    // Formatierte Ausgabe für bessere Lesbarkeit
+    const formattedOutput = floors.map(f => 
+      `\n═══════════════════════════════════════════════════════════\n` +
+      `  📍 ${f.floorName.toUpperCase()} (Etage ${f.floorNumber})\n` +
+      `  📐 Größe: ${f.widthMeters}m × ${f.heightMeters}m\n` +
+      `  🚪 Räume: ${f.placeholderRooms.map(r => r.name).join(', ')}\n` +
+      `═══════════════════════════════════════════════════════════\n` +
+      f.asciiPreview
+    ).join('\n');
+
     return this.successResponse('generate_floor_plans', {
       generatedFloors: floors.length,
+      hinweis: 'Jedes Stockwerk ist separat dargestellt. Für ein echtes Kartenbild: fetch_map_image verwenden.',
       floors: floors.map(f => ({
         floorNumber: f.floorNumber,
         floorName: f.floorName,
         dimensions: `${f.widthMeters}m × ${f.heightMeters}m`,
-        rooms: f.placeholderRooms.length,
+        rooms: f.placeholderRooms.map(r => r.name),
         hasSvg: true,
-        hasAscii: true,
       })),
-      asciiPreviews: floors.map(f => ({
-        floor: f.floorNumber,
-        name: f.floorName,
-        ascii: f.asciiPreview,
-      })),
+      kartenAnsicht: formattedOutput,
     }, [
       '🗺️ fetch_map_image - Echtes Kartenbild von OpenStreetMap laden',
       '🗺️ get_property_info - Grundstücks- und Stockwerk-Details anzeigen',
