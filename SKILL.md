@@ -253,6 +253,18 @@ triangulate_devices ─────────→ get_auto_map
 - `HASS_URL` - Home Assistant URL for Zigbee
 - `HASS_TOKEN` - Home Assistant access token
 - `SNMP_DEVICES` - JSON array for switch monitoring
+- `OPENCLAW_LOG_DIR` - Custom log directory (default: `~/.openclaw/logs/`)
+- `LOG_LEVEL` - debug, info, warn, error (default: info)
+
+**Log File Location:**
+```
+Default: ~/.openclaw/logs/openclaw-skill-YYYY-MM-DD.log
+Windows: C:\Users\<user>\.openclaw\logs\openclaw-skill-YYYY-MM-DD.log
+Linux:   /home/<user>/.openclaw/logs/openclaw-skill-YYYY-MM-DD.log
+macOS:   /Users/<user>/.openclaw/logs/openclaw-skill-YYYY-MM-DD.log
+```
+
+Logging starts **immediately** when the skill module is loaded - before initialize() is called.
 
 ---
 
