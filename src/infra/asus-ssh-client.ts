@@ -2,6 +2,7 @@ import { spawn } from 'child_process';
 import { EventEmitter } from 'eventemitter3';
 import { createChildLogger } from '../utils/logger.js';
 import { withTimeout, Semaphore } from '../utils/async-helpers.js';
+import { CircuitBreaker, withRetry, type RetryOptions } from '../utils/circuit-breaker.js';
 import type { Config } from '../config/index.js';
 import { getRouterInfo, type RouterModelInfo } from '../types/router-models.js';
 
@@ -11,22 +12,60 @@ export interface SshClientEvents {
   connected: () => void;
   disconnected: () => void;
   error: (error: Error) => void;
+  circuitOpen: () => void;
+  circuitClosed: () => void;
+}
+
+export interface ExecuteOptions {
+  /** Skip retry logic for this command */
+  noRetry?: boolean;
+  /** Custom timeout in ms */
+  timeoutMs?: number;
+  /** Skip circuit breaker check */
+  bypassCircuitBreaker?: boolean;
 }
 
 const SSH_CONNECT_TIMEOUT = 15000;
 const SSH_COMMAND_TIMEOUT = 30000;
 const MAX_CONCURRENT_COMMANDS = 5;
 
+const SSH_RETRY_OPTIONS: RetryOptions = {
+  maxRetries: 3,
+  baseDelayMs: 1000,
+  maxDelayMs: 8000,
+  backoffMultiplier: 2,
+  nonRetryableErrors: [
+    'Authentication failed',
+    'Permission denied',
+    'No such file or directory',
+    'command not found',
+  ],
+};
+
 export class AsusSshClient extends EventEmitter<SshClientEvents> {
   private connected: boolean = false;
   private readonly config: Config['asus'];
   private readonly commandSemaphore = new Semaphore(MAX_CONCURRENT_COMMANDS);
+  private readonly circuitBreaker: CircuitBreaker;
   private routerModel: RouterModelInfo | null = null;
   private detectedInterfaces: { wl0?: string | undefined; wl1?: string | undefined; wl2?: string | undefined; wl3?: string | undefined } = {};
 
   constructor(config: Config['asus']) {
     super();
     this.config = config;
+    this.circuitBreaker = new CircuitBreaker('ssh-client', {
+      failureThreshold: 5,
+      resetTimeoutMs: 30000,
+      halfOpenTimeoutMs: 5000,
+    });
+  }
+
+  getCircuitState(): { state: string; failureCount: number; lastFailureTime: number } {
+    return this.circuitBreaker.getStats();
+  }
+
+  resetCircuit(): void {
+    this.circuitBreaker.reset();
   }
 
   async connect(): Promise<void> {
@@ -256,10 +295,41 @@ export class AsusSshClient extends EventEmitter<SshClientEvents> {
     logger.info('SSH client disconnected');
   }
 
-  async execute(command: string): Promise<string> {
+  async execute(command: string, options: ExecuteOptions = {}): Promise<string> {
+    const timeout = options.timeoutMs ?? SSH_COMMAND_TIMEOUT;
+    
+    // Check circuit breaker unless bypassed
+    if (!options.bypassCircuitBreaker && !this.circuitBreaker.canExecute()) {
+      const state = this.circuitBreaker.getStats();
+      throw new Error(`SSH circuit breaker is open (${state.failureCount} failures). Retry after ${Math.ceil((state.lastFailureTime + 30000 - Date.now()) / 1000)}s`);
+    }
+
     return this.commandSemaphore.withLock(async () => {
-      const executePromise = this.executeRaw(command);
-      return withTimeout(executePromise, SSH_COMMAND_TIMEOUT, `Command timed out: ${command.substring(0, 50)}`);
+      const operation = async () => {
+        const executePromise = this.executeRaw(command);
+        return withTimeout(executePromise, timeout, `Command timed out: ${command.substring(0, 50)}`);
+      };
+
+      try {
+        let result: string;
+        if (options.noRetry) {
+          result = await operation();
+        } else {
+          result = await withRetry(operation, SSH_RETRY_OPTIONS);
+        }
+        this.circuitBreaker.recordSuccess();
+        return result;
+      } catch (err) {
+        this.circuitBreaker.recordFailure();
+        
+        // Emit event if circuit just opened
+        if (this.circuitBreaker.getStats().state === 'open') {
+          this.emit('circuitOpen');
+          logger.warn({ command: command.substring(0, 50) }, 'SSH circuit breaker opened');
+        }
+        
+        throw err;
+      }
     });
   }
 

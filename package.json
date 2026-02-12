@@ -9,6 +9,34 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./skill": {
+      "types": "./dist/skill/openclaw-skill.d.ts",
+      "import": "./dist/skill/openclaw-skill.js"
+    },
+    "./core/mesh": {
+      "types": "./dist/core/mesh-analyzer.d.ts",
+      "import": "./dist/core/mesh-analyzer.js"
+    },
+    "./core/zigbee": {
+      "types": "./dist/core/zigbee-analyzer.d.ts",
+      "import": "./dist/core/zigbee-analyzer.js"
+    },
+    "./core/triangulation": {
+      "types": "./dist/core/real-triangulation.d.ts",
+      "import": "./dist/core/real-triangulation.js"
+    },
+    "./infra/ssh": {
+      "types": "./dist/infra/asus-ssh-client.d.ts",
+      "import": "./dist/infra/asus-ssh-client.js"
+    },
+    "./types": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/types/index.js"
+    },
+    "./utils": {
+      "types": "./dist/utils/index.d.ts",
+      "import": "./dist/utils/index.js"
     }
   },
   "files": [
@@ -19,6 +47,9 @@
   ],
   "scripts": {
     "build": "tsc",
+    "build:bundle": "node scripts/build.mjs",
+    "build:prod": "node scripts/build.mjs --production",
+    "build:watch": "node scripts/build.mjs --watch",
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
     "test": "vitest",
@@ -26,6 +57,7 @@
     "test:coverage": "vitest --coverage",
     "lint": "eslint src/**/*.ts",
     "format": "prettier --write src/**/*.ts",
+    "generate:schema": "node scripts/generate-schema.mjs",
     "prepublishOnly": "npm run build && npm run test:run",
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
   },
@@ -65,6 +97,7 @@
     "@typescript-eslint/eslint-plugin": "^6.18.0",
     "@typescript-eslint/parser": "^6.18.0",
     "@vitest/coverage-v8": "^1.2.0",
+    "esbuild": "^0.27.3",
     "eslint": "^8.56.0",
     "prettier": "^3.2.0",
     "tsx": "^4.7.0",
