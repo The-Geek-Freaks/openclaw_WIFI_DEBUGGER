@@ -2299,6 +2299,7 @@ export class OpenClawAsusMeshSkill {
     if (results.length > 0) {
       suggestions.push('🗺️ get_auto_map - ASCII-Karte mit Geräte-Positionen anzeigen');
       suggestions.push('🖼️ get_floor_visualization - Grundriss mit Overlay (wenn set_floor_plan gesetzt)');
+      suggestions.push('🗺️ fetch_map_image - Echtes Kartenbild von OpenStreetMap laden');
     }
 
     return this.successResponse('triangulate_devices', {
@@ -2514,6 +2515,7 @@ export class OpenClawAsusMeshSkill {
       estimatedDimensions: result.estimatedDimensions,
       source: result.source,
     }, [
+      '🗺️ fetch_map_image - Kartenbild von OpenStreetMap laden',
       '🏠 generate_floor_plans - Grundrisse für alle Stockwerke generieren',
       '📐 Dimensionen können mit widthMeters/heightMeters überschrieben werden',
     ]);
@@ -2550,10 +2552,10 @@ export class OpenClawAsusMeshSkill {
         ascii: f.asciiPreview,
       })),
     }, [
+      '🗺️ fetch_map_image - Echtes Kartenbild von OpenStreetMap laden',
       '🗺️ get_property_info - Grundstücks- und Stockwerk-Details anzeigen',
       '📍 set_node_position_3d - Mesh-Nodes auf Grundrissen positionieren',
       '📐 triangulate_devices - Geräte auf Karte lokalisieren',
-      '🖼️ SVG-Grundrisse können für Visualisierung genutzt werden',
     ]);
   }
 
@@ -2585,6 +2587,7 @@ export class OpenClawAsusMeshSkill {
       })),
       floorCount: floors.length,
     }, [
+      '🗺️ fetch_map_image - Echtes Kartenbild von OpenStreetMap',
       '📐 triangulate_devices - Geräte auf Karte positionieren',
       '🗺️ get_auto_map - ASCII-Karte mit Geräten anzeigen',
       '📍 set_node_position_3d - Mesh-Nodes manuell positionieren',
