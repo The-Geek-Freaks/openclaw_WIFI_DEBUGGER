@@ -1214,12 +1214,36 @@ export class OpenClawAsusMeshSkill {
     };
   }
 
-  private errorResponse(action: string, error: string): SkillResponse {
+  private errorResponse(action: string, error: string, suggestions?: string[]): SkillResponse {
     this.errorCount++;
+    
+    // Generate helpful suggestions based on error type
+    const autoSuggestions: string[] = suggestions ?? [];
+    
+    if (error.includes('not found')) {
+      autoSuggestions.push('🔄 scan_network - Netzwerk neu scannen');
+      autoSuggestions.push('📋 get_device_list - Verfügbare Geräte auflisten');
+    }
+    if (error.includes('not configured') || error.includes('not initialized')) {
+      autoSuggestions.push('⚙️ Konfiguration prüfen (Env-Variablen)');
+      autoSuggestions.push('📖 README.md für Setup-Anleitung');
+    }
+    if (error.includes('SNMP')) {
+      autoSuggestions.push('📡 SNMP_DEVICES Umgebungsvariable setzen');
+    }
+    if (error.includes('Home Assistant')) {
+      autoSuggestions.push('🏠 HASS_URL und HASS_TOKEN Umgebungsvariablen setzen');
+    }
+    if (error.includes('SSH') || error.includes('circuit breaker')) {
+      autoSuggestions.push('🔌 Router-Verbindung prüfen');
+      autoSuggestions.push('🔄 reset_circuit_breaker - SSH-Verbindung zurücksetzen');
+    }
+    
     return {
       success: false,
       action,
       error,
+      suggestions: autoSuggestions.length > 0 ? autoSuggestions : undefined,
       timestamp: new Date().toISOString(),
     };
   }

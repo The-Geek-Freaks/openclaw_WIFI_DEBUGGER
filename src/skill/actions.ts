@@ -1,5 +1,11 @@
 import { z } from 'zod';
 
+// MAC address validation regex (AA:BB:CC:DD:EE:FF or aa:bb:cc:dd:ee:ff)
+const macAddressSchema = z.string().regex(
+  /^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/,
+  'Invalid MAC address format. Expected: AA:BB:CC:DD:EE:FF'
+);
+
 export const SkillActionSchema = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('scan_network'),
@@ -18,13 +24,13 @@ export const SkillActionSchema = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('get_device_details'),
     params: z.object({
-      macAddress: z.string(),
+      macAddress: macAddressSchema,
     }),
   }),
   z.object({
     action: z.literal('get_device_signal_history'),
     params: z.object({
-      macAddress: z.string(),
+      macAddress: macAddressSchema,
       hours: z.number().optional(),
     }),
   }),
