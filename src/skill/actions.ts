@@ -378,6 +378,12 @@ export const SkillActionSchema = z.discriminatedUnion('action', [
     action: z.literal('get_property_info'),
     params: z.object({}).optional(),
   }),
+  z.object({
+    action: z.literal('fetch_map_image'),
+    params: z.object({
+      zoom: z.number().min(1).max(20).default(18),
+    }).optional(),
+  }),
 ]);
 
 export type SkillAction = z.infer<typeof SkillActionSchema>;

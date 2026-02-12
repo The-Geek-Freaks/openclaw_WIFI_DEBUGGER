@@ -1,7 +1,7 @@
 {
   "$schema": "https://openclaw.io/schemas/skill.json",
   "name": "asus-mesh-wifi-analyzer",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "displayName": "ASUS Mesh WiFi Analyzer",
   "description": "Comprehensive ASUS Mesh WiFi network analysis and optimization with Home Assistant Zigbee integration",
   "author": "OpenClaw Community",
@@ -261,7 +261,10 @@
       { "name": "hasBasement", "type": "boolean", "default": false, "description": "Include basement floor" },
       { "name": "hasAttic", "type": "boolean", "default": false, "description": "Include attic floor" }
     ]},
-    { "name": "get_property_info", "description": "Get property location and floor plan information", "parameters": [] }
+    { "name": "get_property_info", "description": "Get property location and floor plan information", "parameters": [] },
+    { "name": "fetch_map_image", "description": "Download map image from OpenStreetMap as base for visualization", "parameters": [
+      { "name": "zoom", "type": "number", "default": 18, "description": "Map zoom level (1-20, higher = more detail)" }
+    ]}
   ],
   "metadata": {
     "openclaw": {

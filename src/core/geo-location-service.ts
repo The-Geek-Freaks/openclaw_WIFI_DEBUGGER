@@ -32,6 +32,8 @@ export interface GeneratedFloorPlan {
   heightMeters: number;
   svgContent: string;
   asciiPreview: string;
+  mapImageBase64?: string;
+  mapImageUrl?: string;
   placeholderRooms: Array<{
     id: string;
     name: string;
@@ -42,9 +44,19 @@ export interface GeneratedFloorPlan {
   }>;
 }
 
+export interface MapImage {
+  base64: string;
+  url: string;
+  width: number;
+  height: number;
+  zoom: number;
+  source: 'openstreetmap' | 'carto';
+}
+
 export class GeoLocationService {
   private propertyData: PropertyOutline | null = null;
   private generatedFloors: Map<number, GeneratedFloorPlan> = new Map();
+  private cachedMapImage: MapImage | null = null;
 
   async setLocationByAddress(address: string): Promise<PropertyOutline | null> {
     logger.info({ address }, 'Resolving address to coordinates');
@@ -273,6 +285,69 @@ export class GeoLocationService {
 
   getAllGeneratedFloors(): GeneratedFloorPlan[] {
     return Array.from(this.generatedFloors.values()).sort((a, b) => a.floorNumber - b.floorNumber);
+  }
+
+  async fetchMapImage(zoom: number = 18): Promise<MapImage | null> {
+    if (!this.propertyData) {
+      logger.warn('No property data set - cannot fetch map');
+      return null;
+    }
+
+    const { latitude, longitude } = this.propertyData.coordinates;
+    const width = 600;
+    const height = 400;
+
+    // Use OpenStreetMap Static Map via Carto (free, no API key required)
+    const url = `https://a.basemaps.cartocdn.com/rastertiles/voyager/${zoom}/${this.lonToTileX(longitude, zoom)}/${this.latToTileY(latitude, zoom)}.png`;
+    
+    // Alternative: Full static map URL for embedding
+    const staticMapUrl = `https://staticmap.openstreetmap.de/staticmap.php?center=${latitude},${longitude}&zoom=${zoom}&size=${width}x${height}&maptype=mapnik`;
+
+    try {
+      logger.info({ lat: latitude, lon: longitude, zoom }, 'Fetching map image');
+      
+      const response = await fetch(staticMapUrl, {
+        headers: {
+          'User-Agent': 'OpenClaw-WiFi-Skill/1.6.0',
+        },
+      });
+
+      if (!response.ok) {
+        logger.warn({ status: response.status }, 'Failed to fetch map image');
+        return null;
+      }
+
+      const arrayBuffer = await response.arrayBuffer();
+      const base64 = Buffer.from(arrayBuffer).toString('base64');
+      const mimeType = response.headers.get('content-type') ?? 'image/png';
+
+      this.cachedMapImage = {
+        base64: `data:${mimeType};base64,${base64}`,
+        url: staticMapUrl,
+        width,
+        height,
+        zoom,
+        source: 'openstreetmap',
+      };
+
+      logger.info({ size: base64.length, zoom }, 'Map image fetched successfully');
+      return this.cachedMapImage;
+    } catch (error) {
+      logger.error({ error }, 'Failed to fetch map image');
+      return null;
+    }
+  }
+
+  getCachedMapImage(): MapImage | null {
+    return this.cachedMapImage;
+  }
+
+  private lonToTileX(lon: number, zoom: number): number {
+    return Math.floor((lon + 180) / 360 * Math.pow(2, zoom));
+  }
+
+  private latToTileY(lat: number, zoom: number): number {
+    return Math.floor((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, zoom));
   }
 
   private calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {

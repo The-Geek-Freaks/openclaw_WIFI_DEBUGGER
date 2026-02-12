@@ -453,6 +453,9 @@ export class OpenClawAsusMeshSkill {
         case 'get_property_info':
           return this.handleGetPropertyInfo();
         
+        case 'fetch_map_image':
+          return await this.handleFetchMapImage(action.params?.zoom);
+        
         default:
           return this.errorResponse('unknown', 'Unknown action');
       }
@@ -2585,6 +2588,31 @@ export class OpenClawAsusMeshSkill {
       '📐 triangulate_devices - Geräte auf Karte positionieren',
       '🗺️ get_auto_map - ASCII-Karte mit Geräten anzeigen',
       '📍 set_node_position_3d - Mesh-Nodes manuell positionieren',
+    ]);
+  }
+
+  private async handleFetchMapImage(zoom?: number | undefined): Promise<SkillResponse> {
+    const mapImage = await this.geoLocationService.fetchMapImage(zoom ?? 18);
+
+    if (!mapImage) {
+      return this.errorResponse('fetch_map_image', 'Kartenbild konnte nicht geladen werden. Erst set_location aufrufen.');
+    }
+
+    return this.successResponse('fetch_map_image', {
+      imageBase64: mapImage.base64,
+      imageUrl: mapImage.url,
+      dimensions: {
+        width: mapImage.width,
+        height: mapImage.height,
+      },
+      zoom: mapImage.zoom,
+      source: mapImage.source,
+      usage: 'Das Base64-Bild kann als Hintergrund für Geräte-Overlay verwendet werden',
+    }, [
+      '🗺️ Kartenbild von OpenStreetMap geladen',
+      '📍 set_node_position_3d - Nodes auf Karte positionieren',
+      '📐 triangulate_devices - Geräte auf Karte anzeigen',
+      '🖼️ imageBase64 kann direkt als <img src="..."> verwendet werden',
     ]);
   }
 }
