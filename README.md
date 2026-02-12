@@ -15,7 +15,7 @@
 <h3>🚀 Intelligente Mesh-Netzwerk Analyse & Optimierung für ASUS Router</h3>
 
 <p>
-  <strong>45 Actions</strong> • <strong>19 Core Modules</strong> • <strong>100+ Vendor OUIs</strong> • <strong>64 Tests</strong>
+  <strong>50 Actions</strong> • <strong>19 Core Modules</strong> • <strong>100+ Vendor OUIs</strong> • <strong>64 Tests</strong>
 </p>
 
 ![Node.js](https://img.shields.io/badge/Node.js-18%2B-green?style=for-the-badge&logo=node.js)
@@ -25,6 +25,62 @@
 ![Tests](https://img.shields.io/badge/Tests-64%20passed-brightgreen?style=for-the-badge)
 
 </div>
+
+---
+
+## 💬 Was kann ich OpenClaw fragen?
+
+<div align="center">
+
+### 🎯 Echte Beispiel-Fragen an OpenClaw
+
+</div>
+
+| 🗣️ Du fragst... | 🤖 OpenClaw macht... |
+|-----------------|---------------------|
+| **"Mein WLAN ist langsam"** | Netzwerk-Scan → Kanal-Analyse → Optimierungsvorschläge |
+| **"Wo ist mein Laptop?"** | Triangulation → Position auf Karte anzeigen |
+| **"Meine Hue Lampen flackern"** | Zigbee-Scan → WiFi/Zigbee Konflikte finden → Fix vorschlagen |
+| **"Zeig mir eine Karte meines Hauses"** | Adresse/GPS → Grundrisse generieren → Geräte einzeichnen |
+| **"Welcher WLAN-Kanal ist der beste?"** | Kanal-Scan → Nachbar-Analyse → Empfehlung |
+| **"Ist mein Router richtig konfiguriert?"** | Router-Tweaks prüfen → Best Practices → Auto-Apply |
+| **"Da ist ein unbekanntes Gerät im Netzwerk"** | Geräte-Liste → Vendor-Erkennung → Sicherheits-Check |
+| **"Wie stabil ist meine Verbindung?"** | Benchmark → Signal-History → Stabilitäts-Report |
+
+---
+
+### 🏠 Geo-Location Features (NEU in v1.6.0)
+
+```
+User: "Mein Haus ist Musterstraße 42, Berlin. Zeig mir Grundrisse."
+
+OpenClaw:
+┌─────────────────────────────────────────────────────────────┐
+│  📍 Location gesetzt: 52.5200°N, 13.4050°E                  │
+│  📐 Grundstück: 20m × 15m (300m²)                           │
+│  🏠 3 Etagen generiert:                                     │
+│     - Keller (16m × 12m) - 1 Raum                           │
+│     - Erdgeschoss (20m × 15m) - Wohnzimmer, Küche, Flur     │
+│     - 1. Stock (20m × 15m) - Schlafzimmer, Bad, Büro        │
+│  🗺️ ASCII + SVG Grundrisse verfügbar                        │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 🔧 Was kann der Skill?
+
+| Feature | Beschreibung |
+|---------|-------------|
+| 📡 **Mesh-Analyse** | Alle ASUS AiMesh-Nodes + Geräte scannen |
+| 📊 **Gesundheits-Score** | WiFi-Qualität von 0-100 berechnen |
+| 📍 **Triangulation** | Geräte-Position im Haus berechnen |
+| 🗺️ **Karten-Generierung** | ASCII + SVG Grundrisse aus Adresse/GPS |
+| 📶 **Kanal-Optimierung** | Beste WiFi-Kanäle finden + anwenden |
+| 🏠 **Smart Home Integration** | Home Assistant, Zigbee, SNMP |
+| ⚠️ **Problem-Erkennung** | Signal-Schwäche, Roaming, Interferenz |
+| 🔧 **Router-Tweaks** | 25+ ASUS/Merlin Best Practices prüfen |
+| 🛡️ **Sicherheit** | Unbekannte Geräte + Rogue IoT erkennen |
 
 ---
 
