@@ -224,15 +224,16 @@ export class FloorPlanManager {
         const connectedNode = nodes.find(n => n.macAddress === device.connectedToNode);
         const nodePos = connectedNode?.location ?? { x: 0, y: 0 };
         
-        const angle = Math.random() * 2 * Math.PI;
-        const distance = Math.random() * 3 + 1;
+        const signal = device.signalStrength ?? -70;
+        const estimatedDistance = this.rssiToDistance(signal);
+        
+        const angle = this.calculateDeterministicAngle(device.macAddress, nodes, connectedNode);
         const devicePos = {
-          x: nodePos.x + Math.cos(angle) * distance,
-          y: nodePos.y + Math.sin(angle) * distance,
+          x: nodePos.x + Math.cos(angle) * estimatedDistance,
+          y: nodePos.y + Math.sin(angle) * estimatedDistance,
         };
         
         const pixelPos = this.metersToPixels(devicePos.x, devicePos.y, floorPlan);
-        const signal = device.signalStrength ?? -100;
         
         return {
           mac: device.macAddress,
@@ -302,6 +303,55 @@ export class FloorPlanManager {
     return 'critical';
   }
 
+  private rssiToDistance(rssi: number): number {
+    const txPower = -59;
+    const pathLossExponent = 2.5;
+    const ratio = (txPower - rssi) / (10 * pathLossExponent);
+    return Math.pow(10, ratio);
+  }
+
+  private calculateDeterministicAngle(
+    macAddress: string,
+    nodes: MeshNode[],
+    connectedNode?: MeshNode
+  ): number {
+    let hash = 0;
+    for (let i = 0; i < macAddress.length; i++) {
+      hash = ((hash << 5) - hash) + macAddress.charCodeAt(i);
+      hash = hash & hash;
+    }
+    
+    if (connectedNode?.location && nodes.length > 1) {
+      const otherNodes = nodes.filter(n => n.macAddress !== connectedNode.macAddress);
+      if (otherNodes.length > 0) {
+        const nearest = otherNodes.reduce((closest, node) => {
+          if (!node.location || !connectedNode.location) return closest;
+          const dist = Math.sqrt(
+            Math.pow(node.location.x - connectedNode.location.x, 2) +
+            Math.pow(node.location.y - connectedNode.location.y, 2)
+          );
+          const closestDist = closest.location ? Math.sqrt(
+            Math.pow(closest.location.x - connectedNode.location.x, 2) +
+            Math.pow(closest.location.y - connectedNode.location.y, 2)
+          ) : Infinity;
+          return dist < closestDist ? node : closest;
+        });
+        
+        if (nearest.location && connectedNode.location) {
+          const awayAngle = Math.atan2(
+            connectedNode.location.y - nearest.location.y,
+            connectedNode.location.x - nearest.location.x
+          );
+          const spread = Math.PI / 2;
+          const offset = ((hash % 100) / 100 - 0.5) * spread;
+          return awayAngle + offset;
+        }
+      }
+    }
+    
+    return ((hash % 1000) / 1000) * 2 * Math.PI;
+  }
+
   private guessDeviceType(
     hostname?: string,
     vendor?: string
@@ -330,28 +380,40 @@ export class FloorPlanManager {
 
   private generateSignalZones(
     nodes: NodeMarker[],
-    _floorPlan: FloorPlanConfig
+    floorPlan: FloorPlanConfig
   ): SignalZone[] {
     const zones: SignalZone[] = [];
     
+    const pixelsPerMeter = floorPlan.dimensions.widthPixels / floorPlan.dimensions.widthMeters;
+    
+    const excellentRadiusMeters = 3;
+    const goodRadiusMeters = 7;
+    const fairRadiusMeters = 12;
+    
     for (const node of nodes) {
+      const baseRadius = node.signalRadius > 0 ? node.signalRadius / pixelsPerMeter : 10;
+      
+      const excellentRadius = Math.min(baseRadius * 0.3, excellentRadiusMeters) * pixelsPerMeter;
+      const goodRadius = Math.min(baseRadius * 0.6, goodRadiusMeters) * pixelsPerMeter;
+      const fairRadius = Math.min(baseRadius, fairRadiusMeters) * pixelsPerMeter;
+      
       zones.push({
         type: 'excellent',
-        polygon: this.generateCirclePolygon(node.pixelPosition, 50),
+        polygon: this.generateCirclePolygon(node.pixelPosition, excellentRadius),
         color: '#00ff00',
         opacity: 0.2,
       });
       
       zones.push({
         type: 'good',
-        polygon: this.generateCirclePolygon(node.pixelPosition, 100),
+        polygon: this.generateCirclePolygon(node.pixelPosition, goodRadius),
         color: '#7fff00',
         opacity: 0.15,
       });
       
       zones.push({
         type: 'fair',
-        polygon: this.generateCirclePolygon(node.pixelPosition, 150),
+        polygon: this.generateCirclePolygon(node.pixelPosition, fairRadius),
         color: '#ffff00',
         opacity: 0.1,
       });

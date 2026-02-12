@@ -396,7 +396,10 @@ export class SpatialRecommendationEngine {
     }
 
     if (!nearestNode) {
-      return nodes[0] ?? null;
+      const leastLoaded = nodes.reduce((best, node) => 
+        node.connectedClients < best.connectedClients ? node : best
+      );
+      return leastLoaded;
     }
 
     return nearestNode;
@@ -473,7 +476,41 @@ export class SpatialRecommendationEngine {
     if (!currentNode) return nodes[0] ?? null;
 
     const otherNodes = nodes.filter(n => n.macAddress !== currentNode.macAddress);
-    return otherNodes[0] ?? null;
+    if (otherNodes.length === 0) return null;
+
+    if (currentNode.location) {
+      const devicePos = currentNode.location;
+      if (devicePos) {
+        let bestNode: MeshNode | null = null;
+        let bestScore = -Infinity;
+
+        for (const node of otherNodes) {
+          if (!node.location) continue;
+
+          const distance = this.calculateDistance(
+            devicePos.x, devicePos.y,
+            node.location.x, node.location.y
+          );
+          
+          const estimatedSignal = this.estimateSignalAtDistance(distance);
+          const loadPenalty = node.connectedClients * 2;
+          const score = estimatedSignal - loadPenalty;
+
+          if (score > bestScore) {
+            bestScore = score;
+            bestNode = node;
+          }
+        }
+
+        if (bestNode) return bestNode;
+      }
+    }
+
+    const leastLoadedNode = otherNodes.reduce((best, node) => {
+      return node.connectedClients < best.connectedClients ? node : best;
+    });
+
+    return leastLoadedNode;
   }
 
   private detectPingPongRoaming(device: NetworkDevice): boolean {
@@ -588,16 +625,27 @@ export class SpatialRecommendationEngine {
       return this.estimateSignalAtDistance(distance);
     }
 
-    const connectedClients = node.connectedClients;
-    if (connectedClients > 15) {
-      return -75;
-    } else if (connectedClients > 10) {
-      return -70;
-    } else if (connectedClients > 5) {
-      return -65;
+    const avgClientSignal = this.estimateAverageClientSignal(node);
+    if (avgClientSignal !== null) {
+      return avgClientSignal + 10;
     }
     
-    return -60;
+    return -65;
+  }
+
+  private estimateAverageClientSignal(node: MeshNode): number | null {
+    const recentEvents = this.connectionEvents
+      .filter(e => e.nodeMac === node.macAddress)
+      .filter(e => e.timestamp.getTime() > Date.now() - 3600000)
+      .filter(e => typeof e.details?.signalStrength === 'number');
+
+    if (recentEvents.length === 0) return null;
+
+    const sum = recentEvents.reduce((acc, e) => {
+      const signal = e.details?.signalStrength;
+      return acc + (typeof signal === 'number' ? signal : 0);
+    }, 0);
+    return sum / recentEvents.length;
   }
 
   private estimateImprovement(critical: number, high: number): string {

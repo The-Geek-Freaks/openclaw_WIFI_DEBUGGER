@@ -1,4 +1,5 @@
 import { createChildLogger } from '../utils/logger.js';
+import { DEFAULT_NOISE_FLOOR_DBM } from '../utils/frequency.js';
 import type { AsusSshClient } from '../infra/asus-ssh-client.js';
 import type { 
   BenchmarkSuiteResult, 
@@ -170,7 +171,7 @@ export class BenchmarkEngine {
           band: band === '2g' ? '2.4GHz' : '5GHz',
           testDuration: durationSeconds,
           metrics: {
-            noiseFloorDbm: -95,
+            noiseFloorDbm: DEFAULT_NOISE_FLOOR_DBM,
             avgUtilization: utilization,
             peakUtilization: Math.min(100, utilization * 1.2),
             interferingAPs: stats.aps,
@@ -321,13 +322,52 @@ export class BenchmarkEngine {
       latencyScore * 0.3 + throughputScore * 0.4 + stabilityScore * 0.3
     );
 
+    // Coverage score: estimate based on stability and throughput
+    // Real coverage requires spatial data from triangulation/heatmap
+    const coverageScore = this.estimateCoverageScore(latencyResults, throughputResults);
+
     return {
       overall,
       throughput: throughputScore,
       latency: latencyScore,
       stability: stabilityScore,
-      coverage: 50,
+      coverage: coverageScore,
     };
+  }
+
+  private estimateCoverageScore(
+    latencyResults: LatencyTestResult[],
+    throughputResults: IperfResult[]
+  ): number {
+    // Without spatial data, estimate coverage from:
+    // 1. Packet loss (high loss = poor coverage somewhere)
+    // 2. Latency variance (high variance = inconsistent coverage)
+    // 3. Throughput consistency
+    
+    if (latencyResults.length === 0) return 50; // No data = neutral estimate
+
+    const avgPacketLoss = latencyResults.reduce((s, r) => s + r.packetLossPercent, 0) / latencyResults.length;
+    const avgJitter = latencyResults.reduce((s, r) => s + r.jitterMs, 0) / latencyResults.length;
+
+    // Start at 100, deduct for issues
+    let score = 100;
+    
+    // Packet loss heavily impacts coverage estimate
+    score -= avgPacketLoss * 5;
+    
+    // High jitter suggests coverage inconsistency
+    if (avgJitter > 50) score -= 20;
+    else if (avgJitter > 20) score -= 10;
+    else if (avgJitter > 10) score -= 5;
+
+    // Low throughput can indicate coverage issues
+    if (throughputResults.length > 0) {
+      const avgBandwidth = throughputResults.reduce((s, r) => s + r.bandwidthMbps, 0) / throughputResults.length;
+      if (avgBandwidth < 10) score -= 20;
+      else if (avgBandwidth < 50) score -= 10;
+    }
+
+    return Math.max(0, Math.min(100, Math.round(score)));
   }
 
   getBenchmarkHistory(): BenchmarkSuiteResult[] {

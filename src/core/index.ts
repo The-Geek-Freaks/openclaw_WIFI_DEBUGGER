@@ -20,3 +20,5 @@ export { AlertingService } from './alerting-service.js';
 export type { AlertConfig, Alert, AlertHistory } from './alerting-service.js';
 export { RouterTweaksChecker } from './router-tweaks-checker.js';
 export type { TweakDefinition, TweakCheckResult, TweaksReport, TweakCategory, TweakStatus } from './router-tweaks-checker.js';
+export { RealTriangulationEngine } from './real-triangulation.js';
+export type { HouseConfig } from './real-triangulation.js';

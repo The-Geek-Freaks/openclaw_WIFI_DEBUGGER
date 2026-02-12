@@ -1,6 +1,6 @@
 import { EventEmitter } from 'eventemitter3';
 import { createChildLogger } from '../utils/logger.js';
-import { getWifi2gZigbeeOverlap, WIFI_2G_CHANNELS, WIFI_5G_CHANNELS } from '../utils/frequency.js';
+import { getWifi2gZigbeeOverlap, WIFI_2G_CHANNELS, WIFI_5G_CHANNELS, DEFAULT_NOISE_FLOOR_DBM } from '../utils/frequency.js';
 import type { AsusSshClient } from '../infra/asus-ssh-client.js';
 import type { HomeAssistantClient } from '../infra/homeassistant-client.js';
 import type { SnmpClient } from '../infra/snmp-client.js';
@@ -315,7 +315,7 @@ export class NetworkIntelligence extends EventEmitter<NetworkIntelligenceEvents>
     maps.push({
       band: '2.4GHz',
       occupants: occupants2g,
-      noiseFloor: -95,
+      noiseFloor: DEFAULT_NOISE_FLOOR_DBM,
       congestionScore: calc2gCongestion,
       recommendedChannels: this.findBestChannels(occupants2g, WIFI_2G_CHANNELS as unknown as number[]),
     });
@@ -323,7 +323,7 @@ export class NetworkIntelligence extends EventEmitter<NetworkIntelligenceEvents>
     maps.push({
       band: '5GHz',
       occupants: occupants5g,
-      noiseFloor: -95,
+      noiseFloor: DEFAULT_NOISE_FLOOR_DBM,
       congestionScore: calc5gCongestion,
       recommendedChannels: this.findBestChannels(occupants5g, WIFI_5G_CHANNELS as unknown as number[]),
     });

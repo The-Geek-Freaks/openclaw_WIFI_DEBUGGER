@@ -1,4 +1,4 @@
-import { createChildLogger } from '../utils/logger.js';
+import { createChildLogger, logSkillAction, getCurrentLogFile } from '../utils/logger.js';
 import { loadConfigFromEnv, type Config } from '../config/index.js';
 import { AsusSshClient } from '../infra/asus-ssh-client.js';
 import { HomeAssistantClient } from '../infra/homeassistant-client.js';
@@ -18,7 +18,10 @@ import { SpatialRecommendationEngine } from '../core/spatial-recommendations.js'
 import { FloorPlanManager } from '../core/floor-plan-manager.js';
 import { AlertingService } from '../core/alerting-service.js';
 import { RouterTweaksChecker } from '../core/router-tweaks-checker.js';
+import { RealTriangulationEngine } from '../core/real-triangulation.js';
+import type { HouseConfig } from '../core/real-triangulation.js';
 import type { SkillAction, SkillResponse } from './actions.js';
+import type { FloorType } from '../types/building.js';
 import type { MeshNetworkState } from '../types/network.js';
 import type { ZigbeeNetworkState } from '../types/zigbee.js';
 import type { OptimizationSuggestion, NetworkHealthScore } from '../types/analysis.js';
@@ -45,6 +48,7 @@ export class OpenClawAsusMeshSkill {
   private readonly alertingService: AlertingService;
   private readonly knowledgeBase: NetworkKnowledgeBase;
   private readonly tweaksChecker: RouterTweaksChecker;
+  private readonly realTriangulation: RealTriangulationEngine;
   
   private meshState: MeshNetworkState | null = null;
   private zigbeeState: ZigbeeNetworkState | null = null;
@@ -83,6 +87,7 @@ export class OpenClawAsusMeshSkill {
     this.alertingService = new AlertingService();
     this.knowledgeBase = new NetworkKnowledgeBase();
     this.tweaksChecker = new RouterTweaksChecker(this.sshClient);
+    this.realTriangulation = new RealTriangulationEngine();
   }
 
   async initialize(): Promise<void> {
@@ -168,10 +173,45 @@ export class OpenClawAsusMeshSkill {
       return this.errorResponse(action.action, 'Skill not initialized. Call initialize() first.');
     }
 
+    const startTime = Date.now();
+    const actionParams = 'params' in action ? action.params as Record<string, unknown> : undefined;
+    
+    // Log action start with proof that TypeScript is running
+    logSkillAction(action.action, actionParams, 'started', {
+      logFile: getCurrentLogFile(),
+      skillVersion: '1.0.0',
+      nodeVersion: process.version,
+    });
+
     logger.info({ action: action.action }, 'Executing action');
 
     try {
-      switch (action.action) {
+      const result = await this.executeAction(action);
+      
+      // Log successful completion
+      logSkillAction(action.action, actionParams, 'success', {
+        durationMs: Date.now() - startTime,
+        success: result.success,
+      });
+      
+      return result;
+    } catch (err) {
+      // Log error
+      logSkillAction(action.action, actionParams, 'error', {
+        durationMs: Date.now() - startTime,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      
+      logger.error({ err, action: action.action }, 'Action execution failed');
+      return this.errorResponse(
+        action.action,
+        err instanceof Error ? err.message : 'Unknown error'
+      );
+    }
+  }
+
+  private async executeAction(action: SkillAction): Promise<SkillResponse> {
+    switch (action.action) {
         case 'scan_network':
           return await this.handleScanNetwork();
         
@@ -341,16 +381,30 @@ export class OpenClawAsusMeshSkill {
         case 'get_recommended_scripts':
           return await this.handleGetRecommendedScripts();
         
+        case 'set_house_config':
+          return this.handleSetHouseConfig(action.params as Parameters<typeof this.handleSetHouseConfig>[0]);
+        
+        case 'get_house_config':
+          return this.handleGetHouseConfig();
+        
+        case 'triangulate_devices':
+          return await this.handleTriangulateDevices(action.params?.deviceMac);
+        
+        case 'get_auto_map':
+          return await this.handleGetAutoMap(action.params?.floorNumber);
+        
+        case 'set_node_position_3d':
+          return this.handleSetNodePosition3D(action.params as Parameters<typeof this.handleSetNodePosition3D>[0]);
+        
+        case 'record_signal_measurement':
+          return this.handleRecordSignalMeasurement(action.params);
+        
+        case 'get_log_info':
+          return this.handleGetLogInfo();
+        
         default:
           return this.errorResponse('unknown', 'Unknown action');
       }
-    } catch (err) {
-      logger.error({ err, action: action.action }, 'Action execution failed');
-      return this.errorResponse(
-        action.action,
-        err instanceof Error ? err.message : 'Unknown error'
-      );
-    }
   }
 
   private async handleScanNetwork(): Promise<SkillResponse> {
@@ -1910,5 +1964,290 @@ export class OpenClawAsusMeshSkill {
       ? [`${report.installedScripts.length} Scripts installiert, ${report.recommendedScripts.length} empfohlen`]
       : ['Merlin Firmware wird empfohlen für Script-Support']
     );
+  }
+
+  private handleSetHouseConfig(params: {
+    name: string;
+    floors: Array<{
+      floorNumber: number;
+      floorType: FloorType;
+      name: string;
+      heightMeters?: number;
+      widthMeters?: number;
+      lengthMeters?: number;
+    }>;
+    hasGarden?: boolean;
+    gardenWidthMeters?: number;
+    gardenLengthMeters?: number;
+    constructionType?: 'wood_frame' | 'concrete' | 'brick' | 'mixed';
+    wallThicknessCm?: number;
+  }): SkillResponse {
+    const floors: HouseConfig['floors'] = params.floors.map(f => {
+      const floor: HouseConfig['floors'][number] = {
+        floorNumber: f.floorNumber,
+        floorType: f.floorType,
+        name: f.name,
+        heightMeters: f.heightMeters ?? 2.8,
+      };
+      if (f.widthMeters !== undefined && f.lengthMeters !== undefined) {
+        floor.dimensions = {
+          widthMeters: f.widthMeters,
+          lengthMeters: f.lengthMeters,
+        };
+      }
+      return floor;
+    });
+
+    const houseConfig: HouseConfig = {
+      name: params.name,
+      floors,
+      hasGarden: params.hasGarden ?? false,
+      constructionType: params.constructionType ?? 'mixed',
+      wallThicknessCm: params.wallThicknessCm ?? 20,
+    };
+    
+    if (params.gardenWidthMeters !== undefined && params.gardenLengthMeters !== undefined) {
+      houseConfig.gardenDimensions = {
+        widthMeters: params.gardenWidthMeters,
+        lengthMeters: params.gardenLengthMeters,
+      };
+    }
+
+    this.realTriangulation.setHouseConfig(houseConfig);
+
+    logger.info({ 
+      name: houseConfig.name, 
+      floors: houseConfig.floors.length 
+    }, 'House config set');
+
+    return this.successResponse('set_house_config', {
+      configured: true,
+      name: houseConfig.name,
+      floors: houseConfig.floors.map(f => ({
+        number: f.floorNumber,
+        type: f.floorType,
+        name: f.name,
+      })),
+      hasGarden: houseConfig.hasGarden,
+      constructionType: houseConfig.constructionType,
+    }, [
+      '📍 Setze Node-Positionen mit set_node_position_3d',
+      '📐 Trianguliere Geräte mit triangulate_devices',
+      '🗺️ Generiere Auto-Map mit get_auto_map',
+    ]);
+  }
+
+  private handleGetHouseConfig(): SkillResponse {
+    const config = this.realTriangulation.getHouseConfig();
+    
+    if (!config) {
+      return this.successResponse('get_house_config', {
+        configured: false,
+        message: 'Keine Hauskonfiguration gesetzt. Nutze set_house_config.',
+      });
+    }
+
+    return this.successResponse('get_house_config', {
+      configured: true,
+      config,
+    });
+  }
+
+  private async handleTriangulateDevices(deviceMac?: string): Promise<SkillResponse> {
+    if (!this.meshState) {
+      this.meshState = await this.meshAnalyzer.scan();
+    }
+
+    const devices = deviceMac 
+      ? this.meshState.devices.filter(d => d.macAddress === deviceMac)
+      : this.meshState.devices;
+
+    if (devices.length === 0) {
+      return this.errorResponse('triangulate_devices', 
+        deviceMac ? `Device ${deviceMac} nicht gefunden` : 'Keine Geräte gefunden'
+      );
+    }
+
+    const results = [];
+    for (const device of devices) {
+      const position = this.realTriangulation.triangulateDevice(device, this.meshState.nodes);
+      if (position) {
+        results.push(position);
+      }
+    }
+
+    const methodCounts = {
+      trilateration: results.filter(r => r.method === 'trilateration').length,
+      bilateration: results.filter(r => r.method === 'bilateration').length,
+      single_node: results.filter(r => r.method === 'single_node').length,
+    };
+
+    const avgConfidence = results.length > 0
+      ? results.reduce((s, r) => s + r.confidence, 0) / results.length
+      : 0;
+
+    const nodePositions = this.realTriangulation.getNodePositions();
+    const suggestions: string[] = [];
+    
+    if (nodePositions.length < 3) {
+      suggestions.push(`⚠️ Nur ${nodePositions.length} Node-Positionen bekannt. Für echte Triangulation mindestens 3 Nodes mit set_node_position_3d setzen.`);
+    }
+    if (methodCounts.trilateration === 0 && results.length > 0) {
+      suggestions.push('📡 Für bessere Genauigkeit: Signal-Messungen von allen 3 Nodes sammeln (record_signal_measurement)');
+    }
+    if (avgConfidence < 0.5) {
+      suggestions.push('📶 Niedrige Konfidenz. Mehr Signal-Daten sammeln für bessere Positionierung.');
+    }
+
+    return this.successResponse('triangulate_devices', {
+      totalDevices: devices.length,
+      triangulatedDevices: results.length,
+      methods: methodCounts,
+      averageConfidence: Math.round(avgConfidence * 100) / 100,
+      nodePositionsKnown: nodePositions.length,
+      positions: results.map(r => ({
+        deviceMac: r.deviceMac,
+        deviceName: r.deviceName,
+        position: r.position,
+        floor: r.floor,
+        floorNumber: r.floorNumber,
+        confidence: r.confidence,
+        method: r.method,
+        signalReadings: r.signalReadings,
+      })),
+    }, suggestions);
+  }
+
+  private async handleGetAutoMap(floorNumber?: number): Promise<SkillResponse> {
+    if (!this.meshState) {
+      this.meshState = await this.meshAnalyzer.scan();
+    }
+
+    const autoMap = this.realTriangulation.generateAutoMap(
+      this.meshState.nodes,
+      this.meshState.devices
+    );
+
+    let floorAscii: string | undefined;
+    if (floorNumber !== undefined) {
+      floorAscii = this.realTriangulation.generateFloorAscii(floorNumber);
+    }
+
+    const suggestions: string[] = [];
+    if (autoMap.confidence < 0.5) {
+      suggestions.push('📡 Mehr Signal-Daten sammeln für genauere Map');
+    }
+    if (autoMap.floors.length === 0) {
+      suggestions.push('⚠️ Keine Positionen berechnet. Erst triangulate_devices ausführen.');
+    }
+
+    return this.successResponse('get_auto_map', {
+      mapId: autoMap.id,
+      generatedAt: autoMap.generatedAt,
+      floorsDetected: autoMap.floors.length,
+      totalArea: Math.round(autoMap.totalArea * 100) / 100,
+      confidence: Math.round(autoMap.confidence * 100) / 100,
+      floors: autoMap.floors.map(f => ({
+        floorNumber: f.floorNumber,
+        floorType: f.floorType,
+        dimensions: f.estimatedDimensions,
+        nodeCount: f.nodePositions.length,
+        deviceCount: f.devicePositions.length,
+        bounds: f.bounds,
+      })),
+      floorAscii,
+    }, suggestions);
+  }
+
+  private handleSetNodePosition3D(params: {
+    nodeMac: string;
+    nodeId: string;
+    floorNumber: number;
+    floorType: FloorType;
+    x: number;
+    y: number;
+    z?: number;
+    roomId?: string;
+  }): SkillResponse {
+    const zCoord = params.z ?? (params.floorNumber * 3);
+
+    this.realTriangulation.setNodePosition({
+      nodeId: params.nodeId,
+      nodeMac: params.nodeMac,
+      floor: params.floorType,
+      floorNumber: params.floorNumber,
+      roomId: params.roomId,
+      position: {
+        x: params.x,
+        y: params.y,
+        z: zCoord,
+      },
+      coverageRadius2g: 15,
+      coverageRadius5g: 10,
+      isOutdoor: params.floorType === 'garden' || params.floorType === 'outdoor',
+    });
+
+    const allPositions = this.realTriangulation.getNodePositions();
+    const suggestions: string[] = [];
+    
+    if (allPositions.length < 3) {
+      suggestions.push(`📍 ${3 - allPositions.length} weitere Node-Position(en) für Triangulation erforderlich`);
+    } else {
+      suggestions.push('✅ 3+ Nodes positioniert - echte Triangulation möglich');
+      suggestions.push('📐 Jetzt triangulate_devices ausführen');
+    }
+
+    return this.successResponse('set_node_position_3d', {
+      nodeMac: params.nodeMac,
+      nodeId: params.nodeId,
+      position: { x: params.x, y: params.y, z: zCoord },
+      floor: params.floorType,
+      floorNumber: params.floorNumber,
+      totalNodesPositioned: allPositions.length,
+      triangulationReady: allPositions.length >= 3,
+    }, suggestions);
+  }
+
+  private handleRecordSignalMeasurement(params: {
+    deviceMac: string;
+    nodeMac: string;
+    rssi: number;
+  }): SkillResponse {
+    this.realTriangulation.recordSignalMeasurement(
+      params.deviceMac,
+      params.nodeMac,
+      params.rssi
+    );
+
+    return this.successResponse('record_signal_measurement', {
+      recorded: true,
+      deviceMac: params.deviceMac,
+      nodeMac: params.nodeMac,
+      rssi: params.rssi,
+      timestamp: new Date().toISOString(),
+    }, [
+      'Signal-Messung gespeichert. Für beste Triangulation: Messungen von allen 3 Nodes sammeln.',
+    ]);
+  }
+
+  private handleGetLogInfo(): SkillResponse {
+    const logFile = getCurrentLogFile();
+    const logDir = process.env['OPENCLAW_LOG_DIR'] ?? './logs';
+    
+    return this.successResponse('get_log_info', {
+      logFile,
+      logDir,
+      logLevel: process.env['LOG_LEVEL'] ?? 'info',
+      fileLoggingEnabled: process.env['OPENCLAW_LOG_FILE'] !== 'false',
+      nodeVersion: process.version,
+      pid: process.pid,
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString(),
+      _proof: 'TypeScript skill is running and logging to file',
+    }, [
+      `📄 Log-Datei: ${logFile}`,
+      '💡 Setze OPENCLAW_LOG_DIR um Log-Verzeichnis zu ändern',
+      '💡 Setze LOG_LEVEL=debug für detaillierte Logs',
+    ]);
   }
 }

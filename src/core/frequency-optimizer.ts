@@ -3,7 +3,8 @@ import {
   findBestZigbeeChannel, 
   WIFI_2G_CHANNELS, 
   WIFI_5G_CHANNELS,
-  getWifi2gZigbeeOverlap 
+  getWifi2gZigbeeOverlap,
+  DEFAULT_NOISE_FLOOR_DBM,
 } from '../utils/frequency.js';
 import type { AsusSshClient } from '../infra/asus-ssh-client.js';
 import type { MeshNetworkState, ChannelScanResult } from '../types/network.js';
@@ -115,7 +116,7 @@ export class FrequencyOptimizer {
         channel: network.channel,
         band: band === '2g' ? '2.4GHz' : '5GHz',
         utilization: 0,
-        noiseFloor: -95,
+        noiseFloor: DEFAULT_NOISE_FLOOR_DBM,
         interferingNetworks: [],
       });
     }

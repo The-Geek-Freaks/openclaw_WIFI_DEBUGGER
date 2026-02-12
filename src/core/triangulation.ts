@@ -18,6 +18,22 @@ interface SignalReading {
   rssi: number;
 }
 
+/**
+ * Device positioning engine using RSSI-based trilateration.
+ * 
+ * NOTE: Despite the name, this uses TRILATERATION (distance-based positioning
+ * using RSSI signal strength), not triangulation (angle-based positioning).
+ * The class name is kept for backwards compatibility.
+ * 
+ * - 1 signal reading: Position equals node position (confidence: 0.3)
+ * - 2 signal readings: Weighted centroid bilateration (confidence: 0.5)
+ * - 3+ signal readings: Weighted centroid trilateration (confidence: up to 0.9)
+ * 
+ * Limitations:
+ * - RSSI-to-distance conversion is approximate (affected by walls, interference)
+ * - Without multi-node signal readings, accuracy is limited
+ * - Best results require node positions to be configured via setNodePosition()
+ */
 export class TriangulationEngine {
   private nodePositions: Map<string, NodePosition> = new Map();
   private readonly defaultTxPower: number = -59;

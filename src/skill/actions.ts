@@ -285,6 +285,65 @@ export const SkillActionSchema = z.discriminatedUnion('action', [
     action: z.literal('get_recommended_scripts'),
     params: z.object({}).optional(),
   }),
+  z.object({
+    action: z.literal('set_house_config'),
+    params: z.object({
+      name: z.string(),
+      floors: z.array(z.object({
+        floorNumber: z.number(),
+        floorType: z.enum(['basement', 'ground', 'first', 'second', 'third', 'attic', 'garden', 'outdoor']),
+        name: z.string(),
+        heightMeters: z.number().optional(),
+        widthMeters: z.number().optional(),
+        lengthMeters: z.number().optional(),
+      })),
+      hasGarden: z.boolean().optional(),
+      gardenWidthMeters: z.number().optional(),
+      gardenLengthMeters: z.number().optional(),
+      constructionType: z.enum(['wood_frame', 'concrete', 'brick', 'mixed']).optional(),
+      wallThicknessCm: z.number().optional(),
+    }),
+  }),
+  z.object({
+    action: z.literal('get_house_config'),
+    params: z.object({}).optional(),
+  }),
+  z.object({
+    action: z.literal('triangulate_devices'),
+    params: z.object({
+      deviceMac: z.string().optional(),
+    }).optional(),
+  }),
+  z.object({
+    action: z.literal('get_auto_map'),
+    params: z.object({
+      floorNumber: z.number().optional(),
+    }).optional(),
+  }),
+  z.object({
+    action: z.literal('set_node_position_3d'),
+    params: z.object({
+      nodeMac: z.string(),
+      nodeId: z.string(),
+      floorNumber: z.number(),
+      floorType: z.enum(['basement', 'ground', 'first', 'second', 'third', 'attic', 'garden', 'outdoor']),
+      x: z.number(),
+      y: z.number(),
+      z: z.number().optional(),
+      roomId: z.string().optional(),
+    }),
+  }),
+  z.object({
+    action: z.literal('record_signal_measurement'),
+    params: z.object({
+      deviceMac: z.string(),
+      nodeMac: z.string(),
+      rssi: z.number(),
+    }),
+  }),
+  z.object({
+    action: z.literal('get_log_info'),
+  }),
 ]);
 
 export type SkillAction = z.infer<typeof SkillActionSchema>;

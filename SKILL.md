@@ -1,6 +1,6 @@
 ---
 name: asus-mesh-wifi-analyzer
-description: Comprehensive ASUS Mesh WiFi network analysis, optimization, and debugging with Zigbee coordination and community-based tweaks
+description: Comprehensive ASUS Mesh WiFi network analysis, optimization, real triangulation, and debugging with Zigbee coordination and community-based tweaks
 homepage: https://github.com/The-Geek-Freaks/openclaw_WIFI_DEBUGGER
 user-invocable: true
 metadata: { "openclaw": { "emoji": "📡", "homepage": "https://github.com/The-Geek-Freaks/openclaw_WIFI_DEBUGGER", "os": ["darwin", "linux", "win32"], "requires": { "bins": ["ssh"], "env": ["ASUS_ROUTER_HOST", "ASUS_ROUTER_SSH_USER", "ASUS_ROUTER_SSH_PASSWORD"] }, "primaryEnv": "ASUS_ROUTER_HOST", "install": [ { "id": "npm", "kind": "node", "package": "openclaw-asus-mesh-skill", "bins": [], "label": "Install via npm" } ] } }
@@ -10,7 +10,7 @@ metadata: { "openclaw": { "emoji": "📡", "homepage": "https://github.com/The-G
 
 ## Overview
 
-This skill provides comprehensive network analysis and optimization for ASUS routers running stock or Merlin firmware. It connects via SSH to analyze your mesh network, detect problems, and suggest optimizations.
+This skill provides comprehensive network analysis and optimization for ASUS routers running stock or Merlin firmware. It connects via SSH to analyze your mesh network, detect problems, and suggest optimizations. **Now with real geometric triangulation using 3 mesh nodes!**
 
 ## Capabilities
 
@@ -20,6 +20,9 @@ This skill provides comprehensive network analysis and optimization for ASUS rou
 - **Zigbee Coordination** - Avoid WiFi/Zigbee interference via Home Assistant
 - **Router Tweaks** - Community-based NVRAM optimizations from SNBForums/Reddit
 - **Persistent Knowledge** - Saves device history and network profiles over time
+- **Real Triangulation** - 3D device positioning with 3 mesh nodes (NEW!)
+- **Auto-Map Generation** - Create floor maps from device positions (NEW!)
+- **Persistent Logging** - Daily log files proving TypeScript execution (NEW!)
 
 ## Available Actions
 
@@ -47,6 +50,17 @@ This skill provides comprehensive network analysis and optimization for ASUS rou
 - `get_network_history` - Historical snapshots and health scores
 - `export_knowledge` - Export all data as JSON
 
+### Real Triangulation & Building Config (NEW!)
+- `set_house_config` - Configure building with floors (basement to attic)
+- `get_house_config` - Get current building configuration
+- `set_node_position_3d` - Set 3D position of mesh node
+- `triangulate_devices` - Triangulate device positions using 3 nodes
+- `get_auto_map` - Generate floor map from device positions
+- `record_signal_measurement` - Record RSSI measurement for better accuracy
+
+### Logging & Diagnostics (NEW!)
+- `get_log_info` - Get log file path and status (proof of TypeScript execution)
+
 ### Advanced
 - `full_intelligence_scan` - Complete AI-powered network analysis
 - `run_benchmark` - Network speed and latency benchmark
@@ -64,6 +78,8 @@ Optional:
 - `HASS_URL` - Home Assistant URL for Zigbee integration
 - `HASS_TOKEN` - Home Assistant long-lived access token
 - `SNMP_DEVICES` - JSON array of SNMP devices for topology
+- `OPENCLAW_LOG_DIR` - Directory for log files (default: ./logs)
+- `LOG_LEVEL` - Log level: debug, info, warn, error (default: info)
 
 ## Example Usage
 
@@ -82,6 +98,16 @@ Action: get_optimization_suggestions
 Action: apply_optimization with confirm=true
 ```
 
+### Triangulate Devices (NEW!)
+```
+User: "Where are my devices located?"
+Action: set_house_config with floors (basement, ground, first, attic)
+Action: set_node_position_3d for each of 3 mesh nodes
+Action: triangulate_devices
+Action: get_auto_map
+Response: Show device positions on auto-generated floor map
+```
+
 ### Check Router Settings
 ```
 User: "Are my router settings optimal?"
@@ -95,3 +121,4 @@ Response: Show score, suboptimal settings, recommended Merlin scripts
 - Merlin firmware recommended but not required
 - Node.js >= 18.0.0
 - Optional: Home Assistant with Zigbee integration (ZHA or Zigbee2MQTT)
+- For triangulation: 3 mesh nodes with known positions

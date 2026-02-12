@@ -15,7 +15,7 @@
 <h3>🚀 Intelligente Mesh-Netzwerk Analyse & Optimierung für ASUS Router</h3>
 
 <p>
-  <strong>39 Actions</strong> • <strong>18 Core Modules</strong> • <strong>100+ Vendor OUIs</strong> • <strong>64 Tests</strong>
+  <strong>45 Actions</strong> • <strong>19 Core Modules</strong> • <strong>100+ Vendor OUIs</strong> • <strong>64 Tests</strong>
 </p>
 
 ![Node.js](https://img.shields.io/badge/Node.js-18%2B-green?style=for-the-badge&logo=node.js)
@@ -706,6 +706,42 @@ npm run clean && npm run build
 
 ## 📝 Changelog
 
+### v1.2.0 (2026-02-12)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  🎯 FEATURE: Real Triangulation & Persistent Logging        │
+├─────────────────────────────────────────────────────────────┤
+│  ✅ RealTriangulationEngine - echte geometrische Trilater.  │
+│  ✅ HouseConfig - Gebäude von Keller bis Dachboden          │
+│  ✅ set_node_position_3d - 3D-Positionierung der Nodes      │
+│  ✅ triangulate_devices - Geräteposition via 3 Nodes        │
+│  ✅ get_auto_map - Karte ohne Bilder generieren             │
+│  ✅ record_signal_measurement - RSSI-Messungen speichern    │
+│  ✅ Persistent File Logging mit Daily Rotation              │
+│  ✅ logSkillAction() - Beweis dass TypeScript läuft         │
+│  ✅ get_log_info Action für Log-Pfad und Status             │
+│  ✅ DEFAULT_NOISE_FLOOR_DBM Konstante statt Magic Numbers   │
+│  ✅ Coverage Score Berechnung statt hardcoded 50            │
+│  ✅ 45 Actions • 19 Core Modules • 64 Tests                 │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### v1.1.2 (2026-02-11)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  🔧 BUGFIX: Math.random & Triviale Fallbacks entfernt       │
+├─────────────────────────────────────────────────────────────┤
+│  ✅ floor-plan-manager: Signal-basierte Positionierung      │
+│  ✅ spatial-recommendations: Echtes findBetterNode Scoring  │
+│  ✅ Signal Zones dynamisch statt hardcoded                  │
+│  ✅ estimateBackhaulStrength via Client-Signale             │
+│  ✅ findNearestNode Fallback: least-loaded statt nodes[0]   │
+│  ✅ triangulation.ts: Ehrliche Dokumentation (Trilateration)│
+└─────────────────────────────────────────────────────────────┘
+```
+
 ### v1.0.2 (2026-02-11)
 
 ```
@@ -793,7 +829,7 @@ MIT - siehe [LICENSE](LICENSE)
 
 ```
     ╔═══════════════════════════════════════════════════════════╗
-    ║  🌐  ASUS MESH WIFI ANALYZER  •  OpenClaw Skill v1.0.0 🌐 ║
+    ║  🌐  ASUS MESH WIFI ANALYZER  •  OpenClaw Skill v1.2.0 🌐 ║
     ╚═══════════════════════════════════════════════════════════╝
 ```
 
