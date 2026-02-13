@@ -297,11 +297,15 @@ export class GeoLocationService {
     const width = 600;
     const height = 400;
 
-    // Use OpenStreetMap Static Map via Carto (free, no API key required)
-    const url = `https://a.basemaps.cartocdn.com/rastertiles/voyager/${zoom}/${this.lonToTileX(longitude, zoom)}/${this.latToTileY(latitude, zoom)}.png`;
+    // Use OpenStreetMap tiles via multiple tile servers (free, no API key required)
+    const tileX = this.lonToTileX(longitude, zoom);
+    const tileY = this.latToTileY(latitude, zoom);
     
-    // Alternative: Full static map URL for embedding
-    const staticMapUrl = `https://staticmap.openstreetmap.de/staticmap.php?center=${latitude},${longitude}&zoom=${zoom}&size=${width}x${height}&maptype=mapnik`;
+    // Primary: Carto Voyager tiles (reliable, good quality)
+    const staticMapUrl = `https://a.basemaps.cartocdn.com/rastertiles/voyager/${zoom}/${tileX}/${tileY}.png`;
+    
+    // Alternative tile URL for reference
+    const _alternativeUrl = `https://tile.openstreetmap.org/${zoom}/${tileX}/${tileY}.png`;
 
     try {
       logger.info({ lat: latitude, lon: longitude, zoom }, 'Fetching map image');
@@ -340,6 +344,17 @@ export class GeoLocationService {
 
   getCachedMapImage(): MapImage | null {
     return this.cachedMapImage;
+  }
+
+  exportPropertyData(): PropertyOutline | null {
+    return this.propertyData;
+  }
+
+  importPropertyData(data: PropertyOutline | null): void {
+    if (data) {
+      this.propertyData = data;
+      logger.info({ coordinates: data.coordinates }, 'Property data imported');
+    }
   }
 
   private lonToTileX(lon: number, zoom: number): number {

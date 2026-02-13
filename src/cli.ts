@@ -41,6 +41,8 @@ interface SessionState {
   nodePositions?: unknown[];
   houseConfig?: unknown;
   signalMeasurements?: Record<string, Array<{ nodeMac: string; rssi: number; timestamp: string }>>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  propertyData?: any;
 }
 
 function loadState(): SessionState | null {
@@ -64,6 +66,8 @@ function saveState(state: {
   nodePositions?: unknown[];
   houseConfig?: unknown;
   signalMeasurements?: Record<string, Array<{ nodeMac: string; rssi: number; timestamp: string }>>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  propertyData?: any;
 }): void {
   try {
     if (!existsSync(STATE_DIR)) {
@@ -185,9 +189,9 @@ async function main(): Promise<void> {
   try {
     await skill.initialize();
     
-    // Load cached state if available (includes triangulation data and signal measurements)
+    // Load cached state if available (includes triangulation data, signal measurements, and location)
     const cachedState = loadState();
-    if (cachedState && (cachedState.meshState || cachedState.nodePositions || cachedState.houseConfig || cachedState.signalMeasurements)) {
+    if (cachedState && (cachedState.meshState || cachedState.nodePositions || cachedState.houseConfig || cachedState.signalMeasurements || cachedState.propertyData)) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       skill.importState(cachedState as any);
     }
@@ -195,7 +199,7 @@ async function main(): Promise<void> {
     // Execute action
     const result = await skill.execute(parsed);
     
-    // Save state for next call (including triangulation data and signal measurements)
+    // Save state for next call (including triangulation data, signal measurements, and location)
     const exportedState = skill.exportState();
     saveState({
       meshState: exportedState.meshState,
@@ -204,6 +208,7 @@ async function main(): Promise<void> {
       nodePositions: exportedState.nodePositions,
       houseConfig: exportedState.houseConfig,
       signalMeasurements: exportedState.signalMeasurements,
+      propertyData: exportedState.propertyData,
     });
 
     // Output result

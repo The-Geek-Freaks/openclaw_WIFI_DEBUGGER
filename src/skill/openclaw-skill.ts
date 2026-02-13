@@ -254,6 +254,8 @@ export class OpenClawAsusMeshSkill {
     nodePositions: NodePlacement[];
     houseConfig: HouseConfig | null;
     signalMeasurements: Record<string, Array<{ nodeMac: string; rssi: number; timestamp: string }>>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    propertyData: any;
   } {
     return {
       meshState: this.meshState,
@@ -264,6 +266,7 @@ export class OpenClawAsusMeshSkill {
       nodePositions: this.realTriangulation.getNodePositions(),
       houseConfig: this.realTriangulation.getHouseConfig(),
       signalMeasurements: this.realTriangulation.exportSignalMeasurements(),
+      propertyData: this.geoLocationService.exportPropertyData(),
     };
   }
 
@@ -276,6 +279,8 @@ export class OpenClawAsusMeshSkill {
     nodePositions?: NodePlacement[];
     houseConfig?: HouseConfig | null;
     signalMeasurements?: Record<string, Array<{ nodeMac: string; rssi: number; timestamp: string }>>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    propertyData?: any;
   }): void {
     if (state.meshState !== undefined) {
       this.meshState = state.meshState;
@@ -303,6 +308,10 @@ export class OpenClawAsusMeshSkill {
     if (state.signalMeasurements && Object.keys(state.signalMeasurements).length > 0) {
       this.realTriangulation.importSignalMeasurements(state.signalMeasurements);
     }
+    // Restore geo location data
+    if (state.propertyData) {
+      this.geoLocationService.importPropertyData(state.propertyData as Parameters<typeof this.geoLocationService.importPropertyData>[0]);
+    }
     const signalStats = this.realTriangulation.getSignalMeasurementCount();
     logger.info({ 
       hasMeshState: !!this.meshState, 
@@ -312,6 +321,7 @@ export class OpenClawAsusMeshSkill {
       hasHouseConfig: !!state.houseConfig,
       signalDevices: signalStats.devices,
       signalMeasurements: signalStats.measurements,
+      hasPropertyData: !!state.propertyData,
     }, 'State imported from cache');
   }
 
