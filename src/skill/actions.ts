@@ -58,6 +58,12 @@ export const SkillActionSchema = z.discriminatedUnion('action', [
     }).optional(),
   }),
   z.object({
+    action: z.literal('detect_problems'),
+    params: z.object({
+      severity: z.enum(['all', 'critical', 'error', 'warning']).optional(),
+    }).optional(),
+  }),
+  z.object({
     action: z.literal('get_optimization_suggestions'),
     params: z.object({}).optional(),
   }),

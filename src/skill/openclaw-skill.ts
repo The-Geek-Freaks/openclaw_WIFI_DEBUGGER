@@ -411,6 +411,7 @@ export class OpenClawAsusMeshSkill {
           );
         
         case 'get_problems':
+        case 'detect_problems':
           return await this.handleGetProblems(action.params?.severity);
         
         case 'get_optimization_suggestions':
