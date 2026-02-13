@@ -153,25 +153,28 @@ export class MeshAnalyzer extends EventEmitter<MeshAnalyzerEvents> {
         const meshList = await this.sshClient.getMeshNodes();
         const meshEntries = meshList.split('<').filter(Boolean);
         
+        // cfg_clientlist format: <MAC>IP>model>alias
+        // Parse each entry consistently
         for (const entry of meshEntries) {
           const parts = entry.split('>');
           if (parts.length >= 2) {
+            // cfg_clientlist: MAC>IP>model>alias
             const mac = normalizeMac(parts[0] ?? '');
-            const alias = parts[1] ?? '';
+            const ip = parts[1] ?? '';
             const model = parts[2] ?? '';
-            const uiModel = parts[3] ?? '';
-            const fwver = parts[4] ?? '';
-            const _newFwver = parts[5] ?? '';
-            const ip = parts[6] ?? '';
-            const online = parts[7] ?? '';
+            const alias = parts[3] ?? '';
             
-            const nodeName = alias || uiModel || model || `AiMesh Node ${mac}`;
-            const firmwareVersion = fwver || 'unknown';
-            const isOnline = online === '1';
+            // Skip if MAC is too short (truncated)
+            if (mac.length < 17) {
+              logger.warn({ mac, entry }, 'Skipping truncated MAC address');
+              continue;
+            }
+            
+            const nodeName = alias || model || ip || `AiMesh Node ${mac}`;
             
             logger.debug({ 
-              mac, alias, model, fwver, ip, online, partsCount: parts.length 
-            }, 'Parsed mesh node entry');
+              mac, ip, model, alias, partsCount: parts.length 
+            }, 'Parsed mesh node entry (cfg_clientlist)');
             
             nodes.push({
               id: mac,
@@ -179,7 +182,7 @@ export class MeshAnalyzer extends EventEmitter<MeshAnalyzerEvents> {
               macAddress: mac,
               ipAddress: ip,
               isMainRouter: false,
-              firmwareVersion,
+              firmwareVersion: 'unknown',
               uptime: 0,
               cpuUsage: 0,
               memoryUsage: 0,
@@ -268,17 +271,20 @@ export class MeshAnalyzer extends EventEmitter<MeshAnalyzerEvents> {
 
   private async scanWirelessFromMain(devices: Map<string, NetworkDevice>): Promise<void> {
     try {
-      const wirelessClients = await this.sshClient.getWirelessClients();
-      const macMatches = wirelessClients.match(/([0-9A-Fa-f:]{17})/g) ?? [];
-      
+      // Get clients with proper band detection
+      const clientsByBand = await this.sshClient.getWirelessClientsByBand();
       const allSignals = await this.sshClient.getAllClientSignals();
-      logger.debug({ signalCount: allSignals.size }, 'Collected client signal strengths from main');
+      
+      logger.debug({ 
+        clientCount: clientsByBand.size, 
+        signalCount: allSignals.size 
+      }, 'Collected wireless clients with band info from main');
 
-      for (const mac of macMatches) {
+      for (const [mac, band] of clientsByBand) {
         const normalizedMac = normalizeMac(mac);
         if (devices.has(normalizedMac)) {
           const device = devices.get(normalizedMac)!;
-          device.connectionType = 'wireless_5g';
+          device.connectionType = band; // Now properly set to wireless_2g, wireless_5g, etc.
           device.connectedToNode = 'main';
           
           const rssi = allSignals.get(normalizedMac);

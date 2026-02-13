@@ -437,7 +437,9 @@ export class AsusSshClient extends EventEmitter<SshClientEvents> {
   }
 
   async getMeshNodes(): Promise<string> {
-    return this.execute('nvram get cfg_device_list');
+    // Use cfg_clientlist (correct format for AiMesh nodes)
+    // Format: <MAC>IP>model>alias<MAC>IP>model>alias...
+    return this.execute('nvram get cfg_clientlist');
   }
 
   async getClientList(): Promise<string> {
@@ -455,6 +457,37 @@ export class AsusSshClient extends EventEmitter<SshClientEvents> {
     if (iface6g) cmd += `; wl -i ${iface6g} assoclist 2>/dev/null`;
     
     return this.execute(cmd);
+  }
+
+  async getWirelessClientsByBand(): Promise<Map<string, 'wireless_2g' | 'wireless_5g' | 'wireless_6g'>> {
+    const result = new Map<string, 'wireless_2g' | 'wireless_5g' | 'wireless_6g'>();
+    
+    const interfaces: Array<{ iface: string; band: 'wireless_2g' | 'wireless_5g' | 'wireless_6g' }> = [
+      { iface: this.getInterface('2g'), band: 'wireless_2g' },
+      { iface: this.getInterface('5g'), band: 'wireless_5g' },
+    ];
+    
+    // wl2 is second 5GHz band, map to wireless_5g
+    if (this.detectedInterfaces.wl2) {
+      interfaces.push({ iface: this.detectedInterfaces.wl2, band: 'wireless_5g' });
+    }
+    if (this.detectedInterfaces.wl3) {
+      interfaces.push({ iface: this.detectedInterfaces.wl3, band: 'wireless_6g' });
+    }
+    
+    for (const { iface, band } of interfaces) {
+      try {
+        const output = await this.execute(`wl -i ${iface} assoclist 2>/dev/null`);
+        const macs = output.match(/([0-9A-Fa-f:]{17})/g) ?? [];
+        for (const mac of macs) {
+          result.set(mac.toLowerCase(), band);
+        }
+      } catch {
+        // Interface might not exist
+      }
+    }
+    
+    return result;
   }
 
   async getClientSignalStrength(macAddress: string): Promise<string> {
@@ -581,20 +614,23 @@ export class AsusSshClient extends EventEmitter<SshClientEvents> {
       this.detectedInterfaces.wl3,
     ].filter(Boolean);
     
+    // Fix 7: Bulk RSSI fetch - one SSH call per interface instead of N+1
     for (const iface of interfaces) {
       try {
-        const assoclist = await this.execute(`wl -i ${iface} assoclist 2>/dev/null`);
-        const macs = assoclist.match(/([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}/g) ?? [];
+        // Try rssi_per_sta first (faster, single command)
+        // Fallback to bulk one-liner if not available
+        const bulkCmd = `wl -i ${iface} rssi_per_sta 2>/dev/null || for mac in $(wl -i ${iface} assoclist 2>/dev/null | awk '{print $2}'); do echo "$mac $(wl -i ${iface} rssi $mac 2>/dev/null)"; done`;
+        const output = await this.execute(bulkCmd);
         
-        for (const mac of macs) {
-          try {
-            const rssiStr = await this.execute(`wl -i ${iface} rssi ${mac} 2>/dev/null`);
-            const rssi = parseInt(rssiStr.trim(), 10);
+        // Parse output: "MAC RSSI" per line
+        for (const line of output.split('\n')) {
+          const match = line.match(/([0-9A-Fa-f:]{17})\s+(-?\d+)/);
+          if (match) {
+            const mac = match[1]!.toLowerCase();
+            const rssi = parseInt(match[2]!, 10);
             if (!isNaN(rssi) && rssi < 0) {
-              signals.set(mac.toLowerCase(), rssi);
+              signals.set(mac, rssi);
             }
-          } catch {
-            // Skip this MAC
           }
         }
       } catch {
