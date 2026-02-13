@@ -1,5 +1,10 @@
 import { spawn } from 'child_process';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { createChildLogger } from '../utils/logger.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 import { withTimeout, Semaphore } from '../utils/async-helpers.js';
 import type { Config } from '../config/index.js';
 
@@ -47,6 +52,7 @@ export class MeshNodePool {
   private readonly sshPort: number;
   private readonly sshUser: string;
   private readonly sshKeyPath: string | undefined;
+  private readonly sshPassword: string | undefined;
   private readonly mainSemaphore: Semaphore;
   private reconnectInterval: NodeJS.Timeout | null = null;
 
@@ -56,6 +62,7 @@ export class MeshNodePool {
     this.sshPort = config.asus.sshPort;
     this.sshUser = config.asus.sshUser;
     this.sshKeyPath = config.asus.sshKeyPath;
+    this.sshPassword = config.asus.sshPassword;
     this.mainSemaphore = new Semaphore(MAX_CONCURRENT_COMMANDS);
   }
 
@@ -111,11 +118,35 @@ export class MeshNodePool {
 
   private executeSshCommand(host: string, command: string): Promise<string> {
     return new Promise((resolve, reject) => {
-      const args = [...this.buildSshArgs(host), command];
+      const isWindows = process.platform === 'win32';
+      const usePassword = this.sshPassword && !this.sshKeyPath;
       
-      logger.debug({ host, command: command.substring(0, 50) }, 'Executing SSH command');
+      let executable: string;
+      let args: string[];
+      
+      if (usePassword && isWindows) {
+        // Use Python paramiko helper on Windows
+        executable = 'python';
+        args = [
+          join(__dirname, '..', '..', 'ssh-helper.py'),
+          host,
+          this.sshUser,
+          this.sshPassword!,
+          command,
+        ];
+      } else if (usePassword) {
+        // Use sshpass on Linux/Mac
+        executable = 'sshpass';
+        args = ['-p', this.sshPassword!, 'ssh', ...this.buildSshArgs(host), command];
+      } else {
+        // Key-based auth
+        executable = 'ssh';
+        args = [...this.buildSshArgs(host), command];
+      }
+      
+      logger.debug({ host, command: command.substring(0, 50), usePassword, isWindows }, 'Executing SSH command');
 
-      const sshProcess = spawn('ssh', args, {
+      const sshProcess = spawn(executable, args, {
         stdio: ['pipe', 'pipe', 'pipe'],
         windowsHide: true,
       });
