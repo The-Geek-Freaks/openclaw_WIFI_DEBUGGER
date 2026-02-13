@@ -564,6 +564,9 @@ export class OpenClawAsusMeshSkill {
         case 'get_svg_map':
           return this.handleGetSvgMap(action.params?.floorNumber);
         
+        case 'generate_full_house_map':
+          return await this.handleGenerateFullHouseMap(action.params);
+        
         case 'set_node_position_3d':
           return this.handleSetNodePosition3D(action.params as Parameters<typeof this.handleSetNodePosition3D>[0]);
         
@@ -2571,6 +2574,179 @@ export class OpenClawAsusMeshSkill {
       '🖼️ Für Grundriss-Overlay: set_floor_plan + get_floor_visualization',
       '🗺️ Für OpenStreetMap: fetch_map_image',
     ]);
+  }
+
+  private async handleGenerateFullHouseMap(params?: {
+    includeBasement?: boolean | undefined;
+    includeAttic?: boolean | undefined;
+    includeGarden?: boolean | undefined;
+    detectWalls?: boolean | undefined;
+    fetchOsmMap?: boolean | undefined;
+  }): Promise<SkillResponse> {
+    const includeBasement = params?.includeBasement ?? true;
+    const includeAttic = params?.includeAttic ?? true;
+    const includeGarden = params?.includeGarden ?? true;
+    const detectWalls = params?.detectWalls ?? true;
+    const fetchOsmMap = params?.fetchOsmMap ?? true;
+
+    // 1. Scan network if no mesh state
+    if (!this.meshState) {
+      await this.ensureSshConnected();
+      this.meshState = await this.meshAnalyzer.scan();
+    }
+
+    // 2. Triangulate all devices
+    const triangulatedDevices: Array<{ mac: string; name: string; floor: number; position: { x: number; y: number; z: number }; confidence: number }> = [];
+    for (const device of this.meshState.devices) {
+      const pos = this.realTriangulation.triangulateDevice(device, this.meshState.nodes);
+      if (pos) {
+        triangulatedDevices.push({
+          mac: pos.deviceMac,
+          name: pos.deviceName,
+          floor: pos.floorNumber,
+          position: pos.position,
+          confidence: pos.confidence,
+        });
+      }
+    }
+
+    // 3. Detect floors from node positions and triangulated devices
+    const nodePositions = this.realTriangulation.getNodePositions();
+    const allFloorNumbers = new Set<number>();
+    
+    for (const node of nodePositions) {
+      allFloorNumbers.add(node.floorNumber);
+    }
+    for (const device of triangulatedDevices) {
+      allFloorNumbers.add(device.floor);
+    }
+
+    // Add basement/attic if requested and not already present
+    if (includeBasement && !allFloorNumbers.has(-1)) {
+      allFloorNumbers.add(-1);
+    }
+    if (includeAttic && Math.max(...allFloorNumbers) < 3) {
+      allFloorNumbers.add(Math.max(...allFloorNumbers) + 1);
+    }
+
+    const floors = Array.from(allFloorNumbers).sort((a, b) => a - b);
+
+    // 4. Detect walls per floor
+    const wallResults: Array<{ floor: number; wallCount: number; roomCount: number; ascii: string }> = [];
+    
+    if (detectWalls) {
+      for (const floorNum of floors) {
+        // Add signal measurements to wall detector
+        const cachedPositions = this.realTriangulation.getCachedPositions();
+        for (const pos of cachedPositions.filter(p => p.floorNumber === floorNum)) {
+          for (const reading of pos.signalReadings) {
+            const nodePos = nodePositions.find(n => n.nodeMac === reading.nodeMac);
+            if (nodePos) {
+              this.wallDetector.addSignalMeasurement({
+                deviceMac: pos.deviceMac,
+                devicePosition: pos.position,
+                nodeMac: reading.nodeMac,
+                nodePosition: nodePos.position,
+                rssi: reading.rssi,
+                floorNumber: floorNum,
+              });
+            }
+          }
+        }
+
+        const wallResult = this.wallDetector.detectWalls(floorNum);
+        const ascii = this.wallDetector.generateWallAscii(floorNum);
+        
+        wallResults.push({
+          floor: floorNum,
+          wallCount: wallResult.detectedWalls.length,
+          roomCount: wallResult.roomBoundaries.length,
+          ascii,
+        });
+      }
+    }
+
+    // 5. Fetch OSM map if location is set
+    let osmMap: { url: string; base64: string } | null = null;
+    if (fetchOsmMap) {
+      const mapImage = await this.geoLocationService.fetchMapImage(18);
+      if (mapImage) {
+        osmMap = { url: mapImage.url, base64: mapImage.base64 };
+      }
+    }
+
+    // 6. Generate SVG for each floor
+    const floorMaps: Array<{ floor: number; floorName: string; svg: string; nodeCount: number; deviceCount: number }> = [];
+    
+    for (const floorNum of floors) {
+      const floorName = this.getFloorName(floorNum, includeBasement, includeAttic);
+      const svg = this.realTriangulation.generateSvgMap(floorNum);
+      const nodesOnFloor = nodePositions.filter(n => n.floorNumber === floorNum).length;
+      const devicesOnFloor = triangulatedDevices.filter(d => d.floor === floorNum).length;
+      
+      floorMaps.push({
+        floor: floorNum,
+        floorName,
+        svg,
+        nodeCount: nodesOnFloor,
+        deviceCount: devicesOnFloor,
+      });
+    }
+
+    // 7. Garden area (outdoor devices)
+    let gardenInfo: { deviceCount: number; nodes: string[] } | null = null;
+    if (includeGarden) {
+      const outdoorNodes = nodePositions.filter(n => n.isOutdoor);
+      gardenInfo = {
+        deviceCount: 0,
+        nodes: outdoorNodes.map(n => n.nodeId),
+      };
+    }
+
+    const propertyData = this.geoLocationService.getPropertyData();
+
+    return this.successResponse('generate_full_house_map', {
+      totalFloors: floors.length,
+      floors: floorMaps.map(f => ({
+        floorNumber: f.floor,
+        floorName: f.floorName,
+        nodeCount: f.nodeCount,
+        deviceCount: f.deviceCount,
+        svgBase64: Buffer.from(f.svg).toString('base64'),
+      })),
+      wallDetection: wallResults.length > 0 ? {
+        enabled: true,
+        floors: wallResults,
+      } : { enabled: false },
+      osmMap: osmMap ? {
+        available: true,
+        url: osmMap.url,
+        imageBase64: osmMap.base64,
+      } : { available: false },
+      location: propertyData ? {
+        coordinates: propertyData.coordinates,
+        address: propertyData.address,
+        dimensions: propertyData.estimatedDimensions,
+      } : null,
+      garden: gardenInfo,
+      totalDevices: this.meshState.devices.length,
+      triangulatedDevices: triangulatedDevices.length,
+      signalMeasurements: this.realTriangulation.getSignalMeasurementCount(),
+    }, [
+      '💾 SVGs können als Dateien gespeichert werden (svgBase64 dekodieren)',
+      '🖼️ OSM-Karte kann als Hintergrund verwendet werden',
+      '📐 Wand-Erkennung verbessert sich mit mehr Signal-Daten',
+      '📍 Für genauere Karte: Mehr Node-Positionen setzen',
+    ]);
+  }
+
+  private getFloorName(floorNumber: number, _hasBasement: boolean, _hasAttic: boolean): string {
+    if (floorNumber < 0) return 'Keller';
+    if (floorNumber === 0) return 'Erdgeschoss';
+    if (floorNumber === 1) return '1. Stock';
+    if (floorNumber === 2) return '2. Stock';
+    if (floorNumber === 3) return 'Dachgeschoss';
+    return `${floorNumber}. Etage`;
   }
 
   private handleSetNodePosition3D(params: {

@@ -335,6 +335,16 @@ export const SkillActionSchema = z.discriminatedUnion('action', [
     }).optional(),
   }),
   z.object({
+    action: z.literal('generate_full_house_map'),
+    params: z.object({
+      includeBasement: z.boolean().optional(),
+      includeAttic: z.boolean().optional(),
+      includeGarden: z.boolean().optional(),
+      detectWalls: z.boolean().optional(),
+      fetchOsmMap: z.boolean().optional(),
+    }).optional(),
+  }),
+  z.object({
     action: z.literal('set_node_position_3d'),
     params: z.object({
       nodeMac: z.string(),
