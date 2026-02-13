@@ -448,8 +448,8 @@ export class OpenClawAsusMeshSkill {
         
         case 'get_connection_stability':
           return await this.handleGetConnectionStability(
-            action.params.macAddress,
-            action.params.hours
+            action.params?.macAddress,
+            action.params?.hours
           );
         
         case 'restart_wireless':
@@ -513,7 +513,7 @@ export class OpenClawAsusMeshSkill {
           return await this.handleSetPoEEnabled(action.params.host, action.params.port, action.params.enabled);
         
         case 'get_roaming_analysis':
-          return await this.handleGetRoamingAnalysis(action.params.macAddress);
+          return await this.handleGetRoamingAnalysis(action.params?.macAddress);
         
         case 'configure_alerts':
           return await this.handleConfigureAlerts(action.params);
@@ -1158,9 +1158,30 @@ export class OpenClawAsusMeshSkill {
   }
 
   private async handleGetConnectionStability(
-    macAddress: string,
+    macAddress?: string,
     hours?: number
   ): Promise<SkillResponse> {
+    if (!macAddress) {
+      // Return overall network stability summary
+      const devices = this.meshState?.devices ?? [];
+      const reports = devices.slice(0, 10).map(d => {
+        const events = this.meshAnalyzer.getConnectionEvents(d.macAddress);
+        return {
+          macAddress: d.macAddress,
+          hostname: d.hostname,
+          eventCount: events.length,
+        };
+      });
+      return this.successResponse('get_connection_stability', {
+        message: 'Gib macAddress an für detaillierten Report',
+        deviceCount: devices.length,
+        sampleDevices: reports,
+      }, [
+        '📋 get_device_list - Alle Geräte anzeigen',
+        '📶 get_connection_stability {"macAddress":"XX:XX:XX:XX:XX:XX"} - Details',
+      ]);
+    }
+
     const events = this.meshAnalyzer.getConnectionEvents(macAddress);
     const report = this.problemDetector.generateStabilityReport(
       macAddress,
@@ -2074,7 +2095,19 @@ export class OpenClawAsusMeshSkill {
     ]);
   }
 
-  private async handleGetRoamingAnalysis(macAddress: string): Promise<SkillResponse> {
+  private async handleGetRoamingAnalysis(macAddress?: string): Promise<SkillResponse> {
+    if (!macAddress) {
+      // Return roaming summary for all devices
+      const devices = this.meshState?.devices ?? [];
+      return this.successResponse('get_roaming_analysis', {
+        message: 'Gib macAddress an für detaillierte Roaming-Analyse',
+        deviceCount: devices.length,
+        hint: 'get_roaming_analysis {"macAddress":"XX:XX:XX:XX:XX:XX"}',
+      }, [
+        '📋 get_device_list - Alle Geräte anzeigen',
+      ]);
+    }
+
     const analysis = this.spatialEngine.getRoamingAnalysis(macAddress);
 
     return this.successResponse('get_roaming_analysis', {

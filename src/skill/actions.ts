@@ -103,9 +103,9 @@ export const SkillActionSchema = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('get_connection_stability'),
     params: z.object({
-      macAddress: z.string(),
+      macAddress: z.string().optional(),
       hours: z.number().optional(),
-    }),
+    }).optional(),
   }),
   z.object({
     action: z.literal('restart_wireless'),
@@ -235,8 +235,8 @@ export const SkillActionSchema = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('get_roaming_analysis'),
     params: z.object({
-      macAddress: z.string(),
-    }),
+      macAddress: z.string().optional(),
+    }).optional(),
   }),
   z.object({
     action: z.literal('configure_alerts'),
