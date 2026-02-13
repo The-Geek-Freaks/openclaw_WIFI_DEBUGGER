@@ -177,6 +177,37 @@ export class FloorPlanManager {
     };
   }
 
+  setFloorPlanEmpty(config: {
+    floor: number;
+    name: string;
+    widthMeters: number;
+    heightMeters: number;
+  }): { success: boolean; message: string } {
+    const floorConfig: FloorPlanConfig = {
+      floor: config.floor,
+      name: config.name,
+      imagePath: '',
+      imageBase64: '',
+      dimensions: {
+        widthMeters: config.widthMeters,
+        heightMeters: config.heightMeters,
+        widthPixels: 1000,
+        heightPixels: Math.round(1000 * (config.heightMeters / config.widthMeters)),
+      },
+      origin: { x: 0, y: 0 },
+      rotation: 0,
+    };
+
+    this.floorPlans.set(config.floor, floorConfig);
+    
+    logger.info({ floor: config.floor, name: config.name }, 'Empty floor plan configured');
+    
+    return { 
+      success: true, 
+      message: `Leerer Grundriss für ${config.name} (Etage ${config.floor}) erstellt` 
+    };
+  }
+
   getFloorPlan(floor: number): FloorPlanConfig | null {
     return this.floorPlans.get(floor) ?? null;
   }

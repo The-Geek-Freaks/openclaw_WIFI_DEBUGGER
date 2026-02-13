@@ -729,9 +729,21 @@ export class OpenClawAsusMeshSkill {
       this.meshState = await this.meshAnalyzer.scan();
     }
 
-    const device = this.meshState.devices.find(d => d.macAddress === macAddress);
+    const normalizedMac = macAddress.toUpperCase().replace(/[:-]/g, ':');
+    const device = this.meshState.devices.find(d => 
+      d.macAddress.toUpperCase().replace(/[:-]/g, ':') === normalizedMac
+    );
     if (!device) {
-      return this.errorResponse('get_device_details', `Device ${macAddress} not found`);
+      return this.successResponse('get_device_details', {
+        found: false,
+        macAddress,
+        message: `Gerät ${macAddress} nicht im Netzwerk gefunden`,
+        knownDevices: this.meshState.devices.length,
+        hint: 'Führe scan_network aus um aktuelle Geräte zu laden',
+      }, [
+        '🔄 scan_network - Netzwerk neu scannen',
+        '📋 get_device_list - Alle bekannten Geräte anzeigen',
+      ]);
     }
 
     const signalQuality = this.meshAnalyzer.getDeviceSignalQuality(macAddress);
@@ -1754,7 +1766,13 @@ export class OpenClawAsusMeshSkill {
         heightMeters: params.heightMeters,
       });
     } else {
-      return this.errorResponse('set_floor_plan', 'Entweder imagePath oder imageBase64 muss angegeben werden');
+      // Ohne Bild: Erstelle leeren Grundriss mit Dimensionen
+      result = this.floorPlanManager.setFloorPlanEmpty({
+        floor: params.floor,
+        name: params.name,
+        widthMeters: params.widthMeters,
+        heightMeters: params.heightMeters,
+      });
     }
 
     if (!result.success) {
@@ -1774,10 +1792,15 @@ export class OpenClawAsusMeshSkill {
 
   private async handleGetFloorVisualization(floor: number): Promise<SkillResponse> {
     if (!this.floorPlanManager.hasFloorPlans()) {
-      return this.errorResponse(
-        'get_floor_visualization',
-        'Keine Grundrisse konfiguriert. Nutze set_floor_plan zuerst.'
-      );
+      return this.successResponse('get_floor_visualization', {
+        configured: false,
+        floor,
+        message: 'Keine Grundrisse konfiguriert',
+        hint: 'Nutze set_floor_plan um einen Grundriss anzulegen',
+      }, [
+        '📐 set_floor_plan {"floor":0,"name":"EG","widthMeters":10,"heightMeters":8}',
+        '🗺️ get_svg_map - Alternative Visualisierung ohne Grundriss',
+      ]);
     }
 
     if (!this.meshState) {
@@ -1923,10 +1946,21 @@ export class OpenClawAsusMeshSkill {
 
   private async handleGetSwitchStatus(host?: string): Promise<SkillResponse> {
     if (!this.snmpClient.isConfigured()) {
-      return this.errorResponse(
-        'get_switch_status',
-        'Keine SNMP-Geräte konfiguriert. Füge Switches in der Config hinzu.'
-      );
+      return this.successResponse('get_switch_status', {
+        configured: false,
+        message: 'Keine SNMP-Geräte konfiguriert',
+        hint: 'Füge Switches in der Config hinzu um Switch-Status abzufragen',
+        configExample: {
+          snmp: {
+            devices: [
+              { host: '192.168.178.10', community: 'public', port: 161 }
+            ]
+          }
+        }
+      }, [
+        '⚙️ SNMP-Config in ~/.openclaw/config.json hinzufügen',
+        '📋 get_device_list - Netzwerkgeräte ohne SNMP anzeigen',
+      ]);
     }
 
     const devices = this.snmpClient.getConfiguredDevices();
@@ -1983,10 +2017,14 @@ export class OpenClawAsusMeshSkill {
 
   private async handleGetPortTraffic(host: string, portNumber?: number): Promise<SkillResponse> {
     if (!this.snmpClient.isConfigured()) {
-      return this.errorResponse(
-        'get_port_traffic',
-        'Keine SNMP-Geräte konfiguriert'
-      );
+      return this.successResponse('get_port_traffic', {
+        configured: false,
+        message: 'Keine SNMP-Geräte konfiguriert',
+        hint: 'Füge Switches in der Config hinzu um Port-Traffic abzufragen',
+      }, [
+        '⚙️ SNMP-Config in ~/.openclaw/config.json hinzufügen',
+        '📊 get_network_health - Netzwerk-Status ohne SNMP',
+      ]);
     }
 
     const ports = await this.snmpClient.getSwitchPortDetails(host);
