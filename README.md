@@ -305,7 +305,35 @@ LOG_LEVEL=info
 
 ## Verwendung
 
-### Als OpenClaw Skill
+### CLI (Command Line Interface) — NEU in v1.8.0
+
+Nach der Installation steht das `openclaw-wifi` CLI zur Verfügung:
+
+```bash
+# Schnelldiagnose
+openclaw-wifi get_quick_diagnosis
+
+# Netzwerk scannen
+openclaw-wifi scan_network
+
+# Geräteliste
+openclaw-wifi get_device_list
+openclaw-wifi get_device_list '{"filter":"problematic"}'
+
+# Optimierungsvorschläge
+openclaw-wifi get_optimization_suggestions
+
+# Optimierung anwenden (mit Bestätigung)
+openclaw-wifi apply_optimization '{"suggestionId":"ch-5g-36","confirm":true}'
+
+# Zigbee-Integration
+openclaw-wifi scan_zigbee
+openclaw-wifi get_frequency_conflicts
+```
+
+**Alle Befehle geben JSON aus** — ideal für Scripting und OpenClaw-Integration.
+
+### Als TypeScript Library
 
 ```typescript
 import { OpenClawAsusMeshSkill } from 'openclaw-asus-mesh-skill';

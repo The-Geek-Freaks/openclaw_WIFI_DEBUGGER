@@ -1,10 +1,13 @@
 {
   "name": "openclaw-asus-mesh-skill",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "description": "OpenClaw Skill for ASUS Mesh WiFi Analysis, Optimization and Home Assistant Zigbee Integration",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
+  "bin": {
+    "openclaw-wifi": "./dist/cli.js"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -47,6 +50,7 @@
   ],
   "scripts": {
     "build": "tsc",
+    "postbuild": "node -e \"if(process.platform!=='win32')require('fs').chmodSync('dist/cli.js',0o755)\"",
     "build:bundle": "node scripts/build.mjs",
     "build:prod": "node scripts/build.mjs --production",
     "build:watch": "node scripts/build.mjs --watch",

@@ -272,6 +272,12 @@ export class AsusSshClient extends EventEmitter<SshClientEvents> {
           logger.error({ code, stderr: errorMsg, host: this.config.host }, 'SSH connection error');
           this.connected = false;
           reject(new Error(`SSH connection failed: ${errorMsg}`));
+        } else if (code === 127) {
+          logger.error({ code, command, host: this.config.host }, 'SSH command not found');
+          reject(new Error(`Command not found on router: ${command.split(' ')[0]}`));
+        } else if (code !== null && code !== 0) {
+          logger.warn({ code, stderr, command: command.substring(0, 50), host: this.config.host }, 'SSH command failed with non-zero exit code');
+          reject(new Error(`SSH command failed (exit ${code}): ${stderr || stdout || 'Unknown error'}`));
         } else {
           resolve(stdout);
         }

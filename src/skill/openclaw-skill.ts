@@ -198,6 +198,51 @@ export class OpenClawAsusMeshSkill {
     }
   }
 
+  exportState(): {
+    meshState: MeshNetworkState | null;
+    zigbeeState: ZigbeeNetworkState | null;
+    pendingOptimizations: Array<[string, OptimizationSuggestion]>;
+    actionCount: number;
+    errorCount: number;
+  } {
+    return {
+      meshState: this.meshState,
+      zigbeeState: this.zigbeeState,
+      pendingOptimizations: Array.from(this.pendingOptimizations.entries()),
+      actionCount: this.actionCount,
+      errorCount: this.errorCount,
+    };
+  }
+
+  importState(state: {
+    meshState?: MeshNetworkState | null;
+    zigbeeState?: ZigbeeNetworkState | null;
+    pendingOptimizations?: Array<[string, OptimizationSuggestion]>;
+    actionCount?: number;
+    errorCount?: number;
+  }): void {
+    if (state.meshState !== undefined) {
+      this.meshState = state.meshState;
+    }
+    if (state.zigbeeState !== undefined) {
+      this.zigbeeState = state.zigbeeState;
+    }
+    if (state.pendingOptimizations) {
+      this.pendingOptimizations = new Map(state.pendingOptimizations);
+    }
+    if (state.actionCount !== undefined) {
+      this.actionCount = state.actionCount;
+    }
+    if (state.errorCount !== undefined) {
+      this.errorCount = state.errorCount;
+    }
+    logger.info({ 
+      hasMeshState: !!this.meshState, 
+      hasZigbeeState: !!this.zigbeeState,
+      pendingOptimizations: this.pendingOptimizations.size,
+    }, 'State imported from cache');
+  }
+
   async execute(action: SkillAction): Promise<SkillResponse> {
     if (!this.initialized) {
       return this.errorResponse(action.action, 'Skill not initialized. Call initialize() first.');
@@ -214,6 +259,7 @@ export class OpenClawAsusMeshSkill {
     });
 
     logger.info({ action: action.action }, 'Executing action');
+    this.actionCount++;
 
     try {
       const result = await this.executeAction(action);
@@ -231,6 +277,7 @@ export class OpenClawAsusMeshSkill {
       return result;
     } catch (err) {
       const durationMs = Date.now() - startTime;
+      this.errorCount++;
       
       // Record metrics for failed action
       metrics.recordAction(action.action, durationMs, false);
@@ -1060,6 +1107,12 @@ export class OpenClawAsusMeshSkill {
   private async handleGetHeatmap(floor?: number): Promise<SkillResponse> {
     if (!this.meshState) {
       this.meshState = await this.meshAnalyzer.scan();
+    }
+
+    // Inject node placements from real triangulation engine
+    const nodePositions = this.realTriangulation.getNodePositions();
+    if (nodePositions.length > 0) {
+      this.heatmapGenerator.setNodePlacements(nodePositions);
     }
 
     const heatmap = this.heatmapGenerator.generateFloorHeatmap(floor ?? 0);

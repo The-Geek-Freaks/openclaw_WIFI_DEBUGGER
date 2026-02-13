@@ -351,58 +351,122 @@ export class SnmpClient {
     return message;
   }
 
+  private parseBerLength(msg: Buffer, offset: number): { length: number; bytesUsed: number } {
+    const firstByte = msg[offset]!;
+    if (firstByte < 0x80) {
+      return { length: firstByte, bytesUsed: 1 };
+    }
+    const numOctets = firstByte & 0x7F;
+    let length = 0;
+    for (let i = 0; i < numOctets; i++) {
+      length = (length << 8) | msg[offset + 1 + i]!;
+    }
+    return { length, bytesUsed: 1 + numOctets };
+  }
+
   private parseSnmpResponse(msg: Buffer): string | number | null {
     try {
       let offset = 0;
 
+      // SEQUENCE (message wrapper)
       if (msg[offset] !== 0x30) return null;
-      offset += 2;
+      offset++;
+      const msgLen = this.parseBerLength(msg, offset);
+      offset += msgLen.bytesUsed;
 
+      // INTEGER (version)
       if (msg[offset] !== 0x02) return null;
-      offset += 2 + msg[offset + 1]!;
+      offset++;
+      const versionLen = this.parseBerLength(msg, offset);
+      offset += versionLen.bytesUsed + versionLen.length;
 
+      // OCTET STRING (community)
       if (msg[offset] !== 0x04) return null;
-      const communityLen = msg[offset + 1]!;
-      offset += 2 + communityLen;
+      offset++;
+      const communityLen = this.parseBerLength(msg, offset);
+      offset += communityLen.bytesUsed + communityLen.length;
 
+      // GetResponse-PDU (0xA2)
       if (msg[offset] !== 0xA2) return null;
-      offset += 2;
+      offset++;
+      const pduLen = this.parseBerLength(msg, offset);
+      offset += pduLen.bytesUsed;
 
-      offset += 6;
-      offset += 3;
-      offset += 3;
+      // INTEGER (request-id)
+      if (msg[offset] !== 0x02) return null;
+      offset++;
+      const reqIdLen = this.parseBerLength(msg, offset);
+      offset += reqIdLen.bytesUsed + reqIdLen.length;
 
+      // INTEGER (error-status)
+      if (msg[offset] !== 0x02) return null;
+      offset++;
+      const errStatLen = this.parseBerLength(msg, offset);
+      offset += errStatLen.bytesUsed + errStatLen.length;
+
+      // INTEGER (error-index)
+      if (msg[offset] !== 0x02) return null;
+      offset++;
+      const errIdxLen = this.parseBerLength(msg, offset);
+      offset += errIdxLen.bytesUsed + errIdxLen.length;
+
+      // SEQUENCE (varbind list)
       if (msg[offset] !== 0x30) return null;
-      offset += 2;
+      offset++;
+      const vbListLen = this.parseBerLength(msg, offset);
+      offset += vbListLen.bytesUsed;
 
+      // SEQUENCE (first varbind)
       if (msg[offset] !== 0x30) return null;
-      offset += 2;
+      offset++;
+      const vbLen = this.parseBerLength(msg, offset);
+      offset += vbLen.bytesUsed;
 
+      // OID
       if (msg[offset] !== 0x06) return null;
-      const oidLen = msg[offset + 1]!;
-      offset += 2 + oidLen;
+      offset++;
+      const oidLen = this.parseBerLength(msg, offset);
+      offset += oidLen.bytesUsed + oidLen.length;
 
+      // Value
       const valueType = msg[offset]!;
-      const valueLen = msg[offset + 1]!;
-      offset += 2;
+      offset++;
+      const valueLenInfo = this.parseBerLength(msg, offset);
+      offset += valueLenInfo.bytesUsed;
+      const valueLen = valueLenInfo.length;
 
       switch (valueType) {
-        case 0x02:
+        case 0x02: // INTEGER
           if (valueLen === 1) return msg[offset]!;
           if (valueLen === 2) return msg.readInt16BE(offset);
           if (valueLen === 4) return msg.readInt32BE(offset);
-          return null;
-        case 0x04:
+          // Handle variable-length integers
+          let intVal = 0;
+          for (let i = 0; i < valueLen; i++) {
+            intVal = (intVal << 8) | msg[offset + i]!;
+          }
+          return intVal;
+        case 0x04: // OCTET STRING
           return msg.slice(offset, offset + valueLen).toString('utf8');
-        case 0x41:
-        case 0x42:
-        case 0x43:
+        case 0x41: // Counter
+        case 0x42: // Gauge
+        case 0x43: // TimeTicks
           if (valueLen === 4) return msg.readUInt32BE(offset);
-          return null;
-        case 0x40:
+          let counterVal = 0;
+          for (let i = 0; i < valueLen; i++) {
+            counterVal = (counterVal << 8) | msg[offset + i]!;
+          }
+          return counterVal;
+        case 0x40: // IpAddress
           return Array.from(msg.slice(offset, offset + valueLen))
             .map(b => b.toString(16).padStart(2, '0'))
             .join(':');
+        case 0x05: // NULL
+          return null;
+        case 0x80: // noSuchObject
+        case 0x81: // noSuchInstance
+        case 0x82: // endOfMibView
+          return null;
         default:
           return null;
       }

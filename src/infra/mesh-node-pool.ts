@@ -174,7 +174,10 @@ export class MeshNodePool {
     const systemInfo = await this.executeOnMain('nvram show 2>/dev/null | grep -E "^(productid|firmver|buildno|lan_ipaddr|lan_hwaddr|uptime)" | head -10');
     const cpuInfo = await this.executeOnMain('top -bn1 | head -3');
     const memInfo = await this.executeOnMain('free | grep Mem');
-    const clientCount = await this.executeOnMain('wl -i eth6 assoclist 2>/dev/null | wc -l; wl -i eth7 assoclist 2>/dev/null | wc -l');
+    // Dynamically get interface names from nvram instead of hardcoded values
+    const wl0Ifname = (await this.executeOnMain('nvram get wl0_ifname 2>/dev/null')).trim() || 'eth6';
+    const wl1Ifname = (await this.executeOnMain('nvram get wl1_ifname 2>/dev/null')).trim() || 'eth7';
+    const clientCount = await this.executeOnMain(`wl -i ${wl0Ifname} assoclist 2>/dev/null | wc -l; wl -i ${wl1Ifname} assoclist 2>/dev/null | wc -l`);
 
     const lines = systemInfo.split('\n');
     const getValue = (key: string): string => {

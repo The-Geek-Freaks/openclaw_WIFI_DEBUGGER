@@ -1,7 +1,6 @@
 {
-  "$schema": "https://openclaw.io/schemas/skill.json",
   "name": "asus-mesh-wifi-analyzer",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "displayName": "ASUS Mesh WiFi Analyzer",
   "description": "Comprehensive ASUS Mesh WiFi network analysis and optimization with Home Assistant Zigbee integration",
   "author": "OpenClaw Community",
@@ -272,9 +271,9 @@
   "metadata": {
     "openclaw": {
       "emoji": "📡",
-      "os": ["darwin", "linux", "win32"],
+      "os": ["darwin", "linux"],
       "requires": {
-        "bins": ["ssh"],
+        "bins": ["openclaw-wifi", "ssh"],
         "env": ["ASUS_ROUTER_HOST", "ASUS_ROUTER_SSH_USER", "ASUS_ROUTER_SSH_PASSWORD"]
       },
       "primaryEnv": "ASUS_ROUTER_HOST",
@@ -283,7 +282,8 @@
           "id": "npm",
           "kind": "node",
           "package": "openclaw-asus-mesh-skill",
-          "label": "Install via npm"
+          "bins": ["openclaw-wifi"],
+          "label": "Install WiFi Analyzer CLI"
         }
       ]
     }
