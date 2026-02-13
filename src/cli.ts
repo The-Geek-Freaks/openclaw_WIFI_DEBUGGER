@@ -9,6 +9,30 @@ const STATE_DIR = join(homedir(), '.openclaw', 'skills', 'asus-mesh-wifi-analyze
 const STATE_FILE = join(STATE_DIR, 'session-state.json');
 const STATE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
+// Actions that work without SSH connection (local state only)
+const LOCAL_ONLY_ACTIONS = new Set([
+  'set_house_config',
+  'get_house_config',
+  'set_node_position',
+  'set_node_position_3d',
+  'record_signal_measurement',
+  'set_floor_plan',
+  'get_floor_visualization',
+  'generate_floor_plans',
+  'get_property_info',
+  'detect_walls',
+  'get_log_info',
+  'get_metrics',
+  'reset_circuit_breaker',
+  'configure_alerts',
+  'get_alerts',
+  'get_knowledge_stats',
+  'get_known_devices',
+  'mark_device_known',
+  'get_network_history',
+  'export_knowledge',
+]);
+
 interface SessionState {
   timestamp: number;
   meshState: unknown;
@@ -89,14 +113,27 @@ async function main(): Promise<void> {
     process.exit(action ? 0 : 1);
   }
 
-  // Validate required env vars
-  const requiredEnv = ['ASUS_ROUTER_HOST', 'ASUS_ROUTER_SSH_USER', 'ASUS_ROUTER_SSH_PASSWORD'];
-  const missing = requiredEnv.filter(e => !process.env[e]);
-  if (missing.length > 0) {
+  // Validate required env vars - SSH creds only required for non-local actions
+  const isLocalAction = LOCAL_ONLY_ACTIONS.has(action);
+  const requiredEnv = isLocalAction 
+    ? [] // Local actions don't need any env vars
+    : ['ASUS_ROUTER_HOST', 'ASUS_ROUTER_SSH_USER'];
+  
+  // SSH password OR key path required for SSH actions
+  const hasSshAuth = process.env['ASUS_ROUTER_SSH_PASSWORD'] || process.env['ASUS_ROUTER_SSH_KEY_PATH'];
+  if (!isLocalAction && !hasSshAuth) {
+    requiredEnv.push('ASUS_ROUTER_SSH_PASSWORD or ASUS_ROUTER_SSH_KEY_PATH');
+  }
+  
+  const missing = requiredEnv.filter(e => !e.includes(' or ') && !process.env[e]);
+  if (missing.length > 0 || (!isLocalAction && !hasSshAuth)) {
     console.error(JSON.stringify({
       success: false,
-      error: `Missing required environment variables: ${missing.join(', ')}`,
-      hint: 'Set ASUS_ROUTER_HOST, ASUS_ROUTER_SSH_USER, ASUS_ROUTER_SSH_PASSWORD',
+      error: `Missing required environment variables: ${missing.length > 0 ? missing.join(', ') : 'SSH authentication'}`,
+      hint: isLocalAction 
+        ? 'This action should work without env vars - this is a bug'
+        : 'Set ASUS_ROUTER_HOST, ASUS_ROUTER_SSH_USER, and either ASUS_ROUTER_SSH_PASSWORD or ASUS_ROUTER_SSH_KEY_PATH',
+      isLocalAction,
     }, null, 2));
     process.exit(1);
   }
