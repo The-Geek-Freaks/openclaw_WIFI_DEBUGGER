@@ -121,17 +121,30 @@ export class MeshAnalyzer extends EventEmitter<MeshAnalyzerEvents> {
       const systemInfo = await this.sshClient.getSystemInfo();
       await this.sshClient.getAiMeshClientList();
       
+      // Get main router MAC and IP from NVRAM
+      const lanMac = (await this.sshClient.execute('nvram get lan_hwaddr')).trim().toLowerCase();
+      const lanIp = (await this.sshClient.execute('nvram get lan_ipaddr')).trim();
+      
+      // Get connected client count from wireless interfaces
+      let connectedClients = 0;
+      try {
+        const assocCount = await this.sshClient.execute('for iface in eth7 eth8 eth9 eth10; do wl -i $iface assoclist 2>/dev/null; done | wc -l');
+        connectedClients = parseInt(assocCount.trim(), 10) || 0;
+      } catch {
+        // Ignore errors, keep 0
+      }
+      
       const mainNode: MeshNode = {
         id: 'main',
         name: systemInfo['model'] ?? 'Main Router',
-        macAddress: '',
-        ipAddress: '',
+        macAddress: lanMac,
+        ipAddress: lanIp,
         isMainRouter: true,
         firmwareVersion: systemInfo['firmware'] ?? 'unknown',
         uptime: this.parseUptime(systemInfo['uptime'] ?? '0 0'),
         cpuUsage: this.parseCpuUsage(systemInfo['cpu'] ?? ''),
         memoryUsage: this.parseMemoryUsage(systemInfo['memory'] ?? ''),
-        connectedClients: 0,
+        connectedClients,
         backhaulType: 'wired',
       };
       nodes.push(mainNode);
@@ -272,6 +285,11 @@ export class MeshAnalyzer extends EventEmitter<MeshAnalyzerEvents> {
           if (rssi !== undefined) {
             device.signalStrength = rssi;
             this.recordSignalMeasurement(normalizedMac, 'main', rssi);
+            
+            // Set status based on signal strength and disconnect history
+            if (rssi < -80 || device.disconnectCount > 3) {
+              device.status = 'unstable';
+            }
           }
         }
       }
@@ -347,6 +365,11 @@ export class MeshAnalyzer extends EventEmitter<MeshAnalyzerEvents> {
               if (rssi !== undefined) {
                 device.signalStrength = rssi;
                 this.recordSignalMeasurement(normalizedMac, node.macAddress || node.id, rssi);
+                
+                // Set status based on signal strength and disconnect history
+                if (rssi < -80 || device.disconnectCount > 3) {
+                  device.status = 'unstable';
+                }
               }
             } else if (rssi !== undefined) {
               // Record measurement even if not the strongest - useful for triangulation

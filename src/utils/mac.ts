@@ -58,7 +58,7 @@ export function getVendorFromMac(mac: string): string | undefined {
     'B009DA': 'Ring', '54E019': 'Ring', '343EA4': 'Ring',
     
     // Philips Hue
-    'ECB5FA': 'Philips Hue', '0017880': 'Philips Hue',
+    'ECB5FA': 'Philips Hue', '001788': 'Philips Hue',
     
     // TP-Link (Kasa, Tapo)
     'B09575': 'TP-Link', '704F57': 'TP-Link', '1C3BF3': 'TP-Link',
@@ -89,7 +89,7 @@ export function getVendorFromMac(mac: string): string | undefined {
     'C82E18': 'Shelly', '8CAAB5': 'Shelly', 'E868E7': 'Shelly',
     
     // Sonoff
-    'D8BFC0': 'Sonoff', '6001941': 'Sonoff',
+    'D8BFC0': 'Sonoff',
     
     // Meross
     '48E1E9': 'Meross',

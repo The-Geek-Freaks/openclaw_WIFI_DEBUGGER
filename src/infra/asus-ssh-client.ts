@@ -668,11 +668,11 @@ export class AsusSshClient extends EventEmitter<SshClientEvents> {
   async getSystemInfo(): Promise<Record<string, string>> {
     const result: Record<string, string> = {};
     
-    result['uptime'] = await this.execute('cat /proc/uptime');
-    result['cpu'] = await this.execute("top -bn1 | grep 'CPU:' | head -1");
-    result['memory'] = await this.execute('free');
-    result['firmware'] = await this.execute('nvram get firmver');
-    result['model'] = await this.execute('nvram get productid');
+    result['uptime'] = (await this.execute('cat /proc/uptime')).trim();
+    result['cpu'] = (await this.execute("top -bn1 | grep 'CPU:' | head -1")).trim();
+    result['memory'] = (await this.execute('free')).trim();
+    result['firmware'] = (await this.execute('nvram get firmver')).trim();
+    result['model'] = (await this.execute('nvram get productid')).trim();
     
     return result;
   }

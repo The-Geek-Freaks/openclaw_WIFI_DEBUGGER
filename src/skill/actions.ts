@@ -1,10 +1,12 @@
 import { z } from 'zod';
+import { normalizeMac } from '../utils/mac.js';
 
 // MAC address validation regex (AA:BB:CC:DD:EE:FF or aa:bb:cc:dd:ee:ff)
+// Also normalizes to lowercase for consistent comparison
 const macAddressSchema = z.string().regex(
   /^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/,
   'Invalid MAC address format. Expected: AA:BB:CC:DD:EE:FF'
-);
+).transform(normalizeMac);
 
 export const SkillActionSchema = z.discriminatedUnion('action', [
   z.object({

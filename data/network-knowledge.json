@@ -1,0 +1,1809 @@
+{
+  "version": 1,
+  "createdAt": "2026-02-13T15:41:46.843Z",
+  "updatedAt": "2026-02-13T15:48:41.395Z",
+  "networkId": "net_mll22jmj_ls6nhz",
+  "devices": {
+    "70:4f:57:ff:a2:4f": {
+      "macAddress": "70:4f:57:ff:a2:4f",
+      "firstSeen": "2026-02-13T15:42:29.686Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.181"
+      ],
+      "vendor": "TP-Link",
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "84:cc:a8:59:1b:78": {
+      "macAddress": "84:cc:a8:59:1b:78",
+      "firstSeen": "2026-02-13T15:42:29.686Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.24"
+      ],
+      "vendor": "Espressif",
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "34:3e:a4:48:d1:00": {
+      "macAddress": "34:3e:a4:48:d1:00",
+      "firstSeen": "2026-02-13T15:42:29.686Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.57"
+      ],
+      "vendor": "Ring",
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "b0:95:75:22:74:07": {
+      "macAddress": "b0:95:75:22:74:07",
+      "firstSeen": "2026-02-13T15:42:29.686Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.222"
+      ],
+      "vendor": "TP-Link",
+      "avgSignalStrength": -52,
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "98:6e:e8:2f:9e:93": {
+      "macAddress": "98:6e:e8:2f:9e:93",
+      "firstSeen": "2026-02-13T15:42:29.686Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.156"
+      ],
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "b0:95:75:22:71:79": {
+      "macAddress": "b0:95:75:22:71:79",
+      "firstSeen": "2026-02-13T15:42:29.686Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.189"
+      ],
+      "vendor": "TP-Link",
+      "avgSignalStrength": -43,
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "b0:95:75:22:80:d3": {
+      "macAddress": "b0:95:75:22:80:d3",
+      "firstSeen": "2026-02-13T15:42:29.686Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.230"
+      ],
+      "vendor": "TP-Link",
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "50:8a:06:2d:a1:fe": {
+      "macAddress": "50:8a:06:2d:a1:fe",
+      "firstSeen": "2026-02-13T15:42:29.686Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.238"
+      ],
+      "vendor": "Tuya",
+      "avgSignalStrength": -48,
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "e4:65:b8:1c:33:70": {
+      "macAddress": "e4:65:b8:1c:33:70",
+      "firstSeen": "2026-02-13T15:42:29.686Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.143"
+      ],
+      "vendor": "Espressif",
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "3c:6a:9d:18:ac:53": {
+      "macAddress": "3c:6a:9d:18:ac:53",
+      "firstSeen": "2026-02-13T15:42:29.686Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.114"
+      ],
+      "vendor": "Dexatek",
+      "avgSignalStrength": -43,
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "d0:73:d5:01:b2:07": {
+      "macAddress": "d0:73:d5:01:b2:07",
+      "firstSeen": "2026-02-13T15:42:29.686Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.209"
+      ],
+      "vendor": "LIFX",
+      "avgSignalStrength": -45,
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "d0:c9:07:25:06:94": {
+      "macAddress": "d0:c9:07:25:06:94",
+      "firstSeen": "2026-02-13T15:42:29.686Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.180"
+      ],
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "8c:ce:4e:10:d4:d8": {
+      "macAddress": "8c:ce:4e:10:d4:d8",
+      "firstSeen": "2026-02-13T15:42:29.686Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.85"
+      ],
+      "vendor": "Espressif",
+      "avgSignalStrength": -44,
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "ac:67:b2:38:ed:b8": {
+      "macAddress": "ac:67:b2:38:ed:b8",
+      "firstSeen": "2026-02-13T15:42:29.686Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.27"
+      ],
+      "vendor": "Espressif",
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "b0:95:75:22:78:a2": {
+      "macAddress": "b0:95:75:22:78:a2",
+      "firstSeen": "2026-02-13T15:42:29.686Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.254"
+      ],
+      "vendor": "TP-Link",
+      "avgSignalStrength": -42,
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "40:b0:34:89:cf:6e": {
+      "macAddress": "40:b0:34:89:cf:6e",
+      "firstSeen": "2026-02-13T15:42:29.686Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.159"
+      ],
+      "vendor": "HP",
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "b0:95:75:22:72:42": {
+      "macAddress": "b0:95:75:22:72:42",
+      "firstSeen": "2026-02-13T15:42:29.686Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.188"
+      ],
+      "vendor": "TP-Link",
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "60:74:f4:90:d9:a2": {
+      "macAddress": "60:74:f4:90:d9:a2",
+      "firstSeen": "2026-02-13T15:42:29.687Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.93"
+      ],
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "d4:01:c3:12:29:b4": {
+      "macAddress": "d4:01:c3:12:29:b4",
+      "firstSeen": "2026-02-13T15:42:29.687Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.2"
+      ],
+      "vendor": "MikroTik",
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "50:8a:06:2e:18:50": {
+      "macAddress": "50:8a:06:2e:18:50",
+      "firstSeen": "2026-02-13T15:42:29.687Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.192"
+      ],
+      "vendor": "Tuya",
+      "avgSignalStrength": -43,
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "50:8a:06:2d:b8:25": {
+      "macAddress": "50:8a:06:2d:b8:25",
+      "firstSeen": "2026-02-13T15:42:29.687Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.225"
+      ],
+      "vendor": "Tuya",
+      "avgSignalStrength": -43,
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "64:90:c1:cc:9b:9f": {
+      "macAddress": "64:90:c1:cc:9b:9f",
+      "firstSeen": "2026-02-13T15:42:29.687Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.167"
+      ],
+      "vendor": "Xiaomi",
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "2c:c8:1b:79:2b:10": {
+      "macAddress": "2c:c8:1b:79:2b:10",
+      "firstSeen": "2026-02-13T15:42:29.687Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.10"
+      ],
+      "vendor": "MikroTik",
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "52:54:00:c3:ee:92": {
+      "macAddress": "52:54:00:c3:ee:92",
+      "firstSeen": "2026-02-13T15:42:29.687Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.43"
+      ],
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "c0:4e:30:01:6b:cc": {
+      "macAddress": "c0:4e:30:01:6b:cc",
+      "firstSeen": "2026-02-13T15:42:29.687Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.200"
+      ],
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "e4:65:b8:1c:cd:74": {
+      "macAddress": "e4:65:b8:1c:cd:74",
+      "firstSeen": "2026-02-13T15:42:29.687Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.142"
+      ],
+      "vendor": "Espressif",
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "54:ef:44:3a:16:a9": {
+      "macAddress": "54:ef:44:3a:16:a9",
+      "firstSeen": "2026-02-13T15:42:29.687Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.150"
+      ],
+      "vendor": "Aqara",
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "a0:43:b0:19:04:0f": {
+      "macAddress": "a0:43:b0:19:04:0f",
+      "firstSeen": "2026-02-13T15:42:29.687Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.84"
+      ],
+      "vendor": "BroadLink",
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "52:54:00:0d:f2:77": {
+      "macAddress": "52:54:00:0d:f2:77",
+      "firstSeen": "2026-02-13T15:42:29.687Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.117"
+      ],
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "24:62:ab:35:0f:d0": {
+      "macAddress": "24:62:ab:35:0f:d0",
+      "firstSeen": "2026-02-13T15:42:29.687Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.158"
+      ],
+      "vendor": "Espressif",
+      "avgSignalStrength": -51,
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "50:8a:06:2d:91:95": {
+      "macAddress": "50:8a:06:2d:91:95",
+      "firstSeen": "2026-02-13T15:42:29.687Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.191"
+      ],
+      "vendor": "Tuya",
+      "avgSignalStrength": -44,
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "94:54:c5:b8:de:dc": {
+      "macAddress": "94:54:c5:b8:de:dc",
+      "firstSeen": "2026-02-13T15:42:29.687Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.92"
+      ],
+      "vendor": "Espressif",
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "d0:73:d5:01:b8:74": {
+      "macAddress": "d0:73:d5:01:b8:74",
+      "firstSeen": "2026-02-13T15:42:29.687Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.195"
+      ],
+      "vendor": "LIFX",
+      "avgSignalStrength": -56,
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "10:09:f9:3d:a2:b7": {
+      "macAddress": "10:09:f9:3d:a2:b7",
+      "firstSeen": "2026-02-13T15:42:29.687Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.224"
+      ],
+      "vendor": "Amazon",
+      "avgSignalStrength": -61,
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "e8:db:84:53:eb:64": {
+      "macAddress": "e8:db:84:53:eb:64",
+      "firstSeen": "2026-02-13T15:42:29.687Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.129"
+      ],
+      "vendor": "Espressif",
+      "avgSignalStrength": -49,
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "64:90:c1:b0:3d:70": {
+      "macAddress": "64:90:c1:b0:3d:70",
+      "firstSeen": "2026-02-13T15:42:29.687Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.166"
+      ],
+      "vendor": "Xiaomi",
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "94:c9:60:c7:7a:a8": {
+      "macAddress": "94:c9:60:c7:7a:a8",
+      "firstSeen": "2026-02-13T15:42:29.687Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.42"
+      ],
+      "avgSignalStrength": -69,
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "54:e0:19:cf:c8:c3": {
+      "macAddress": "54:e0:19:cf:c8:c3",
+      "firstSeen": "2026-02-13T15:42:29.687Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.232"
+      ],
+      "vendor": "Ring",
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "10:06:1c:78:f1:00": {
+      "macAddress": "10:06:1c:78:f1:00",
+      "firstSeen": "2026-02-13T15:42:29.687Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.137"
+      ],
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "d0:73:d5:00:fb:2a": {
+      "macAddress": "d0:73:d5:00:fb:2a",
+      "firstSeen": "2026-02-13T15:42:29.687Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.211"
+      ],
+      "vendor": "LIFX",
+      "avgSignalStrength": -55,
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "b0:95:75:22:85:64": {
+      "macAddress": "b0:95:75:22:85:64",
+      "firstSeen": "2026-02-13T15:42:29.687Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.240"
+      ],
+      "vendor": "TP-Link",
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "84:e3:42:6c:94:c3": {
+      "macAddress": "84:e3:42:6c:94:c3",
+      "firstSeen": "2026-02-13T15:42:29.687Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.219"
+      ],
+      "vendor": "Tuya",
+      "avgSignalStrength": -61,
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "b0:95:75:22:78:58": {
+      "macAddress": "b0:95:75:22:78:58",
+      "firstSeen": "2026-02-13T15:42:29.687Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.248"
+      ],
+      "vendor": "TP-Link",
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "70:89:76:ed:b9:67": {
+      "macAddress": "70:89:76:ed:b9:67",
+      "firstSeen": "2026-02-13T15:42:29.687Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.190"
+      ],
+      "vendor": "Tuya",
+      "avgSignalStrength": -47,
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "70:89:76:ed:9e:09": {
+      "macAddress": "70:89:76:ed:9e:09",
+      "firstSeen": "2026-02-13T15:42:29.687Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.124"
+      ],
+      "vendor": "Tuya",
+      "avgSignalStrength": -51,
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "84:e3:42:6c:26:4a": {
+      "macAddress": "84:e3:42:6c:26:4a",
+      "firstSeen": "2026-02-13T15:42:29.687Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.194"
+      ],
+      "vendor": "Tuya",
+      "avgSignalStrength": -53,
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "d8:f1:5b:a4:d2:77": {
+      "macAddress": "d8:f1:5b:a4:d2:77",
+      "firstSeen": "2026-02-13T15:42:29.687Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.128"
+      ],
+      "vendor": "Espressif",
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "b0:09:da:49:f8:87": {
+      "macAddress": "b0:09:da:49:f8:87",
+      "firstSeen": "2026-02-13T15:42:29.687Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.161"
+      ],
+      "vendor": "Ring",
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "d8:f1:5b:a4:cb:68": {
+      "macAddress": "d8:f1:5b:a4:cb:68",
+      "firstSeen": "2026-02-13T15:42:29.687Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.103"
+      ],
+      "vendor": "Espressif",
+      "avgSignalStrength": -58,
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "98:6e:e8:2f:a3:5f": {
+      "macAddress": "98:6e:e8:2f:a3:5f",
+      "firstSeen": "2026-02-13T15:42:29.687Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.157"
+      ],
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "ca:25:8f:86:07:8f": {
+      "macAddress": "ca:25:8f:86:07:8f",
+      "firstSeen": "2026-02-13T15:42:29.687Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.202"
+      ],
+      "avgSignalStrength": -55,
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "a8:ca:77:14:a1:2b": {
+      "macAddress": "a8:ca:77:14:a1:2b",
+      "firstSeen": "2026-02-13T15:42:29.687Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.169"
+      ],
+      "vendor": "Amazon",
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "b0:95:75:22:80:d1": {
+      "macAddress": "b0:95:75:22:80:d1",
+      "firstSeen": "2026-02-13T15:42:29.687Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.45"
+      ],
+      "vendor": "TP-Link",
+      "avgSignalStrength": -39,
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "f4:c8:8a:23:f9:9c": {
+      "macAddress": "f4:c8:8a:23:f9:9c",
+      "firstSeen": "2026-02-13T15:42:29.687Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.210"
+      ],
+      "vendor": "Intel",
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "ec:b5:fa:aa:c6:40": {
+      "macAddress": "ec:b5:fa:aa:c6:40",
+      "firstSeen": "2026-02-13T15:42:29.687Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.119"
+      ],
+      "vendor": "Philips Hue",
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "a8:e6:21:ba:7b:c0": {
+      "macAddress": "a8:e6:21:ba:7b:c0",
+      "firstSeen": "2026-02-13T15:42:29.687Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.251"
+      ],
+      "vendor": "Amazon",
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "9c:9c:1f:c4:c3:7c": {
+      "macAddress": "9c:9c:1f:c4:c3:7c",
+      "firstSeen": "2026-02-13T15:42:29.688Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.28"
+      ],
+      "vendor": "Espressif",
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "84:e3:42:6c:36:b0": {
+      "macAddress": "84:e3:42:6c:36:b0",
+      "firstSeen": "2026-02-13T15:42:29.688Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.197"
+      ],
+      "vendor": "Tuya",
+      "avgSignalStrength": -62,
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "64:90:c1:b0:3d:a9": {
+      "macAddress": "64:90:c1:b0:3d:a9",
+      "firstSeen": "2026-02-13T15:42:29.688Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.168"
+      ],
+      "vendor": "Xiaomi",
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "7c:10:c9:47:06:eb": {
+      "macAddress": "7c:10:c9:47:06:eb",
+      "firstSeen": "2026-02-13T15:42:29.688Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.73"
+      ],
+      "vendor": "ASUS",
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "50:8a:06:2e:22:e9": {
+      "macAddress": "50:8a:06:2e:22:e9",
+      "firstSeen": "2026-02-13T15:42:29.688Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.110"
+      ],
+      "vendor": "Tuya",
+      "avgSignalStrength": -49,
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "70:89:76:ed:a5:e0": {
+      "macAddress": "70:89:76:ed:a5:e0",
+      "firstSeen": "2026-02-13T15:42:29.688Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.205"
+      ],
+      "vendor": "Tuya",
+      "avgSignalStrength": -50,
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "e8:9c:25:17:e7:96": {
+      "macAddress": "e8:9c:25:17:e7:96",
+      "firstSeen": "2026-02-13T15:42:29.688Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.176"
+      ],
+      "vendor": "ASUS",
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "98:17:3c:86:7d:78": {
+      "macAddress": "98:17:3c:86:7d:78",
+      "firstSeen": "2026-02-13T15:42:29.688Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.81"
+      ],
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "10:52:1c:62:d9:9c": {
+      "macAddress": "10:52:1c:62:d9:9c",
+      "firstSeen": "2026-02-13T15:42:29.688Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.23"
+      ],
+      "vendor": "Espressif",
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "34:3e:a4:5d:cf:40": {
+      "macAddress": "34:3e:a4:5d:cf:40",
+      "firstSeen": "2026-02-13T15:42:29.688Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.52"
+      ],
+      "vendor": "Ring",
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "d0:73:d5:01:33:a9": {
+      "macAddress": "d0:73:d5:01:33:a9",
+      "firstSeen": "2026-02-13T15:42:29.688Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.213"
+      ],
+      "vendor": "LIFX",
+      "avgSignalStrength": -61,
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "06:e3:7a:92:c6:ca": {
+      "macAddress": "06:e3:7a:92:c6:ca",
+      "firstSeen": "2026-02-13T15:42:29.688Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.155"
+      ],
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "70:89:76:ed:a9:1d": {
+      "macAddress": "70:89:76:ed:a9:1d",
+      "firstSeen": "2026-02-13T15:42:29.688Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.184"
+      ],
+      "vendor": "Tuya",
+      "avgSignalStrength": -62,
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "5c:cf:7f:59:99:6d": {
+      "macAddress": "5c:cf:7f:59:99:6d",
+      "firstSeen": "2026-02-13T15:42:29.688Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.60"
+      ],
+      "vendor": "Espressif",
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "54:e0:19:d3:4a:0a": {
+      "macAddress": "54:e0:19:d3:4a:0a",
+      "firstSeen": "2026-02-13T15:42:29.688Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.221"
+      ],
+      "vendor": "Ring",
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "f0:42:1c:35:96:61": {
+      "macAddress": "f0:42:1c:35:96:61",
+      "firstSeen": "2026-02-13T15:42:29.688Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.64"
+      ],
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "24:ec:4a:be:cb:18": {
+      "macAddress": "24:ec:4a:be:cb:18",
+      "firstSeen": "2026-02-13T15:42:29.688Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.97"
+      ],
+      "vendor": "Espressif",
+      "avgSignalStrength": -45,
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "2e:a9:33:e0:8b:59": {
+      "macAddress": "2e:a9:33:e0:8b:59",
+      "firstSeen": "2026-02-13T15:42:29.688Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.6"
+      ],
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "84:e3:42:6c:39:a7": {
+      "macAddress": "84:e3:42:6c:39:a7",
+      "firstSeen": "2026-02-13T15:42:29.688Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.196"
+      ],
+      "vendor": "Tuya",
+      "avgSignalStrength": -51,
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "c8:7f:54:39:4d:b0": {
+      "macAddress": "c8:7f:54:39:4d:b0",
+      "firstSeen": "2026-02-13T15:42:29.688Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.171"
+      ],
+      "vendor": "ASUS",
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "70:89:76:ed:ad:12": {
+      "macAddress": "70:89:76:ed:ad:12",
+      "firstSeen": "2026-02-13T15:42:29.688Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.72"
+      ],
+      "vendor": "Tuya",
+      "avgSignalStrength": -66,
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "70:89:76:ed:a3:64": {
+      "macAddress": "70:89:76:ed:a3:64",
+      "firstSeen": "2026-02-13T15:42:29.688Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.204"
+      ],
+      "vendor": "Tuya",
+      "avgSignalStrength": -52,
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "b0:95:75:22:85:6f": {
+      "macAddress": "b0:95:75:22:85:6f",
+      "firstSeen": "2026-02-13T15:42:29.688Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.146"
+      ],
+      "vendor": "TP-Link",
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "3c:6a:9d:19:ec:46": {
+      "macAddress": "3c:6a:9d:19:ec:46",
+      "firstSeen": "2026-02-13T15:42:29.688Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.113"
+      ],
+      "vendor": "Dexatek",
+      "avgSignalStrength": -55,
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "9c:9c:1f:c4:ad:08": {
+      "macAddress": "9c:9c:1f:c4:ad:08",
+      "firstSeen": "2026-02-13T15:42:29.688Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.22"
+      ],
+      "vendor": "Espressif",
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "f2:c3:d4:41:5b:73": {
+      "macAddress": "f2:c3:d4:41:5b:73",
+      "firstSeen": "2026-02-13T15:42:29.688Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.55"
+      ],
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "f4:cf:a2:fd:bd:49": {
+      "macAddress": "f4:cf:a2:fd:bd:49",
+      "firstSeen": "2026-02-13T15:42:29.688Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.245"
+      ],
+      "vendor": "Espressif",
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "98:6e:e8:2f:9e:1b": {
+      "macAddress": "98:6e:e8:2f:9e:1b",
+      "firstSeen": "2026-02-13T15:42:29.688Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.154"
+      ],
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "60:01:94:53:7e:54": {
+      "macAddress": "60:01:94:53:7e:54",
+      "firstSeen": "2026-02-13T15:42:29.688Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.187"
+      ],
+      "vendor": "Espressif",
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "d0:c9:07:4a:7e:1f": {
+      "macAddress": "d0:c9:07:4a:7e:1f",
+      "firstSeen": "2026-02-13T15:42:29.688Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.88"
+      ],
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "02:42:c0:a8:b2:1e": {
+      "macAddress": "02:42:c0:a8:b2:1e",
+      "firstSeen": "2026-02-13T15:42:29.688Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.30"
+      ],
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "60:01:94:53:83:51": {
+      "macAddress": "60:01:94:53:83:51",
+      "firstSeen": "2026-02-13T15:42:29.688Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.162"
+      ],
+      "vendor": "Espressif",
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "50:8a:06:2d:97:47": {
+      "macAddress": "50:8a:06:2d:97:47",
+      "firstSeen": "2026-02-13T15:42:29.688Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.67"
+      ],
+      "vendor": "Tuya",
+      "avgSignalStrength": -41,
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "a8:b8:e0:00:35:e6": {
+      "macAddress": "a8:b8:e0:00:35:e6",
+      "firstSeen": "2026-02-13T15:42:29.688Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.1"
+      ],
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "d0:73:d5:01:36:99": {
+      "macAddress": "d0:73:d5:01:36:99",
+      "firstSeen": "2026-02-13T15:42:29.688Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.199"
+      ],
+      "vendor": "LIFX",
+      "avgSignalStrength": -53,
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "40:22:d8:8e:37:15": {
+      "macAddress": "40:22:d8:8e:37:15",
+      "firstSeen": "2026-02-13T15:42:29.688Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.133"
+      ],
+      "vendor": "Espressif",
+      "avgSignalStrength": -49,
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "7c:87:ce:ba:45:f9": {
+      "macAddress": "7c:87:ce:ba:45:f9",
+      "firstSeen": "2026-02-13T15:42:29.688Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.170"
+      ],
+      "vendor": "Espressif",
+      "avgSignalStrength": -48,
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "d0:73:d5:6d:5b:70": {
+      "macAddress": "d0:73:d5:6d:5b:70",
+      "firstSeen": "2026-02-13T15:42:29.688Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.207"
+      ],
+      "vendor": "LIFX",
+      "avgSignalStrength": -50,
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "60:01:94:53:df:d3": {
+      "macAddress": "60:01:94:53:df:d3",
+      "firstSeen": "2026-02-13T15:42:29.688Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.54"
+      ],
+      "vendor": "Espressif",
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "60:74:f4:1f:0b:ce": {
+      "macAddress": "60:74:f4:1f:0b:ce",
+      "firstSeen": "2026-02-13T15:42:29.688Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.215"
+      ],
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "60:01:94:6f:e6:a1": {
+      "macAddress": "60:01:94:6f:e6:a1",
+      "firstSeen": "2026-02-13T15:42:29.688Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.149"
+      ],
+      "vendor": "Espressif",
+      "avgSignalStrength": -57,
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "d0:c9:07:15:54:68": {
+      "macAddress": "d0:c9:07:15:54:68",
+      "firstSeen": "2026-02-13T15:42:29.688Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.91"
+      ],
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "d0:c9:07:2a:00:d0": {
+      "macAddress": "d0:c9:07:2a:00:d0",
+      "firstSeen": "2026-02-13T15:42:29.688Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.120"
+      ],
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "78:a0:3f:4d:0f:ee": {
+      "macAddress": "78:a0:3f:4d:0f:ee",
+      "firstSeen": "2026-02-13T15:42:29.689Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.62"
+      ],
+      "vendor": "Amazon",
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "d0:73:d5:6d:43:8f": {
+      "macAddress": "d0:73:d5:6d:43:8f",
+      "firstSeen": "2026-02-13T15:42:29.689Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.223"
+      ],
+      "vendor": "LIFX",
+      "avgSignalStrength": -49,
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "78:e1:03:3d:c2:1f": {
+      "macAddress": "78:e1:03:3d:c2:1f",
+      "firstSeen": "2026-02-13T15:42:29.689Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.252"
+      ],
+      "vendor": "Amazon",
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "d0:c2:4e:9b:96:2c": {
+      "macAddress": "d0:c2:4e:9b:96:2c",
+      "firstSeen": "2026-02-13T15:42:29.689Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.66"
+      ],
+      "vendor": "Samsung",
+      "avgSignalStrength": -75,
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "d0:73:d5:00:ee:79": {
+      "macAddress": "d0:73:d5:00:ee:79",
+      "firstSeen": "2026-02-13T15:42:29.689Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.198"
+      ],
+      "vendor": "LIFX",
+      "avgSignalStrength": -57,
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "b0:95:75:22:74:ed": {
+      "macAddress": "b0:95:75:22:74:ed",
+      "firstSeen": "2026-02-13T15:42:29.689Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.231"
+      ],
+      "vendor": "TP-Link",
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "7c:d9:5c:31:f5:50": {
+      "macAddress": "7c:d9:5c:31:f5:50",
+      "firstSeen": "2026-02-13T15:42:29.689Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.132"
+      ],
+      "vendor": "Google",
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "fe:48:07:90:92:9c": {
+      "macAddress": "fe:48:07:90:92:9c",
+      "firstSeen": "2026-02-13T15:42:29.689Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.165"
+      ],
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "98:17:3c:86:46:60": {
+      "macAddress": "98:17:3c:86:46:60",
+      "firstSeen": "2026-02-13T15:42:29.689Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.74"
+      ],
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "e8:06:90:09:ab:b4": {
+      "macAddress": "e8:06:90:09:ab:b4",
+      "firstSeen": "2026-02-13T15:42:29.689Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.140"
+      ],
+      "vendor": "Espressif",
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "d8:fb:d6:46:82:d8": {
+      "macAddress": "d8:fb:d6:46:82:d8",
+      "firstSeen": "2026-02-13T15:42:29.689Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.82"
+      ],
+      "vendor": "Amazon",
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    },
+    "f4:9d:8a:13:f3:43": {
+      "macAddress": "f4:9d:8a:13:f3:43",
+      "firstSeen": "2026-02-13T15:42:29.689Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z",
+      "hostnames": [],
+      "ipAddresses": [
+        "192.168.178.214"
+      ],
+      "vendor": "Govee",
+      "avgSignalStrength": -48,
+      "totalConnectionTime": 0,
+      "disconnectCount": 0,
+      "isKnown": false,
+      "tags": []
+    }
+  },
+  "meshNodes": {
+    "": {
+      "macAddress": "",
+      "name": "GT-AXE16000\r\n",
+      "ipAddress": "",
+      "isMainRouter": true,
+      "firstSeen": "2026-02-13T15:42:29.686Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z"
+    },
+    "ae:16:00:0": {
+      "macAddress": "ae:16:00:0",
+      "name": "192.168.178.3",
+      "ipAddress": "",
+      "isMainRouter": false,
+      "firstSeen": "2026-02-13T15:42:29.686Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z"
+    },
+    "fa:60:00:": {
+      "macAddress": "fa:60:00:",
+      "name": "192.168.178.176",
+      "ipAddress": "",
+      "isMainRouter": false,
+      "firstSeen": "2026-02-13T15:42:29.686Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z"
+    },
+    "ae:11:00:0": {
+      "macAddress": "ae:11:00:0",
+      "name": "192.168.178.171",
+      "ipAddress": "",
+      "isMainRouter": false,
+      "firstSeen": "2026-02-13T15:42:29.686Z",
+      "lastSeen": "2026-02-13T15:48:41.390Z"
+    }
+  },
+  "snmpDevices": {},
+  "zigbeeDevices": {},
+  "snapshots": [
+    {
+      "timestamp": "2026-02-13T15:42:29.690Z",
+      "meshNodes": [
+        {
+          "id": "main",
+          "name": "GT-AXE16000\r\n",
+          "macAddress": "",
+          "ipAddress": "",
+          "isMainRouter": true,
+          "firmwareVersion": "3.0.0.6\r\n",
+          "uptime": 197072.87,
+          "cpuUsage": 94,
+          "memoryUsage": 56,
+          "connectedClients": 0,
+          "backhaulType": "wired"
+        },
+        {
+          "id": "ae:16:00:0",
+          "name": "192.168.178.3",
+          "macAddress": "ae:16:00:0",
+          "ipAddress": "",
+          "isMainRouter": false,
+          "firmwareVersion": "unknown",
+          "uptime": 0,
+          "cpuUsage": 0,
+          "memoryUsage": 0,
+          "connectedClients": 0,
+          "backhaulType": "mesh_backhaul"
+        },
+        {
+          "id": "fa:60:00:",
+          "name": "192.168.178.176",
+          "macAddress": "fa:60:00:",
+          "ipAddress": "",
+          "isMainRouter": false,
+          "firmwareVersion": "unknown",
+          "uptime": 0,
+          "cpuUsage": 0,
+          "memoryUsage": 0,
+          "connectedClients": 0,
+          "backhaulType": "mesh_backhaul"
+        },
+        {
+          "id": "ae:11:00:0",
+          "name": "192.168.178.171",
+          "macAddress": "ae:11:00:0",
+          "ipAddress": "",
+          "isMainRouter": false,
+          "firmwareVersion": "unknown",
+          "uptime": 0,
+          "cpuUsage": 0,
+          "memoryUsage": 0,
+          "connectedClients": 0,
+          "backhaulType": "mesh_backhaul"
+        }
+      ],
+      "wifiSettings": [
+        {
+          "ssid": "Stargate",
+          "band": "2.4GHz",
+          "channel": 1,
+          "channelWidth": 20,
+          "txPower": 100,
+          "standard": "802.11ax",
+          "security": "WPA3",
+          "bandSteering": true,
+          "smartConnect": true,
+          "roamingAssistant": true,
+          "beamforming": true,
+          "muMimo": true
+        },
+        {
+          "ssid": "Stargate",
+          "band": "5GHz",
+          "channel": 40,
+          "channelWidth": 160,
+          "txPower": 100,
+          "standard": "802.11ax",
+          "security": "WPA3",
+          "bandSteering": true,
+          "smartConnect": true,
+          "roamingAssistant": true,
+          "beamforming": true,
+          "muMimo": true
+        }
+      ],
+      "deviceCount": 111,
+      "onlineDevices": 111,
+      "healthScore": 98
+    },
+    {
+      "timestamp": "2026-02-13T15:48:41.391Z",
+      "meshNodes": [
+        {
+          "id": "main",
+          "name": "GT-AXE16000\r\n",
+          "macAddress": "",
+          "ipAddress": "",
+          "isMainRouter": true,
+          "firmwareVersion": "3.0.0.6\r\n",
+          "uptime": 197477.02,
+          "cpuUsage": 92,
+          "memoryUsage": 56,
+          "connectedClients": 0,
+          "backhaulType": "wired"
+        },
+        {
+          "id": "ae:16:00:0",
+          "name": "192.168.178.3",
+          "macAddress": "ae:16:00:0",
+          "ipAddress": "",
+          "isMainRouter": false,
+          "firmwareVersion": "unknown",
+          "uptime": 0,
+          "cpuUsage": 0,
+          "memoryUsage": 0,
+          "connectedClients": 0,
+          "backhaulType": "mesh_backhaul"
+        },
+        {
+          "id": "fa:60:00:",
+          "name": "192.168.178.176",
+          "macAddress": "fa:60:00:",
+          "ipAddress": "",
+          "isMainRouter": false,
+          "firmwareVersion": "unknown",
+          "uptime": 0,
+          "cpuUsage": 0,
+          "memoryUsage": 0,
+          "connectedClients": 0,
+          "backhaulType": "mesh_backhaul"
+        },
+        {
+          "id": "ae:11:00:0",
+          "name": "192.168.178.171",
+          "macAddress": "ae:11:00:0",
+          "ipAddress": "",
+          "isMainRouter": false,
+          "firmwareVersion": "unknown",
+          "uptime": 0,
+          "cpuUsage": 0,
+          "memoryUsage": 0,
+          "connectedClients": 0,
+          "backhaulType": "mesh_backhaul"
+        }
+      ],
+      "wifiSettings": [
+        {
+          "ssid": "Stargate",
+          "band": "2.4GHz",
+          "channel": 1,
+          "channelWidth": 20,
+          "txPower": 100,
+          "standard": "802.11ax",
+          "security": "WPA3",
+          "bandSteering": true,
+          "smartConnect": true,
+          "roamingAssistant": true,
+          "beamforming": true,
+          "muMimo": true
+        },
+        {
+          "ssid": "Stargate",
+          "band": "5GHz",
+          "channel": 40,
+          "channelWidth": 160,
+          "txPower": 100,
+          "standard": "802.11ax",
+          "security": "WPA3",
+          "bandSteering": true,
+          "smartConnect": true,
+          "roamingAssistant": true,
+          "beamforming": true,
+          "muMimo": true
+        }
+      ],
+      "deviceCount": 111,
+      "onlineDevices": 111,
+      "healthScore": 98,
+      "zigbeeChannel": 15,
+      "zigbeeDeviceCount": 0
+    }
+  ],
+  "connectionEvents": [],
+  "optimizationHistory": [],
+  "settings": {
+    "snapshotRetentionDays": 30,
+    "eventRetentionDays": 7,
+    "autoSnapshot": true,
+    "snapshotIntervalHours": 6
+  }
+}
