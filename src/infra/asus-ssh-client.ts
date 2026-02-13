@@ -1,4 +1,7 @@
 import { spawn } from 'child_process';
+import { existsSync } from 'fs';
+import { homedir } from 'os';
+import { join } from 'path';
 import { EventEmitter } from 'eventemitter3';
 import { createChildLogger } from '../utils/logger.js';
 import { withTimeout, Semaphore } from '../utils/async-helpers.js';
@@ -49,6 +52,8 @@ export class AsusSshClient extends EventEmitter<SshClientEvents> {
   private readonly circuitBreaker: CircuitBreaker;
   private routerModel: RouterModelInfo | null = null;
   private detectedInterfaces: { wl0?: string | undefined; wl1?: string | undefined; wl2?: string | undefined; wl3?: string | undefined } = {};
+  private effectiveKeyPath: string | undefined;
+  private useKeyAuth: boolean = false;
 
   constructor(config: Config['asus']) {
     super();
@@ -58,6 +63,37 @@ export class AsusSshClient extends EventEmitter<SshClientEvents> {
       resetTimeoutMs: 30000,
       halfOpenTimeoutMs: 5000,
     });
+    
+    // Detect available SSH keys
+    this.effectiveKeyPath = this.detectSshKey();
+    if (this.effectiveKeyPath) {
+      logger.info({ keyPath: this.effectiveKeyPath }, 'SSH key detected');
+    }
+  }
+
+  private detectSshKey(): string | undefined {
+    // Check explicit config first
+    if (this.config.sshKeyPath && existsSync(this.config.sshKeyPath)) {
+      return this.config.sshKeyPath;
+    }
+    
+    // Auto-detect common SSH key locations
+    const home = homedir();
+    const keyPaths = [
+      join(home, '.ssh', 'id_ed25519'),
+      join(home, '.ssh', 'id_rsa'),
+      join(home, '.ssh', 'id_ecdsa'),
+      join(home, '.ssh', 'asus_router'),
+      join(home, '.ssh', 'router_key'),
+    ];
+    
+    for (const keyPath of keyPaths) {
+      if (existsSync(keyPath)) {
+        return keyPath;
+      }
+    }
+    
+    return undefined;
   }
 
   getCircuitState(): { state: string; failureCount: number; lastFailureTime: number } {
@@ -78,22 +114,55 @@ export class AsusSshClient extends EventEmitter<SshClientEvents> {
   }
 
   private async testConnection(): Promise<void> {
-    try {
-      const result = await this.executeRaw('echo "connected"');
-      if (result.trim() === 'connected') {
-        this.connected = true;
-        logger.info({ host: this.config.host }, 'SSH connection established via system SSH');
-        this.emit('connected');
+    // Try password auth first if configured
+    if (this.config.sshPassword && !this.useKeyAuth) {
+      try {
+        const result = await this.executeRaw('echo "connected"');
+        if (result.trim() === 'connected') {
+          this.connected = true;
+          logger.info({ host: this.config.host, authMethod: 'password' }, 'SSH connection established via password auth');
+          this.emit('connected');
+          await this.detectRouterModel();
+          return;
+        }
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        logger.warn({ err: errMsg }, 'Password auth failed, trying key auth');
         
-        await this.detectRouterModel();
-      } else {
-        throw new Error('Unexpected response from SSH test');
+        // If password failed and we have a key, try key auth
+        if (this.effectiveKeyPath) {
+          this.useKeyAuth = true;
+          return this.testConnection();
+        }
+        throw err;
       }
-    } catch (err) {
-      this.connected = false;
-      this.emit('error', err instanceof Error ? err : new Error(String(err)));
-      throw err;
     }
+    
+    // Try key auth
+    if (this.effectiveKeyPath) {
+      try {
+        this.useKeyAuth = true;
+        const result = await this.executeRaw('echo "connected"');
+        if (result.trim() === 'connected') {
+          this.connected = true;
+          logger.info({ host: this.config.host, authMethod: 'key', keyPath: this.effectiveKeyPath }, 'SSH connection established via key auth');
+          this.emit('connected');
+          await this.detectRouterModel();
+          return;
+        }
+      } catch (err) {
+        this.connected = false;
+        this.emit('error', err instanceof Error ? err : new Error(String(err)));
+        throw err;
+      }
+    }
+    
+    // No auth method available
+    if (!this.config.sshPassword && !this.effectiveKeyPath) {
+      throw new Error('No SSH authentication method configured - set ASUS_ROUTER_SSH_PASSWORD or ASUS_ROUTER_SSH_KEY_PATH');
+    }
+    
+    throw new Error('SSH connection failed with all available auth methods');
   }
 
   private async detectRouterModel(): Promise<void> {
@@ -222,11 +291,14 @@ export class AsusSshClient extends EventEmitter<SshClientEvents> {
     ];
 
     // BatchMode only for key-based auth (incompatible with password)
-    if (!this.config.sshPassword) {
+    if (this.useKeyAuth || !this.config.sshPassword) {
       args.unshift('-o', 'BatchMode=yes');
     }
 
-    if (this.config.sshKeyPath) {
+    // Use key if in key auth mode or explicitly configured
+    if (this.useKeyAuth && this.effectiveKeyPath) {
+      args.push('-i', this.effectiveKeyPath);
+    } else if (this.config.sshKeyPath) {
       args.push('-i', this.config.sshKeyPath);
     }
 
@@ -239,8 +311,8 @@ export class AsusSshClient extends EventEmitter<SshClientEvents> {
     return new Promise((resolve, reject) => {
       const sshArgs = [...this.buildSshArgs(), command];
       
-      // Use sshpass wrapper if password is configured
-      const usePassword = this.config.sshPassword && !this.config.sshKeyPath;
+      // Use sshpass wrapper only if using password auth (not key auth)
+      const usePassword = this.config.sshPassword && !this.useKeyAuth;
       const executable = usePassword ? 'sshpass' : 'ssh';
       const args = usePassword 
         ? ['-p', this.config.sshPassword!, 'ssh', ...sshArgs]
