@@ -24,6 +24,7 @@ import { RealTriangulationEngine } from '../core/real-triangulation.js';
 import { GeoLocationService } from '../core/geo-location-service.js';
 import { WallDetector } from '../core/wall-detector.js';
 import type { HouseConfig } from '../core/real-triangulation.js';
+import type { NodePlacement } from '../types/building.js';
 import type { SkillAction, SkillResponse } from './actions.js';
 import type { FloorType } from '../types/building.js';
 import type { MeshNetworkState } from '../types/network.js';
@@ -247,6 +248,8 @@ export class OpenClawAsusMeshSkill {
     pendingOptimizations: Array<[string, OptimizationSuggestion]>;
     actionCount: number;
     errorCount: number;
+    nodePositions: NodePlacement[];
+    houseConfig: HouseConfig | null;
   } {
     return {
       meshState: this.meshState,
@@ -254,6 +257,8 @@ export class OpenClawAsusMeshSkill {
       pendingOptimizations: Array.from(this.pendingOptimizations.entries()),
       actionCount: this.actionCount,
       errorCount: this.errorCount,
+      nodePositions: this.realTriangulation.getNodePositions(),
+      houseConfig: this.realTriangulation.getHouseConfig(),
     };
   }
 
@@ -263,6 +268,8 @@ export class OpenClawAsusMeshSkill {
     pendingOptimizations?: Array<[string, OptimizationSuggestion]>;
     actionCount?: number;
     errorCount?: number;
+    nodePositions?: NodePlacement[];
+    houseConfig?: HouseConfig | null;
   }): void {
     if (state.meshState !== undefined) {
       this.meshState = state.meshState;
@@ -279,10 +286,19 @@ export class OpenClawAsusMeshSkill {
     if (state.errorCount !== undefined) {
       this.errorCount = state.errorCount;
     }
+    // Restore triangulation state (node positions and house config)
+    if (state.nodePositions && state.nodePositions.length > 0) {
+      this.realTriangulation.setNodePositions(state.nodePositions);
+    }
+    if (state.houseConfig) {
+      this.realTriangulation.setHouseConfig(state.houseConfig);
+    }
     logger.info({ 
       hasMeshState: !!this.meshState, 
       hasZigbeeState: !!this.zigbeeState,
       pendingOptimizations: this.pendingOptimizations.size,
+      nodePositions: state.nodePositions?.length ?? 0,
+      hasHouseConfig: !!state.houseConfig,
     }, 'State imported from cache');
   }
 

@@ -38,6 +38,8 @@ interface SessionState {
   meshState: unknown;
   zigbeeState: unknown;
   pendingOptimizations: Array<[string, unknown]>;
+  nodePositions?: unknown[];
+  houseConfig?: unknown;
 }
 
 function loadState(): SessionState | null {
@@ -54,7 +56,13 @@ function loadState(): SessionState | null {
   }
 }
 
-function saveState(state: { meshState: unknown; zigbeeState: unknown; pendingOptimizations: Array<[string, unknown]> }): void {
+function saveState(state: { 
+  meshState: unknown; 
+  zigbeeState: unknown; 
+  pendingOptimizations: Array<[string, unknown]>;
+  nodePositions?: unknown[];
+  houseConfig?: unknown;
+}): void {
   try {
     if (!existsSync(STATE_DIR)) {
       mkdirSync(STATE_DIR, { recursive: true });
@@ -175,9 +183,9 @@ async function main(): Promise<void> {
   try {
     await skill.initialize();
     
-    // Load cached state if available
+    // Load cached state if available (includes triangulation data for local actions)
     const cachedState = loadState();
-    if (cachedState && cachedState.meshState) {
+    if (cachedState && (cachedState.meshState || cachedState.nodePositions || cachedState.houseConfig)) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       skill.importState(cachedState as any);
     }
@@ -185,12 +193,14 @@ async function main(): Promise<void> {
     // Execute action
     const result = await skill.execute(parsed);
     
-    // Save state for next call
+    // Save state for next call (including triangulation data)
     const exportedState = skill.exportState();
     saveState({
       meshState: exportedState.meshState,
       zigbeeState: exportedState.zigbeeState,
       pendingOptimizations: exportedState.pendingOptimizations,
+      nodePositions: exportedState.nodePositions,
+      houseConfig: exportedState.houseConfig,
     });
 
     // Output result
