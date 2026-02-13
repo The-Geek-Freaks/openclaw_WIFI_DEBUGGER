@@ -2515,6 +2515,9 @@ export class OpenClawAsusMeshSkill {
   }
 
   private async handleGetAutoMap(floorNumber?: number): Promise<SkillResponse> {
+    // Check if location is set - important for accurate mapping
+    const propertyData = this.geoLocationService.getPropertyData();
+    
     if (!this.meshState) {
       this.meshState = await this.meshAnalyzer.scan();
     }
@@ -2530,6 +2533,12 @@ export class OpenClawAsusMeshSkill {
     }
 
     const suggestions: string[] = [];
+    
+    // Location hint - ask user for address if not set
+    if (!propertyData) {
+      suggestions.push('📍 WICHTIG: Adresse nicht gesetzt! Für korrekte Kartendarstellung bitte zuerst: set_location {"address":"Deine Straße 123, Stadt"}');
+    }
+    
     if (autoMap.confidence < 0.5) {
       suggestions.push('📡 Mehr Signal-Daten sammeln für genauere Map');
     }
@@ -2556,10 +2565,22 @@ export class OpenClawAsusMeshSkill {
   }
 
   private handleGetSvgMap(floorNumber?: number): SkillResponse {
+    // Check if location is set for accurate geo-mapping
+    const propertyData = this.geoLocationService.getPropertyData();
+    
     const svgContent = this.realTriangulation.generateSvgMap(floorNumber);
     const stats = this.realTriangulation.getSignalMeasurementCount();
     const nodePositions = this.realTriangulation.getNodePositions();
     const cachedPositions = this.realTriangulation.getCachedPositions();
+    
+    const suggestions: string[] = [];
+    if (!propertyData) {
+      suggestions.push('📍 WICHTIG: Für korrekte Geo-Referenzierung bitte Adresse setzen: set_location {"address":"Deine Straße 123, Stadt"}');
+    }
+
+    suggestions.push('💾 SVG kann als Datei gespeichert werden (svgBase64 → file.svg)');
+    suggestions.push('🖼️ Für Grundriss-Overlay: set_floor_plan + get_floor_visualization');
+    suggestions.push('🗺️ Für OpenStreetMap: fetch_map_image');
 
     return this.successResponse('get_svg_map', {
       svg: svgContent,
@@ -2569,11 +2590,12 @@ export class OpenClawAsusMeshSkill {
       deviceCount: cachedPositions.length,
       signalMeasurements: stats.measurements,
       floorNumber: floorNumber ?? 'all',
-    }, [
-      '💾 SVG kann als Datei gespeichert werden (svgBase64 → file.svg)',
-      '🖼️ Für Grundriss-Overlay: set_floor_plan + get_floor_visualization',
-      '🗺️ Für OpenStreetMap: fetch_map_image',
-    ]);
+      locationSet: !!propertyData,
+      location: propertyData ? {
+        coordinates: propertyData.coordinates,
+        address: propertyData.address,
+      } : null,
+    }, suggestions);
   }
 
   private async handleGenerateFullHouseMap(params?: {
@@ -2732,11 +2754,16 @@ export class OpenClawAsusMeshSkill {
       totalDevices: this.meshState.devices.length,
       triangulatedDevices: triangulatedDevices.length,
       signalMeasurements: this.realTriangulation.getSignalMeasurementCount(),
-    }, [
+      locationSet: !!propertyData,
+    }, propertyData ? [
       '💾 SVGs können als Dateien gespeichert werden (svgBase64 dekodieren)',
       '🖼️ OSM-Karte kann als Hintergrund verwendet werden',
       '📐 Wand-Erkennung verbessert sich mit mehr Signal-Daten',
       '📍 Für genauere Karte: Mehr Node-Positionen setzen',
+    ] : [
+      '📍 WICHTIG: Adresse nicht gesetzt! Für korrekte Kartendarstellung: set_location {"address":"Deine Straße 123, Stadt"}',
+      '💾 SVGs können als Dateien gespeichert werden (svgBase64 dekodieren)',
+      '📐 Wand-Erkennung verbessert sich mit mehr Signal-Daten',
     ]);
   }
 
