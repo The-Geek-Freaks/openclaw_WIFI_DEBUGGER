@@ -2525,9 +2525,14 @@ export class OpenClawAsusMeshSkill {
       : this.meshState.devices;
 
     if (devices.length === 0) {
-      return this.errorResponse('triangulate_devices', 
-        deviceMac ? `Device ${deviceMac} nicht gefunden` : 'Keine Geräte gefunden'
-      );
+      return this.successResponse('triangulate_devices', {
+        found: false,
+        message: deviceMac ? `Device ${deviceMac} nicht gefunden` : 'Keine Geräte im Cache',
+        hint: 'Führe zuerst scan_network aus um Geräte zu laden',
+      }, [
+        '🔄 scan_network - Netzwerk scannen',
+        '📋 get_device_list - Bekannte Geräte anzeigen',
+      ]);
     }
 
     const results = [];
