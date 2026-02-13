@@ -1019,6 +1019,7 @@ export class OpenClawAsusMeshSkill {
     z?: number;
     room?: string;
   }): Promise<SkillResponse> {
+    // Sync with legacy triangulation engine
     this.triangulation.setNodePosition(
       params.nodeId,
       params.nodeId,
@@ -1027,11 +1028,31 @@ export class OpenClawAsusMeshSkill {
       params.z ?? 0
     );
 
+    // Also sync with real triangulation engine for triangulate_devices to work
+    this.realTriangulation.setNodePosition({
+      nodeId: params.nodeId,
+      nodeMac: params.nodeId,
+      floor: 'ground',
+      floorNumber: 0,
+      position: { x: params.x, y: params.y, z: params.z ?? 0 },
+      coverageRadius2g: 15,
+      coverageRadius5g: 10,
+      isOutdoor: false,
+    });
+
+    const allPositions = this.realTriangulation.getNodePositions();
+
     return this.successResponse('set_node_position', {
       nodeId: params.nodeId,
       position: { x: params.x, y: params.y, z: params.z ?? 0 },
       room: params.room,
-    }, ['📍 Setze Position für weitere Nodes', '📰 triangulate_devices - Wenn alle Nodes gesetzt']);
+      totalNodesPositioned: allPositions.length,
+    }, [
+      allPositions.length < 3 
+        ? `📍 ${3 - allPositions.length} weitere Nodes positionieren für Triangulation`
+        : '✅ Genug Nodes für Triangulation - jetzt triangulate_devices ausführen',
+      '📰 triangulate_devices - Wenn alle Nodes gesetzt',
+    ]);
   }
 
   private async handleGetConnectionStability(
