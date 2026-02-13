@@ -61,6 +61,8 @@ export class OpenClawAsusMeshSkill {
   private zigbeeState: ZigbeeNetworkState | null = null;
   private pendingOptimizations: Map<string, OptimizationSuggestion> = new Map();
   private initialized: boolean = false;
+  private sshConnected: boolean = false;
+  private hassConnected: boolean = false;
   private readonly startTime: Date = new Date();
   private actionCount: number = 0;
   private errorCount: number = 0;
@@ -102,21 +104,9 @@ export class OpenClawAsusMeshSkill {
   async initialize(): Promise<void> {
     logger.info('Initializing OpenClaw ASUS Mesh Skill');
     
-    try {
-      await this.sshClient.connect();
-      logger.info('Connected to ASUS router via SSH');
-    } catch (err) {
-      logger.error({ err }, 'Failed to connect to ASUS router');
-      throw err;
-    }
-
-    try {
-      await this.hassClient.connect();
-      logger.info('Connected to Home Assistant');
-    } catch (err) {
-      logger.warn({ err }, 'Failed to connect to Home Assistant - Zigbee features will be limited');
-    }
-
+    // SSH connection is now LAZY - only connect when an action needs it
+    // This allows local-only actions (set_node_position_3d, set_house_config, etc.) to work without SSH
+    
     try {
       await this.knowledgeBase.initialize();
       logger.info('Knowledge base loaded');
@@ -124,18 +114,51 @@ export class OpenClawAsusMeshSkill {
       logger.warn({ err }, 'Failed to initialize knowledge base - data persistence disabled');
     }
 
-    // Initialize MeshNodePool for multi-node scanning
-    try {
-      this.nodePool = new MeshNodePool(this.config);
-      await this.nodePool.initialize();
-      this.meshAnalyzer.setNodePool(this.nodePool);
-      logger.info({ nodeCount: this.nodePool.getDiscoveredNodes().length }, 'MeshNodePool initialized - multi-node scanning enabled');
-    } catch (err) {
-      logger.warn({ err }, 'Failed to initialize MeshNodePool - falling back to single-node scanning');
-    }
-
     this.initialized = true;
-    logger.info('Skill initialized successfully');
+    logger.info('Skill initialized (SSH connection deferred until needed)');
+  }
+
+  /**
+   * Ensure SSH is connected. Called lazily by actions that need SSH.
+   * @throws Error if SSH connection fails
+   */
+  private async ensureSshConnected(): Promise<void> {
+    if (this.sshConnected) return;
+    
+    logger.info('Establishing SSH connection (lazy init)');
+    try {
+      await this.sshClient.connect();
+      this.sshConnected = true;
+      logger.info('Connected to ASUS router via SSH');
+      
+      // Initialize MeshNodePool for multi-node scanning
+      try {
+        this.nodePool = new MeshNodePool(this.config);
+        await this.nodePool.initialize();
+        this.meshAnalyzer.setNodePool(this.nodePool);
+        logger.info({ nodeCount: this.nodePool.getDiscoveredNodes().length }, 'MeshNodePool initialized');
+      } catch (err) {
+        logger.warn({ err }, 'Failed to initialize MeshNodePool - single-node scanning only');
+      }
+    } catch (err) {
+      logger.error({ err }, 'Failed to connect to ASUS router via SSH');
+      throw err;
+    }
+  }
+
+  /**
+   * Ensure Home Assistant is connected. Called lazily by actions that need HA.
+   */
+  private async ensureHassConnected(): Promise<void> {
+    if (this.hassConnected) return;
+    
+    try {
+      await this.hassClient.connect();
+      this.hassConnected = true;
+      logger.info('Connected to Home Assistant');
+    } catch (err) {
+      logger.warn({ err }, 'Failed to connect to Home Assistant - Zigbee features limited');
+    }
   }
 
   async shutdown(): Promise<void> {
@@ -535,6 +558,7 @@ export class OpenClawAsusMeshSkill {
   }
 
   private async handleScanNetwork(): Promise<SkillResponse> {
+    await this.ensureSshConnected();
     this.meshState = await this.meshAnalyzer.scan();
     
     this.persistScanData();
@@ -591,6 +615,7 @@ export class OpenClawAsusMeshSkill {
   }
 
   private async handleGetNetworkHealth(): Promise<SkillResponse> {
+    await this.ensureSshConnected();
     if (!this.meshState) {
       this.meshState = await this.meshAnalyzer.scan();
     }
@@ -612,6 +637,7 @@ export class OpenClawAsusMeshSkill {
   private async handleGetDeviceList(
     filter?: 'all' | 'wireless' | 'wired' | 'problematic'
   ): Promise<SkillResponse> {
+    await this.ensureSshConnected();
     if (!this.meshState) {
       this.meshState = await this.meshAnalyzer.scan();
     }
@@ -700,6 +726,7 @@ export class OpenClawAsusMeshSkill {
   }
 
   private async handleGetMeshNodes(): Promise<SkillResponse> {
+    await this.ensureSshConnected();
     if (!this.meshState) {
       this.meshState = await this.meshAnalyzer.scan();
     }
@@ -717,6 +744,7 @@ export class OpenClawAsusMeshSkill {
   }
 
   private async handleGetWifiSettings(): Promise<SkillResponse> {
+    await this.ensureSshConnected();
     if (!this.meshState) {
       this.meshState = await this.meshAnalyzer.scan();
     }
@@ -736,6 +764,7 @@ export class OpenClawAsusMeshSkill {
     band: '2.4GHz' | '5GHz',
     channel: number
   ): Promise<SkillResponse> {
+    await this.ensureSshConnected();
     const nvramKey = band === '2.4GHz' ? 'wl0_channel' : 'wl1_channel';
     
     await this.sshClient.setNvram(nvramKey, String(channel));
@@ -792,6 +821,7 @@ export class OpenClawAsusMeshSkill {
   }
 
   private async handleGetOptimizationSuggestions(): Promise<SkillResponse> {
+    await this.ensureSshConnected();
     if (!this.meshState) {
       this.meshState = await this.meshAnalyzer.scan();
     }
@@ -844,6 +874,7 @@ export class OpenClawAsusMeshSkill {
     suggestionId: string,
     confirm: boolean
   ): Promise<SkillResponse> {
+    await this.ensureSshConnected();
     const suggestion = this.pendingOptimizations.get(suggestionId);
     
     if (!suggestion) {
@@ -927,6 +958,7 @@ export class OpenClawAsusMeshSkill {
   }
 
   private async handleScanZigbee(): Promise<SkillResponse> {
+    await this.ensureHassConnected();
     this.zigbeeState = await this.zigbeeAnalyzer.scan();
 
     try {
@@ -952,6 +984,7 @@ export class OpenClawAsusMeshSkill {
   }
 
   private async handleGetZigbeeDevices(): Promise<SkillResponse> {
+    await this.ensureHassConnected();
     if (!this.zigbeeState) {
       this.zigbeeState = await this.zigbeeAnalyzer.scan();
     }
@@ -977,6 +1010,8 @@ export class OpenClawAsusMeshSkill {
   }
 
   private async handleGetFrequencyConflicts(): Promise<SkillResponse> {
+    await this.ensureSshConnected();
+    await this.ensureHassConnected();
     if (!this.meshState) {
       this.meshState = await this.meshAnalyzer.scan();
     }
@@ -1005,6 +1040,7 @@ export class OpenClawAsusMeshSkill {
   }
 
   private async handleGetSpatialMap(): Promise<SkillResponse> {
+    await this.ensureSshConnected();
     if (!this.meshState) {
       this.meshState = await this.meshAnalyzer.scan();
     }
@@ -1093,6 +1129,7 @@ export class OpenClawAsusMeshSkill {
   }
 
   private async handleRestartWireless(confirm: boolean): Promise<SkillResponse> {
+    await this.ensureSshConnected();
     if (!confirm) {
       return this.successResponse('restart_wireless', {
         status: 'pending_confirmation',
@@ -1111,6 +1148,7 @@ export class OpenClawAsusMeshSkill {
   private async handleGetChannelScan(
     band?: '2.4GHz' | '5GHz' | 'both'
   ): Promise<SkillResponse> {
+    await this.ensureSshConnected();
     const results = [];
 
     if (!band || band === 'both' || band === '2.4GHz') {
@@ -1131,6 +1169,7 @@ export class OpenClawAsusMeshSkill {
   }
 
   private async handleScanRogueIot(): Promise<SkillResponse> {
+    await this.ensureSshConnected();
     const result = await this.iotDetector.scanForRogueIoTNetworks();
 
     const suggestions: string[] = [
@@ -1187,6 +1226,7 @@ export class OpenClawAsusMeshSkill {
   }
 
   private async handleRunBenchmark(): Promise<SkillResponse> {
+    await this.ensureSshConnected();
     const result = await this.benchmarkEngine.runFullBenchmark();
 
     const suggestions: string[] = [
@@ -1206,6 +1246,7 @@ export class OpenClawAsusMeshSkill {
     channel2g?: number,
     channel5g?: number
   ): Promise<SkillResponse> {
+    await this.ensureSshConnected();
     const changes: string[] = [];
 
     if (channel2g !== undefined) {
@@ -1234,6 +1275,7 @@ export class OpenClawAsusMeshSkill {
   }
 
   private async handleAnalyzeNetworkTopology(): Promise<SkillResponse> {
+    await this.ensureSshConnected();
     const topology = await this.topologyAnalyzer.discoverTopology();
 
     const suggestions: string[] = [
@@ -1254,6 +1296,8 @@ export class OpenClawAsusMeshSkill {
   private async handleFullIntelligenceScan(
     targets?: Array<'minimize_interference' | 'maximize_throughput' | 'balance_coverage' | 'protect_zigbee' | 'reduce_neighbor_overlap' | 'improve_roaming'>
   ): Promise<SkillResponse> {
+    await this.ensureSshConnected();
+    await this.ensureHassConnected();
     const defaultTargets = targets ?? ['minimize_interference', 'protect_zigbee'];
     
     const result = await this.networkIntelligence.performFullScan(defaultTargets);
@@ -1580,6 +1624,7 @@ export class OpenClawAsusMeshSkill {
   }
 
   private async handleGetPlacementRecommendations(): Promise<SkillResponse> {
+    await this.ensureSshConnected();
     if (!this.meshState) {
       this.meshState = await this.meshAnalyzer.scan();
     }
@@ -1707,6 +1752,7 @@ export class OpenClawAsusMeshSkill {
   }
 
   private async handleGetQuickDiagnosis(): Promise<SkillResponse> {
+    await this.ensureSshConnected();
     const startTime = Date.now();
     
     if (!this.meshState) {
@@ -2145,6 +2191,7 @@ export class OpenClawAsusMeshSkill {
   }
 
   private async handleCheckRouterTweaks(): Promise<SkillResponse> {
+    await this.ensureSshConnected();
     const report = await this.tweaksChecker.checkAllTweaks();
 
     const suggestions = report.topRecommendations.map(r => 
@@ -2242,6 +2289,7 @@ export class OpenClawAsusMeshSkill {
   }
 
   private async handleGetRecommendedScripts(): Promise<SkillResponse> {
+    await this.ensureSshConnected();
     const report = await this.tweaksChecker.checkAllTweaks();
 
     const allScripts = this.tweaksChecker.getMerlinScripts();
