@@ -4,6 +4,7 @@ import { normalizeMac, getVendorFromMac } from '../utils/mac.js';
 import { rssiToQuality } from '../utils/frequency.js';
 import type { AsusSshClient } from '../infra/asus-ssh-client.js';
 import type { MeshNodePool } from '../infra/mesh-node-pool.js';
+import type { RealTriangulationEngine } from './real-triangulation.js';
 import type { 
   MeshNode, 
   NetworkDevice, 
@@ -28,6 +29,7 @@ const MAX_CONNECTION_EVENTS = 500;
 export class MeshAnalyzer extends EventEmitter<MeshAnalyzerEvents> {
   private readonly sshClient: AsusSshClient;
   private nodePool: MeshNodePool | null = null;
+  private triangulationEngine: RealTriangulationEngine | null = null;
   private currentState: MeshNetworkState | null = null;
   private signalHistory: Map<string, SignalMeasurement[]> = new Map();
   private connectionEvents: ConnectionEvent[] = [];
@@ -43,6 +45,11 @@ export class MeshAnalyzer extends EventEmitter<MeshAnalyzerEvents> {
   setNodePool(nodePool: MeshNodePool): void {
     this.nodePool = nodePool;
     logger.info('MeshNodePool attached - multi-node scanning enabled');
+  }
+
+  setTriangulationEngine(engine: RealTriangulationEngine): void {
+    this.triangulationEngine = engine;
+    logger.info('RealTriangulationEngine attached - signal measurements will be forwarded');
   }
 
   private startCleanupInterval(): void {
@@ -478,6 +485,11 @@ export class MeshAnalyzer extends EventEmitter<MeshAnalyzerEvents> {
 
     if (history.length > MAX_SIGNAL_HISTORY_ENTRIES) {
       this.signalHistory.set(key, history.slice(-MAX_SIGNAL_HISTORY_ENTRIES));
+    }
+
+    // Forward to RealTriangulationEngine for position calculation
+    if (this.triangulationEngine) {
+      this.triangulationEngine.recordSignalMeasurement(deviceMac, nodeMac, rssi);
     }
   }
 

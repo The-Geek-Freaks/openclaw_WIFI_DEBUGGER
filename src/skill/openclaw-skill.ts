@@ -100,6 +100,9 @@ export class OpenClawAsusMeshSkill {
     this.realTriangulation = new RealTriangulationEngine();
     this.geoLocationService = new GeoLocationService();
     this.wallDetector = new WallDetector();
+    
+    // Connect MeshAnalyzer to RealTriangulationEngine for signal forwarding
+    this.meshAnalyzer.setTriangulationEngine(this.realTriangulation);
   }
 
   async initialize(): Promise<void> {
