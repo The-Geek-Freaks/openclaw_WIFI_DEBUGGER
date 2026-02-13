@@ -551,6 +551,9 @@ export class OpenClawAsusMeshSkill {
         case 'get_auto_map':
           return await this.handleGetAutoMap(action.params?.floorNumber);
         
+        case 'get_svg_map':
+          return this.handleGetSvgMap(action.params?.floorNumber);
+        
         case 'set_node_position_3d':
           return this.handleSetNodePosition3D(action.params as Parameters<typeof this.handleSetNodePosition3D>[0]);
         
@@ -2537,6 +2540,27 @@ export class OpenClawAsusMeshSkill {
       })),
       floorAscii,
     }, suggestions);
+  }
+
+  private handleGetSvgMap(floorNumber?: number): SkillResponse {
+    const svgContent = this.realTriangulation.generateSvgMap(floorNumber);
+    const stats = this.realTriangulation.getSignalMeasurementCount();
+    const nodePositions = this.realTriangulation.getNodePositions();
+    const cachedPositions = this.realTriangulation.getCachedPositions();
+
+    return this.successResponse('get_svg_map', {
+      svg: svgContent,
+      svgBase64: Buffer.from(svgContent).toString('base64'),
+      mimeType: 'image/svg+xml',
+      nodeCount: nodePositions.length,
+      deviceCount: cachedPositions.length,
+      signalMeasurements: stats.measurements,
+      floorNumber: floorNumber ?? 'all',
+    }, [
+      '💾 SVG kann als Datei gespeichert werden (svgBase64 → file.svg)',
+      '🖼️ Für Grundriss-Overlay: set_floor_plan + get_floor_visualization',
+      '🗺️ Für OpenStreetMap: fetch_map_image',
+    ]);
   }
 
   private handleSetNodePosition3D(params: {

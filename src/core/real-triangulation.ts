@@ -617,6 +617,124 @@ export class RealTriangulationEngine {
     return ascii;
   }
 
+  /**
+   * Generate SVG map of all floors with nodes and devices
+   * Works without floor plan images - creates pure vector graphics
+   */
+  generateSvgMap(floorNumber?: number): string {
+    const floors = floorNumber !== undefined 
+      ? [floorNumber] 
+      : [...new Set([
+          ...Array.from(this.nodePositions.values()).map(n => n.floorNumber),
+          ...Array.from(this.positionCache.values()).map(p => p.floorNumber),
+        ])].sort();
+
+    if (floors.length === 0) {
+      return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200"><text x="200" y="100" text-anchor="middle" font-family="sans-serif">Keine Daten verfügbar</text></svg>';
+    }
+
+    const svgWidth = 800;
+    const floorHeight = 400;
+    const padding = 40;
+    const totalHeight = floors.length * floorHeight;
+
+    let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${svgWidth} ${totalHeight}" width="${svgWidth}" height="${totalHeight}">\n`;
+    svg += `  <defs>\n`;
+    svg += `    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">\n`;
+    svg += `      <feDropShadow dx="2" dy="2" stdDeviation="2" flood-opacity="0.3"/>\n`;
+    svg += `    </filter>\n`;
+    svg += `  </defs>\n`;
+    svg += `  <style>\n`;
+    svg += `    .floor-bg { fill: #f8fafc; stroke: #e2e8f0; stroke-width: 2; }\n`;
+    svg += `    .floor-title { font-family: sans-serif; font-size: 18px; font-weight: bold; fill: #1e293b; }\n`;
+    svg += `    .node-router { fill: #dc2626; filter: url(#shadow); }\n`;
+    svg += `    .node-mesh { fill: #2563eb; filter: url(#shadow); }\n`;
+    svg += `    .device-excellent { fill: #22c55e; }\n`;
+    svg += `    .device-good { fill: #84cc16; }\n`;
+    svg += `    .device-fair { fill: #eab308; }\n`;
+    svg += `    .device-poor { fill: #f97316; }\n`;
+    svg += `    .device-critical { fill: #ef4444; }\n`;
+    svg += `    .label { font-family: sans-serif; font-size: 10px; fill: #475569; }\n`;
+    svg += `    .node-label { font-family: sans-serif; font-size: 12px; fill: #1e293b; font-weight: bold; }\n`;
+    svg += `    .legend { font-family: sans-serif; font-size: 11px; fill: #64748b; }\n`;
+    svg += `  </style>\n`;
+
+    floors.forEach((floor, floorIndex) => {
+      const yOffset = floorIndex * floorHeight;
+      const nodes = Array.from(this.nodePositions.values()).filter(n => n.floorNumber === floor);
+      const devices = Array.from(this.positionCache.values()).filter(p => p.floorNumber === floor);
+
+      // Calculate bounds
+      const allX = [...nodes.map(n => n.position.x), ...devices.map(d => d.position.x)];
+      const allY = [...nodes.map(n => n.position.y), ...devices.map(d => d.position.y)];
+      
+      if (allX.length === 0) return;
+      
+      const minX = Math.min(...allX) - 2;
+      const maxX = Math.max(...allX) + 2;
+      const minY = Math.min(...allY) - 2;
+      const maxY = Math.max(...allY) + 2;
+      
+      const scaleX = (svgWidth - 2 * padding) / Math.max(maxX - minX, 1);
+      const scaleY = (floorHeight - 80 - padding) / Math.max(maxY - minY, 1);
+      const scale = Math.min(scaleX, scaleY, 50); // Max 50px per meter
+
+      const floorName = this.houseConfig?.floors.find(f => f.floorNumber === floor)?.name ?? `Etage ${floor}`;
+
+      // Floor background
+      svg += `  <rect x="10" y="${yOffset + 10}" width="${svgWidth - 20}" height="${floorHeight - 20}" rx="8" class="floor-bg"/>\n`;
+      svg += `  <text x="30" y="${yOffset + 40}" class="floor-title">${floorName} (${nodes.length} Nodes, ${devices.length} Geräte)</text>\n`;
+
+      // Draw grid
+      const gridStartY = yOffset + 60;
+      for (let x = 0; x <= maxX - minX; x += 2) {
+        const px = padding + x * scale;
+        svg += `  <line x1="${px}" y1="${gridStartY}" x2="${px}" y2="${gridStartY + (maxY - minY) * scale}" stroke="#e2e8f0" stroke-dasharray="2,2"/>\n`;
+      }
+      for (let y = 0; y <= maxY - minY; y += 2) {
+        const py = gridStartY + y * scale;
+        svg += `  <line x1="${padding}" y1="${py}" x2="${padding + (maxX - minX) * scale}" y2="${py}" stroke="#e2e8f0" stroke-dasharray="2,2"/>\n`;
+      }
+
+      // Draw devices
+      for (const device of devices) {
+        const px = padding + (device.position.x - minX) * scale;
+        const py = gridStartY + (device.position.y - minY) * scale;
+        const signalClass = device.confidence > 0.7 ? 'device-excellent' 
+          : device.confidence > 0.5 ? 'device-good'
+          : device.confidence > 0.3 ? 'device-fair'
+          : device.confidence > 0.1 ? 'device-poor' : 'device-critical';
+        
+        svg += `  <circle cx="${px}" cy="${py}" r="6" class="${signalClass}"/>\n`;
+        svg += `  <text x="${px}" y="${py + 16}" text-anchor="middle" class="label">${device.deviceName.substring(0, 15)}</text>\n`;
+      }
+
+      // Draw nodes (on top)
+      for (const node of nodes) {
+        const px = padding + (node.position.x - minX) * scale;
+        const py = gridStartY + (node.position.y - minY) * scale;
+        const nodeClass = node.nodeId === 'main' || node.nodeMac === 'main' ? 'node-router' : 'node-mesh';
+        
+        svg += `  <circle cx="${px}" cy="${py}" r="16" class="${nodeClass}"/>\n`;
+        svg += `  <text x="${px}" y="${py + 4}" text-anchor="middle" fill="white" font-size="10" font-weight="bold">📡</text>\n`;
+        svg += `  <text x="${px}" y="${py + 30}" text-anchor="middle" class="node-label">${node.nodeId.substring(0, 12)}</text>\n`;
+      }
+    });
+
+    // Legend
+    const legendY = totalHeight - 30;
+    svg += `  <text x="30" y="${legendY}" class="legend">Legende: </text>\n`;
+    svg += `  <circle cx="100" cy="${legendY - 4}" r="8" class="node-router"/>\n`;
+    svg += `  <text x="115" y="${legendY}" class="legend">Router</text>\n`;
+    svg += `  <circle cx="170" cy="${legendY - 4}" r="8" class="node-mesh"/>\n`;
+    svg += `  <text x="185" y="${legendY}" class="legend">Mesh Node</text>\n`;
+    svg += `  <circle cx="270" cy="${legendY - 4}" r="6" class="device-excellent"/>\n`;
+    svg += `  <text x="285" y="${legendY}" class="legend">Gerät (Farbe = Konfidenz)</text>\n`;
+
+    svg += `</svg>`;
+    return svg;
+  }
+
   // Vector math helpers
   private rssiToDistance(rssi: number): number {
     const ratio = (this.txPower - rssi) / (10 * this.pathLossExponent);

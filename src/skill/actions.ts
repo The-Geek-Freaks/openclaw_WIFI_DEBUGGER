@@ -329,6 +329,12 @@ export const SkillActionSchema = z.discriminatedUnion('action', [
     }).optional(),
   }),
   z.object({
+    action: z.literal('get_svg_map'),
+    params: z.object({
+      floorNumber: z.number().optional(),
+    }).optional(),
+  }),
+  z.object({
     action: z.literal('set_node_position_3d'),
     params: z.object({
       nodeMac: z.string(),
