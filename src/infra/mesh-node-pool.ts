@@ -250,18 +250,78 @@ export class MeshNodePool {
     const nodes: MeshNodeInfo[] = [];
 
     try {
+      // Try multiple NVRAM keys - different firmware versions use different keys
       const cfgClientList = await this.executeOnMain('nvram get cfg_clientlist');
+      const cfgDeviceList = await this.executeOnMain('nvram get cfg_device_list');
+      const amasWlcConnect = await this.executeOnMain('nvram get amas_wlcconnect');
+      const reList = await this.executeOnMain('nvram get re_list');
       const _cfgAlias = await this.executeOnMain('nvram get cfg_alias');
       
-      const macList = cfgClientList.split('<').filter(Boolean).map(entry => {
-        const parts = entry.split('>');
-        return {
-          mac: parts[0]?.toLowerCase() ?? '',
-          ip: parts[1] ?? '',
-          model: parts[2] ?? '',
-          alias: parts[3] ?? '',
-        };
-      });
+      logger.debug({ 
+        cfgClientList: cfgClientList.substring(0, 100), 
+        cfgDeviceList: cfgDeviceList.substring(0, 100),
+        amasWlcConnect: amasWlcConnect.substring(0, 100),
+        reList: reList.substring(0, 100),
+      }, 'AiMesh NVRAM values');
+
+      const macList: Array<{ mac: string; ip: string; model: string; alias: string }> = [];
+      
+      // Parse cfg_clientlist (format: <MAC>IP>model>alias)
+      if (cfgClientList.trim()) {
+        for (const entry of cfgClientList.split('<').filter(Boolean)) {
+          const parts = entry.split('>');
+          if (parts[0] && parts[0].length >= 12) {
+            macList.push({
+              mac: parts[0].toLowerCase().trim(),
+              ip: parts[1]?.trim() ?? '',
+              model: parts[2]?.trim() ?? '',
+              alias: parts[3]?.trim() ?? '',
+            });
+          }
+        }
+      }
+      
+      // Parse cfg_device_list (format: <MAC>alias>model>uiModel>fwVer>newFwVer>ip>online)
+      if (cfgDeviceList.trim()) {
+        for (const entry of cfgDeviceList.split('<').filter(Boolean)) {
+          const parts = entry.split('>');
+          if (parts[0] && parts[0].length >= 12) {
+            const mac = parts[0].toLowerCase().trim();
+            if (!macList.some(m => m.mac === mac)) {
+              macList.push({
+                mac,
+                ip: parts[6]?.trim() ?? '',
+                model: parts[2]?.trim() ?? '',
+                alias: parts[1]?.trim() ?? '',
+              });
+            }
+          }
+        }
+      }
+      
+      // Parse amas_wlcconnect (format: MAC separated by space or newline)
+      if (amasWlcConnect.trim()) {
+        const amasMacs = amasWlcConnect.match(/([0-9A-Fa-f:]{17})/g) ?? [];
+        for (const mac of amasMacs) {
+          const normalizedMac = mac.toLowerCase().trim();
+          if (!macList.some(m => m.mac === normalizedMac)) {
+            macList.push({ mac: normalizedMac, ip: '', model: '', alias: '' });
+          }
+        }
+      }
+      
+      // Parse re_list (RE = Range Extender / Mesh node)
+      if (reList.trim()) {
+        const reMacs = reList.match(/([0-9A-Fa-f:]{17})/g) ?? [];
+        for (const mac of reMacs) {
+          const normalizedMac = mac.toLowerCase().trim();
+          if (!macList.some(m => m.mac === normalizedMac)) {
+            macList.push({ mac: normalizedMac, ip: '', model: '', alias: '' });
+          }
+        }
+      }
+      
+      logger.info({ meshNodeCount: macList.length }, 'Parsed AiMesh node MACs');
 
       const arpOutput = await this.executeOnMain('cat /proc/net/arp');
       const arpEntries = new Map<string, string>();
