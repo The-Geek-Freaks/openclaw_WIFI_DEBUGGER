@@ -253,6 +253,7 @@ export class OpenClawAsusMeshSkill {
     errorCount: number;
     nodePositions: NodePlacement[];
     houseConfig: HouseConfig | null;
+    signalMeasurements: Record<string, Array<{ nodeMac: string; rssi: number; timestamp: string }>>;
   } {
     return {
       meshState: this.meshState,
@@ -262,6 +263,7 @@ export class OpenClawAsusMeshSkill {
       errorCount: this.errorCount,
       nodePositions: this.realTriangulation.getNodePositions(),
       houseConfig: this.realTriangulation.getHouseConfig(),
+      signalMeasurements: this.realTriangulation.exportSignalMeasurements(),
     };
   }
 
@@ -273,6 +275,7 @@ export class OpenClawAsusMeshSkill {
     errorCount?: number;
     nodePositions?: NodePlacement[];
     houseConfig?: HouseConfig | null;
+    signalMeasurements?: Record<string, Array<{ nodeMac: string; rssi: number; timestamp: string }>>;
   }): void {
     if (state.meshState !== undefined) {
       this.meshState = state.meshState;
@@ -296,12 +299,19 @@ export class OpenClawAsusMeshSkill {
     if (state.houseConfig) {
       this.realTriangulation.setHouseConfig(state.houseConfig);
     }
+    // Restore signal measurements AFTER node positions (required for position lookup)
+    if (state.signalMeasurements && Object.keys(state.signalMeasurements).length > 0) {
+      this.realTriangulation.importSignalMeasurements(state.signalMeasurements);
+    }
+    const signalStats = this.realTriangulation.getSignalMeasurementCount();
     logger.info({ 
       hasMeshState: !!this.meshState, 
       hasZigbeeState: !!this.zigbeeState,
       pendingOptimizations: this.pendingOptimizations.size,
       nodePositions: state.nodePositions?.length ?? 0,
       hasHouseConfig: !!state.houseConfig,
+      signalDevices: signalStats.devices,
+      signalMeasurements: signalStats.measurements,
     }, 'State imported from cache');
   }
 

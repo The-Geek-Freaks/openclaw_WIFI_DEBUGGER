@@ -1,5 +1,6 @@
 import { createChildLogger } from '../utils/logger.js';
 import { rssiToDistance } from '../utils/frequency.js';
+import { normalizeMac } from '../utils/mac.js';
 import type { MeshNode, NetworkDevice } from '../types/network.js';
 import type { DeviceLocation } from '../types/analysis.js';
 import type { Building, FloorType, NodePlacement } from '../types/building.js';
@@ -150,20 +151,24 @@ export class RealTriangulationEngine {
     nodeMac: string,
     rssi: number
   ): void {
-    const nodePos = this.nodePositions.get(nodeMac);
+    // Normalize MAC addresses for consistent lookup
+    const normalizedNodeMac = normalizeMac(nodeMac);
+    const normalizedDeviceMac = normalizeMac(deviceMac);
+    
+    const nodePos = this.nodePositions.get(normalizedNodeMac);
     if (!nodePos) {
-      logger.warn({ nodeMac }, 'Signal recorded for unknown node position');
+      logger.warn({ nodeMac: normalizedNodeMac }, 'Signal recorded for unknown node position');
       return;
     }
 
     const measurement: SignalMeasurement = {
-      nodeMac,
+      nodeMac: normalizedNodeMac,
       nodePosition: nodePos.position,
       rssi,
       timestamp: new Date(),
     };
 
-    const history = this.signalHistory.get(deviceMac) ?? [];
+    const history = this.signalHistory.get(normalizedDeviceMac) ?? [];
     history.push(measurement);
 
     // Cleanup old entries
@@ -172,7 +177,7 @@ export class RealTriangulationEngine {
       .filter(m => m.timestamp.getTime() > cutoff)
       .slice(-this.historyMaxEntries);
 
-    this.signalHistory.set(deviceMac, filtered);
+    this.signalHistory.set(normalizedDeviceMac, filtered);
   }
 
   /**
@@ -365,9 +370,11 @@ export class RealTriangulationEngine {
     const measurements: SignalMeasurement[] = [];
     const now = Date.now();
 
-    // Get recent history
-    const history = this.signalHistory.get(device.macAddress) ?? [];
-    const recentHistory = history.filter(m => now - m.timestamp.getTime() < 30000);
+    // Get recent history (use normalized MAC for consistent lookup)
+    // Allow 10 minutes for persisted measurements across CLI calls
+    const normalizedMac = normalizeMac(device.macAddress);
+    const history = this.signalHistory.get(normalizedMac) ?? [];
+    const recentHistory = history.filter(m => now - m.timestamp.getTime() < 600000);
 
     // Group by node and take average
     const byNode = new Map<string, SignalMeasurement[]>();
@@ -662,5 +669,56 @@ export class RealTriangulationEngine {
   clearCache(): void {
     this.positionCache.clear();
     this.signalHistory.clear();
+  }
+
+  /**
+   * Export signal measurements for persistence
+   */
+  exportSignalMeasurements(): Record<string, Array<{ nodeMac: string; rssi: number; timestamp: string }>> {
+    const result: Record<string, Array<{ nodeMac: string; rssi: number; timestamp: string }>> = {};
+    
+    for (const [deviceMac, measurements] of this.signalHistory) {
+      result[deviceMac] = measurements.map(m => ({
+        nodeMac: m.nodeMac,
+        rssi: m.rssi,
+        timestamp: m.timestamp.toISOString(),
+      }));
+    }
+    
+    return result;
+  }
+
+  /**
+   * Import signal measurements from persisted state
+   */
+  importSignalMeasurements(data: Record<string, Array<{ nodeMac: string; rssi: number; timestamp: string }>>): void {
+    for (const [deviceMac, measurements] of Object.entries(data)) {
+      for (const m of measurements) {
+        const nodePos = this.nodePositions.get(m.nodeMac);
+        if (nodePos) {
+          const history = this.signalHistory.get(deviceMac) ?? [];
+          history.push({
+            nodeMac: m.nodeMac,
+            nodePosition: nodePos.position,
+            rssi: m.rssi,
+            timestamp: new Date(m.timestamp),
+          });
+          this.signalHistory.set(deviceMac, history);
+        }
+      }
+    }
+    
+    logger.info({ deviceCount: Object.keys(data).length }, 'Signal measurements imported');
+  }
+
+  /**
+   * Get signal measurement count for diagnostics
+   */
+  getSignalMeasurementCount(): { devices: number; measurements: number } {
+    let measurements = 0;
+    for (const history of this.signalHistory.values()) {
+      measurements += history.length;
+    }
+    return { devices: this.signalHistory.size, measurements };
   }
 }

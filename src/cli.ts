@@ -40,6 +40,7 @@ interface SessionState {
   pendingOptimizations: Array<[string, unknown]>;
   nodePositions?: unknown[];
   houseConfig?: unknown;
+  signalMeasurements?: Record<string, Array<{ nodeMac: string; rssi: number; timestamp: string }>>;
 }
 
 function loadState(): SessionState | null {
@@ -62,6 +63,7 @@ function saveState(state: {
   pendingOptimizations: Array<[string, unknown]>;
   nodePositions?: unknown[];
   houseConfig?: unknown;
+  signalMeasurements?: Record<string, Array<{ nodeMac: string; rssi: number; timestamp: string }>>;
 }): void {
   try {
     if (!existsSync(STATE_DIR)) {
@@ -183,9 +185,9 @@ async function main(): Promise<void> {
   try {
     await skill.initialize();
     
-    // Load cached state if available (includes triangulation data for local actions)
+    // Load cached state if available (includes triangulation data and signal measurements)
     const cachedState = loadState();
-    if (cachedState && (cachedState.meshState || cachedState.nodePositions || cachedState.houseConfig)) {
+    if (cachedState && (cachedState.meshState || cachedState.nodePositions || cachedState.houseConfig || cachedState.signalMeasurements)) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       skill.importState(cachedState as any);
     }
@@ -193,7 +195,7 @@ async function main(): Promise<void> {
     // Execute action
     const result = await skill.execute(parsed);
     
-    // Save state for next call (including triangulation data)
+    // Save state for next call (including triangulation data and signal measurements)
     const exportedState = skill.exportState();
     saveState({
       meshState: exportedState.meshState,
@@ -201,6 +203,7 @@ async function main(): Promise<void> {
       pendingOptimizations: exportedState.pendingOptimizations,
       nodePositions: exportedState.nodePositions,
       houseConfig: exportedState.houseConfig,
+      signalMeasurements: exportedState.signalMeasurements,
     });
 
     // Output result
