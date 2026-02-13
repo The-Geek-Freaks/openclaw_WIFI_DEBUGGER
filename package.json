@@ -1,6 +1,6 @@
 {
   "name": "openclaw-asus-mesh-skill",
-  "version": "1.8.0",
+  "version": "1.8.1",
   "description": "OpenClaw Skill for ASUS Mesh WiFi Analysis, Optimization and Home Assistant Zigbee Integration",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -45,6 +45,7 @@
   "files": [
     "dist",
     "openclaw.json",
+    "SKILL.md",
     "README.md",
     "LICENSE"
   ],
@@ -76,13 +77,13 @@
     "network-analysis"
   ],
   "author": "OpenClaw Community",
-  "homepage": "https://github.com/openclaw/asus-mesh-wifi-analyzer",
+  "homepage": "https://github.com/The-Geek-Freaks/openclaw_WIFI_DEBUGGER",
   "repository": {
     "type": "git",
-    "url": "https://github.com/openclaw/asus-mesh-wifi-analyzer.git"
+    "url": "https://github.com/The-Geek-Freaks/openclaw_WIFI_DEBUGGER.git"
   },
   "bugs": {
-    "url": "https://github.com/openclaw/asus-mesh-wifi-analyzer/issues"
+    "url": "https://github.com/The-Geek-Freaks/openclaw_WIFI_DEBUGGER/issues"
   },
   "license": "MIT",
   "dependencies": {

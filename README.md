@@ -790,6 +790,27 @@ npm run clean && npm run build
 
 ## 📝 Changelog
 
+### v1.8.1 (2026-02-13)
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│  🐛 BUGFIXES & PACKAGING                                     │
+├─────────────────────────────────────────────────────────────┤
+│  ✅ SKILL.md zu npm package files hinzugefügt               │
+│     - OpenClaw kann jetzt SKILL.md nach npm install lesen   │
+│  ✅ State-Persistenz Bug gefixt                             │
+│     - pendingOptimizations werden jetzt korrekt gespeichert │
+│     - apply_optimization funktioniert nach CLI-Neustart     │
+│  ✅ package.json URLs korrigiert                            │
+│     - Repository zeigt auf The-Geek-Freaks/openclaw_WIFI_   │
+│       DEBUGGER statt auf nicht-existierendes Repo           │
+│  ✅ build.mjs: CLI-Entrypoint mit Shebang                   │
+│     - npm run build:bundle baut jetzt auch dist/cli.js      │
+│     - #!/usr/bin/env node Banner für Linux/macOS            │
+│  ✅ 55 Actions • 64/64 Tests passed                         │
+└─────────────────────────────────────────────────────────────┘
+```
+
 ### v1.7.0 (2026-02-12)
 
 ```text

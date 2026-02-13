@@ -13,7 +13,7 @@ interface SessionState {
   timestamp: number;
   meshState: unknown;
   zigbeeState: unknown;
-  pendingOptimizations: Record<string, unknown>;
+  pendingOptimizations: Array<[string, unknown]>;
 }
 
 function loadState(): SessionState | null {
@@ -30,7 +30,7 @@ function loadState(): SessionState | null {
   }
 }
 
-function saveState(state: Omit<SessionState, 'timestamp'>): void {
+function saveState(state: { meshState: unknown; zigbeeState: unknown; pendingOptimizations: Array<[string, unknown]> }): void {
   try {
     if (!existsSync(STATE_DIR)) {
       mkdirSync(STATE_DIR, { recursive: true });
@@ -153,7 +153,7 @@ async function main(): Promise<void> {
     saveState({
       meshState: exportedState.meshState,
       zigbeeState: exportedState.zigbeeState,
-      pendingOptimizations: Object.fromEntries(exportedState.pendingOptimizations),
+      pendingOptimizations: exportedState.pendingOptimizations,
     });
 
     // Output result

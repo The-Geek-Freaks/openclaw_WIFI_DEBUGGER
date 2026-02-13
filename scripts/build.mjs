@@ -57,6 +57,17 @@ if (isWatch) {
   });
   console.log('✓ Main bundle built');
 
+  // Build CLI separately with shebang
+  await esbuild.build({
+    ...commonOptions,
+    entryPoints: ['src/cli.ts'],
+    outfile: 'dist/cli.js',
+    banner: {
+      js: '#!/usr/bin/env node\n// OpenClaw ASUS Mesh WiFi Analyzer CLI\n',
+    },
+  });
+  console.log('✓ CLI entrypoint built with shebang');
+
   // Build individual entry points for tree-shaking
   const entryPoints = [
     { in: 'src/index.ts', out: 'index' },
