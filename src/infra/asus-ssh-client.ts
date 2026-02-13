@@ -1,8 +1,12 @@
 import { spawn } from 'child_process';
 import { existsSync } from 'fs';
 import { homedir } from 'os';
-import { join } from 'path';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { EventEmitter } from 'eventemitter3';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 import { createChildLogger } from '../utils/logger.js';
 import { withTimeout, Semaphore } from '../utils/async-helpers.js';
 import { CircuitBreaker, withRetry, type RetryOptions } from '../utils/circuit-breaker.js';
@@ -313,10 +317,31 @@ export class AsusSshClient extends EventEmitter<SshClientEvents> {
       
       // Use sshpass wrapper only if using password auth (not key auth)
       const usePassword = this.config.sshPassword && !this.useKeyAuth;
-      const executable = usePassword ? 'sshpass' : 'ssh';
-      const args = usePassword 
-        ? ['-p', this.config.sshPassword!, 'ssh', ...sshArgs]
-        : sshArgs;
+      
+      // On Windows, use Python helper instead of sshpass (which isn't available)
+      const isWindows = process.platform === 'win32';
+      let executable: string;
+      let args: string[];
+      
+      if (usePassword && isWindows) {
+        // Use Python paramiko helper on Windows
+        executable = 'python';
+        args = [
+          join(__dirname, '..', '..', 'ssh-helper.py'),
+          this.config.host,
+          this.config.sshUser,
+          this.config.sshPassword!,
+          command,
+        ];
+      } else if (usePassword) {
+        // Use sshpass on Linux/Mac
+        executable = 'sshpass';
+        args = ['-p', this.config.sshPassword!, 'ssh', ...sshArgs];
+      } else {
+        // Key-based auth
+        executable = 'ssh';
+        args = sshArgs;
+      }
       
       logger.debug({ host: this.config.host, command: command.substring(0, 50), usePassword }, 'Executing SSH command');
 
