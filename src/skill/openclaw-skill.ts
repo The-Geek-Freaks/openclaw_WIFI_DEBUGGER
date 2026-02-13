@@ -4,6 +4,7 @@ import { loadConfigFromEnv, type Config } from '../config/index.js';
 import { AsusSshClient } from '../infra/asus-ssh-client.js';
 import { HomeAssistantClient } from '../infra/homeassistant-client.js';
 import { SnmpClient } from '../infra/snmp-client.js';
+import { MeshNodePool } from '../infra/mesh-node-pool.js';
 import { NetworkKnowledgeBase } from '../infra/network-knowledge-base.js';
 import { MeshAnalyzer } from '../core/mesh-analyzer.js';
 import { TriangulationEngine } from '../core/triangulation.js';
@@ -35,6 +36,7 @@ export class OpenClawAsusMeshSkill {
   private readonly config: Config;
   private readonly sshClient: AsusSshClient;
   private readonly hassClient: HomeAssistantClient;
+  private nodePool: MeshNodePool | null = null;
   private readonly meshAnalyzer: MeshAnalyzer;
   private readonly triangulation: TriangulationEngine;
   private readonly problemDetector: ProblemDetector;
@@ -122,6 +124,16 @@ export class OpenClawAsusMeshSkill {
       logger.warn({ err }, 'Failed to initialize knowledge base - data persistence disabled');
     }
 
+    // Initialize MeshNodePool for multi-node scanning
+    try {
+      this.nodePool = new MeshNodePool(this.config);
+      await this.nodePool.initialize();
+      this.meshAnalyzer.setNodePool(this.nodePool);
+      logger.info({ nodeCount: this.nodePool.getDiscoveredNodes().length }, 'MeshNodePool initialized - multi-node scanning enabled');
+    } catch (err) {
+      logger.warn({ err }, 'Failed to initialize MeshNodePool - falling back to single-node scanning');
+    }
+
     this.initialized = true;
     logger.info('Skill initialized successfully');
   }
@@ -151,6 +163,14 @@ export class OpenClawAsusMeshSkill {
       await this.knowledgeBase.shutdown();
     } catch (err) {
       logger.warn({ err }, 'Error shutting down knowledge base');
+    }
+
+    if (this.nodePool) {
+      try {
+        await this.nodePool.shutdown();
+      } catch (err) {
+        logger.warn({ err }, 'Error shutting down MeshNodePool');
+      }
     }
 
     this.initialized = false;

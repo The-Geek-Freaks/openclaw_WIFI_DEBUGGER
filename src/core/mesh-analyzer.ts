@@ -3,6 +3,7 @@ import { createChildLogger } from '../utils/logger.js';
 import { normalizeMac, getVendorFromMac } from '../utils/mac.js';
 import { rssiToQuality } from '../utils/frequency.js';
 import type { AsusSshClient } from '../infra/asus-ssh-client.js';
+import type { MeshNodePool } from '../infra/mesh-node-pool.js';
 import type { 
   MeshNode, 
   NetworkDevice, 
@@ -26,6 +27,7 @@ const MAX_CONNECTION_EVENTS = 500;
 
 export class MeshAnalyzer extends EventEmitter<MeshAnalyzerEvents> {
   private readonly sshClient: AsusSshClient;
+  private nodePool: MeshNodePool | null = null;
   private currentState: MeshNetworkState | null = null;
   private signalHistory: Map<string, SignalMeasurement[]> = new Map();
   private connectionEvents: ConnectionEvent[] = [];
@@ -36,6 +38,11 @@ export class MeshAnalyzer extends EventEmitter<MeshAnalyzerEvents> {
     super();
     this.sshClient = sshClient;
     this.startCleanupInterval();
+  }
+
+  setNodePool(nodePool: MeshNodePool): void {
+    this.nodePool = nodePool;
+    logger.info('MeshNodePool attached - multi-node scanning enabled');
   }
 
   private startCleanupInterval(): void {
@@ -228,32 +235,125 @@ export class MeshAnalyzer extends EventEmitter<MeshAnalyzerEvents> {
       logger.warn({ err }, 'Failed to parse DHCP leases');
     }
 
+    // Scan wireless clients from ALL mesh nodes if pool is available
+    if (this.nodePool) {
+      await this.scanWirelessFromAllNodes(devices);
+    } else {
+      // Fallback: scan only from main router
+      await this.scanWirelessFromMain(devices);
+    }
+
+    return Array.from(devices.values());
+  }
+
+  private async scanWirelessFromMain(devices: Map<string, NetworkDevice>): Promise<void> {
     try {
       const wirelessClients = await this.sshClient.getWirelessClients();
       const macMatches = wirelessClients.match(/([0-9A-Fa-f:]{17})/g) ?? [];
       
       const allSignals = await this.sshClient.getAllClientSignals();
-      logger.debug({ signalCount: allSignals.size }, 'Collected client signal strengths');
+      logger.debug({ signalCount: allSignals.size }, 'Collected client signal strengths from main');
 
       for (const mac of macMatches) {
         const normalizedMac = normalizeMac(mac);
         if (devices.has(normalizedMac)) {
           const device = devices.get(normalizedMac)!;
           device.connectionType = 'wireless_5g';
+          device.connectedToNode = 'main';
           
           const rssi = allSignals.get(normalizedMac);
           if (rssi !== undefined) {
             device.signalStrength = rssi;
             this.recordSignalMeasurement(normalizedMac, 'main', rssi);
-            logger.debug({ mac: normalizedMac, rssi }, 'Signal strength recorded');
           }
         }
       }
     } catch (err) {
-      logger.warn({ err }, 'Failed to get wireless clients');
+      logger.warn({ err }, 'Failed to get wireless clients from main');
+    }
+  }
+
+  private async scanWirelessFromAllNodes(devices: Map<string, NetworkDevice>): Promise<void> {
+    if (!this.nodePool) return;
+
+    const nodes = this.nodePool.getDiscoveredNodes();
+    logger.info({ nodeCount: nodes.length }, 'Scanning wireless clients from all mesh nodes');
+
+    for (const node of nodes) {
+      try {
+        // Get wireless interface names dynamically
+        const wl0Ifname = node.isMainRouter 
+          ? (await this.nodePool.executeOnNode(node.id, 'nvram get wl0_ifname 2>/dev/null')).trim() || 'eth6'
+          : 'eth6';
+        const wl1Ifname = node.isMainRouter
+          ? (await this.nodePool.executeOnNode(node.id, 'nvram get wl1_ifname 2>/dev/null')).trim() || 'eth7'
+          : 'eth7';
+
+        // Get wireless clients from this node (2.4GHz and 5GHz)
+        const assocCmd = `wl -i ${wl0Ifname} assoclist 2>/dev/null; wl -i ${wl1Ifname} assoclist 2>/dev/null`;
+        const assocOutput = await this.nodePool.executeOnNode(node.id, assocCmd);
+        const macMatches = assocOutput.match(/([0-9A-Fa-f:]{17})/g) ?? [];
+
+        // Get signal strengths from this node
+        const signalMap = new Map<string, number>();
+        for (const iface of [wl0Ifname, wl1Ifname]) {
+          try {
+            const rssiCmd = `wl -i ${iface} rssi_per_sta 2>/dev/null || for mac in $(wl -i ${iface} assoclist 2>/dev/null | awk '{print $2}'); do echo "$mac $(wl -i ${iface} rssi $mac 2>/dev/null)"; done`;
+            const rssiOutput = await this.nodePool.executeOnNode(node.id, rssiCmd);
+            
+            for (const line of rssiOutput.split('\n')) {
+              const match = line.match(/([0-9A-Fa-f:]{17})\s+(-?\d+)/);
+              if (match) {
+                const mac = normalizeMac(match[1]!);
+                const rssi = parseInt(match[2]!, 10);
+                if (!isNaN(rssi)) {
+                  signalMap.set(mac, rssi);
+                }
+              }
+            }
+          } catch {
+            // Interface might not exist on this node
+          }
+        }
+
+        logger.debug({ 
+          nodeId: node.id, 
+          nodeName: node.name,
+          clientCount: macMatches.length,
+          signalCount: signalMap.size 
+        }, 'Collected wireless clients from node');
+
+        // Update devices with connection info from this node
+        for (const mac of macMatches) {
+          const normalizedMac = normalizeMac(mac);
+          
+          if (devices.has(normalizedMac)) {
+            const device = devices.get(normalizedMac)!;
+            const rssi = signalMap.get(normalizedMac);
+            
+            // Only update if this node has a stronger signal or device wasn't wireless before
+            if (device.connectionType === 'wired' || 
+                (rssi !== undefined && (device.signalStrength === undefined || rssi > device.signalStrength))) {
+              device.connectionType = 'wireless_5g';
+              device.connectedToNode = node.macAddress || node.id;
+              
+              if (rssi !== undefined) {
+                device.signalStrength = rssi;
+                this.recordSignalMeasurement(normalizedMac, node.macAddress || node.id, rssi);
+              }
+            } else if (rssi !== undefined) {
+              // Record measurement even if not the strongest - useful for triangulation
+              this.recordSignalMeasurement(normalizedMac, node.macAddress || node.id, rssi);
+            }
+          }
+        }
+      } catch (err) {
+        logger.warn({ err, nodeId: node.id }, 'Failed to scan wireless clients from node');
+      }
     }
 
-    return Array.from(devices.values());
+    const wirelessCount = Array.from(devices.values()).filter(d => d.connectionType !== 'wired').length;
+    logger.info({ wirelessCount, totalDevices: devices.size }, 'Multi-node wireless scan complete');
   }
 
   private async getWifiSettings(): Promise<WifiSettings[]> {
