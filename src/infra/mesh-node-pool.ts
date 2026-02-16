@@ -259,7 +259,6 @@ export class MeshNodePool {
       const cfgDeviceList = await this.executeOnMain('nvram get cfg_device_list');
       const amasWlcConnect = await this.executeOnMain('nvram get amas_wlcconnect');
       const reList = await this.executeOnMain('nvram get re_list');
-      const _cfgAlias = await this.executeOnMain('nvram get cfg_alias');
       
       logger.debug({ 
         cfgClientList: cfgClientList.substring(0, 100), 

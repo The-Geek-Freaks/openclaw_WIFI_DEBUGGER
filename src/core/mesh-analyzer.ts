@@ -601,6 +601,25 @@ export class MeshAnalyzer extends EventEmitter<MeshAnalyzerEvents> {
           ofdma: parseBoolean(nvram['wl2_ofdma']),
         });
       }
+
+      // A9 Fix: Add 6GHz band support (wl3)
+      if (nvram['wl3_ssid'] && nvram['wl3_ssid'].trim() !== '') {
+        settings.push({
+          ssid: nvram['wl3_ssid'],
+          band: '6GHz',
+          channel: parseChannel(nvram['wl3_channel']),
+          channelWidth: parseBandwidth(nvram['wl3_bw'], 160),
+          txPower: parseChannel(nvram['wl3_txpower']) || 100,
+          standard: '802.11ax',
+          security: parseSecurityMode(nvram['wl3_auth_mode_x'], nvram['wl3_crypto'], nvram['wl3_mfp']),
+          bandSteering: nvram['wl3_bsd_steering_policy'] !== '0' && nvram['wl3_bsd_steering_policy'] !== '',
+          smartConnect: nvram['smart_connect_x'] === '1',
+          roamingAssistant: parseBoolean(nvram['wl3_rast']),
+          beamforming: parseBoolean(nvram['wl3_txbf']) || parseBoolean(nvram['wl3_itxbf']),
+          muMimo: parseBoolean(nvram['wl3_mumimo']),
+          ofdma: parseBoolean(nvram['wl3_ofdma']),
+        });
+      }
     } catch (err) {
       logger.error({ err }, 'Failed to get WiFi settings');
     }
