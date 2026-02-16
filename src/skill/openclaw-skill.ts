@@ -118,6 +118,14 @@ export class OpenClawAsusMeshSkill {
     // Load persisted state from SkillStateStore
     this.loadStateFromStore();
 
+    // Initialize KnowledgeBase for device tracking
+    try {
+      await this.knowledgeBase.initialize();
+      logger.info('Knowledge base loaded');
+    } catch (err) {
+      logger.warn({ err }, 'Failed to initialize knowledge base');
+    }
+
     this.initialized = true;
     logger.info('Skill initialized (SSH connection deferred until needed)');
   }
