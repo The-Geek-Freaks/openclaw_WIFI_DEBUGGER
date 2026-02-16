@@ -283,6 +283,10 @@ export class AsusSshClient extends EventEmitter<SshClientEvents> {
     }
   }
 
+  getDetectedInterfaces(): { wl0?: string | undefined; wl1?: string | undefined; wl2?: string | undefined; wl3?: string | undefined } {
+    return { ...this.detectedInterfaces };
+  }
+
   private buildSshArgs(): string[] {
     const args: string[] = [
       '-o', 'StrictHostKeyChecking=no',
@@ -662,6 +666,30 @@ export class AsusSshClient extends EventEmitter<SshClientEvents> {
       'nvram get wl1_ofdma',
       'nvram get wl0_11ax',
       'nvram get wl1_11ax',
+      'nvram get wl0_txbf',
+      'nvram get wl1_txbf',
+      'nvram get wl0_itxbf',
+      'nvram get wl1_itxbf',
+      'nvram get wl0_rast',
+      'nvram get wl1_rast',
+      'nvram get wl0_auth_mode_x',
+      'nvram get wl1_auth_mode_x',
+      'nvram get wl0_crypto',
+      'nvram get wl1_crypto',
+      'nvram get wl0_mfp',
+      'nvram get wl1_mfp',
+      'nvram get wl2_ssid',
+      'nvram get wl2_channel',
+      'nvram get wl2_bw',
+      'nvram get wl2_txpower',
+      'nvram get wl2_mumimo',
+      'nvram get wl2_ofdma',
+      'nvram get wl2_txbf',
+      'nvram get wl2_itxbf',
+      'nvram get wl2_rast',
+      'nvram get wl2_bsd_steering_policy',
+      'nvram get wl2_auth_mode_x',
+      'nvram get wl2_crypto',
     ];
 
     const result: Record<string, string> = {};

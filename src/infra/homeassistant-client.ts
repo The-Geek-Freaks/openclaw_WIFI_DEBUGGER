@@ -227,18 +227,56 @@ export class HomeAssistantClient extends EventEmitter<HassClientEvents> {
   }
 
   async getZigbeeNetworkMap(): Promise<{
-    nodes: Array<{ ieee: string; friendly_name: string; type: string }>;
+    nodes: Array<{ ieee: string; friendly_name: string; type: string; lqi: number; available: boolean }>;
     links: Array<{ source: string; target: string; lqi: number }>;
   }> {
     const devices = await this.getZhaDevices();
+    const coordinator = devices.find(d => d.device_type === 'Coordinator');
+    const routers = devices.filter(d => d.device_type === 'Router');
+    
+    const links: Array<{ source: string; target: string; lqi: number }> = [];
+    
+    for (const router of routers) {
+      if (coordinator) {
+        links.push({
+          source: coordinator.ieee,
+          target: router.ieee,
+          lqi: router.lqi ?? 0,
+        });
+      }
+    }
+    
+    for (const device of devices) {
+      if (device.device_type === 'Coordinator' || device.device_type === 'Router') continue;
+      
+      let bestParent = coordinator;
+      let bestLqi = 0;
+      
+      for (const router of routers) {
+        if ((router.lqi ?? 0) > bestLqi && router.available) {
+          bestLqi = router.lqi ?? 0;
+          bestParent = router;
+        }
+      }
+      
+      if (bestParent) {
+        links.push({
+          source: bestParent.ieee,
+          target: device.ieee,
+          lqi: device.lqi ?? 0,
+        });
+      }
+    }
     
     return {
       nodes: devices.map(d => ({
         ieee: d.ieee,
         friendly_name: d.name,
         type: d.device_type,
+        lqi: d.lqi ?? 0,
+        available: d.available,
       })),
-      links: [],
+      links,
     };
   }
 

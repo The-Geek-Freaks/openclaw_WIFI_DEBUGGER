@@ -414,6 +414,26 @@ export const SkillActionSchema = z.discriminatedUnion('action', [
       floorNumber: z.number().default(0),
     }).optional(),
   }),
+  z.object({
+    action: z.literal('get_state_stats'),
+    params: z.object({}).optional(),
+  }),
+  z.object({
+    action: z.literal('cleanup_state'),
+    params: z.object({}).optional(),
+  }),
+  z.object({
+    action: z.literal('help'),
+    params: z.object({
+      action: z.string().optional(),
+    }).optional(),
+  }),
+  z.object({
+    action: z.literal('find_device'),
+    params: z.object({
+      query: z.string(),
+    }),
+  }),
 ]);
 
 export type SkillAction = z.infer<typeof SkillActionSchema>;

@@ -62,6 +62,8 @@ export const Zigbee2MqttDeviceSchema = z.object({
   power_source: z.string().optional(),
   interviewing: z.boolean(),
   interview_completed: z.boolean(),
+  linkquality: z.number().optional(),
+  last_seen: z.string().optional(),
 });
 export type Zigbee2MqttDevice = z.infer<typeof Zigbee2MqttDeviceSchema>;
 

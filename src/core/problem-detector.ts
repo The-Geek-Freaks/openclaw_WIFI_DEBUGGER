@@ -234,6 +234,126 @@ export class ProblemDetector {
       });
     }
 
+    problems.push(...this.detectZigbeeDeviceProblems(zigbeeState));
+    problems.push(...this.detectZigbeeNetworkProblems(zigbeeState));
+
+    return problems;
+  }
+
+  private detectZigbeeDeviceProblems(zigbeeState: ZigbeeNetworkState): NetworkProblem[] {
+    const problems: NetworkProblem[] = [];
+
+    for (const device of zigbeeState.devices) {
+      if (device.type === 'coordinator') continue;
+
+      if (!device.available) {
+        problems.push({
+          id: `zigbee-unavailable-${device.ieeeAddress}`,
+          category: 'signal_weakness',
+          severity: 'error',
+          affectedDevices: [device.ieeeAddress],
+          affectedNodes: [],
+          description: `Zigbee device "${device.friendlyName ?? device.ieeeAddress}" is unavailable`,
+          rootCause: 'Device may be offline, out of range, or have depleted battery',
+          recommendation: 'Check device power, move closer to a router, or add a Zigbee router nearby',
+          autoFixAvailable: false,
+          detectedAt: new Date(),
+        });
+      }
+
+      if (device.lqi < 50 && device.lqi > 0) {
+        problems.push({
+          id: `zigbee-weak-lqi-${device.ieeeAddress}`,
+          category: 'signal_weakness',
+          severity: device.lqi < 25 ? 'error' : 'warning',
+          affectedDevices: [device.ieeeAddress],
+          affectedNodes: [],
+          description: `Zigbee device "${device.friendlyName ?? device.ieeeAddress}" has weak link quality (LQI: ${device.lqi})`,
+          rootCause: 'Device is too far from coordinator or nearest router',
+          recommendation: 'Add a Zigbee router (smart plug, bulb) between this device and coordinator',
+          autoFixAvailable: false,
+          detectedAt: new Date(),
+        });
+      }
+
+      if (device.lastSeen) {
+        const hoursSinceLastSeen = (Date.now() - device.lastSeen.getTime()) / (1000 * 60 * 60);
+        if (hoursSinceLastSeen > 24 && device.available) {
+          problems.push({
+            id: `zigbee-stale-${device.ieeeAddress}`,
+            category: 'roaming_issue',
+            severity: 'warning',
+            affectedDevices: [device.ieeeAddress],
+            affectedNodes: [],
+            description: `Zigbee device "${device.friendlyName ?? device.ieeeAddress}" not seen for ${Math.round(hoursSinceLastSeen)} hours`,
+            rootCause: 'Device may be sleeping, disconnected, or have communication issues',
+            recommendation: 'Trigger the device manually or check its battery/power',
+            autoFixAvailable: false,
+            detectedAt: new Date(),
+          });
+        }
+      }
+    }
+
+    return problems;
+  }
+
+  private detectZigbeeNetworkProblems(zigbeeState: ZigbeeNetworkState): NetworkProblem[] {
+    const problems: NetworkProblem[] = [];
+
+    const routers = zigbeeState.devices.filter(d => d.type === 'router');
+    const endDevices = zigbeeState.devices.filter(d => d.type === 'end_device');
+    const unavailableCount = zigbeeState.devices.filter(d => !d.available && d.type !== 'coordinator').length;
+
+    if (routers.length === 0 && endDevices.length > 5) {
+      problems.push({
+        id: 'zigbee-no-routers',
+        category: 'configuration_error',
+        severity: 'warning',
+        affectedDevices: [],
+        affectedNodes: [],
+        description: `Zigbee network has ${endDevices.length} end devices but no routers`,
+        rootCause: 'All devices connect directly to coordinator, limiting range and reliability',
+        recommendation: 'Add Zigbee routers (mains-powered devices like smart plugs or bulbs) to extend network',
+        autoFixAvailable: false,
+        detectedAt: new Date(),
+      });
+    }
+
+    if (unavailableCount > zigbeeState.devices.length * 0.3 && zigbeeState.devices.length > 5) {
+      problems.push({
+        id: 'zigbee-high-unavailability',
+        category: 'capacity_exceeded',
+        severity: 'error',
+        affectedDevices: zigbeeState.devices.filter(d => !d.available).map(d => d.ieeeAddress),
+        affectedNodes: [],
+        description: `${unavailableCount} of ${zigbeeState.devices.length} Zigbee devices are unavailable (${Math.round(unavailableCount / zigbeeState.devices.length * 100)}%)`,
+        rootCause: 'Network may be overloaded, have interference, or coordinator issues',
+        recommendation: 'Check coordinator health, add routers, or investigate WiFi interference',
+        autoFixAvailable: false,
+        detectedAt: new Date(),
+      });
+    }
+
+    const avgLqi = zigbeeState.devices.length > 0 
+      ? zigbeeState.devices.reduce((sum, d) => sum + d.lqi, 0) / zigbeeState.devices.length 
+      : 0;
+    
+    if (avgLqi < 100 && avgLqi > 0 && zigbeeState.devices.length > 3) {
+      problems.push({
+        id: 'zigbee-low-avg-lqi',
+        category: 'signal_weakness',
+        severity: avgLqi < 50 ? 'error' : 'warning',
+        affectedDevices: [],
+        affectedNodes: [],
+        description: `Zigbee network has low average link quality (LQI: ${Math.round(avgLqi)})`,
+        rootCause: 'Devices are generally far from routers or experiencing interference',
+        recommendation: 'Add more Zigbee routers and check for WiFi/Zigbee channel conflicts',
+        autoFixAvailable: false,
+        detectedAt: new Date(),
+      });
+    }
+
     return problems;
   }
 
@@ -243,7 +363,7 @@ export class ProblemDetector {
     for (const settings of state.wifiSettings) {
       if (settings.band === '2.4GHz' && ![1, 6, 11].includes(settings.channel)) {
         problems.push({
-          id: `config-2g-channel`,
+          id: `config-2g-channel-${settings.channel}`,
           category: 'configuration_error',
           severity: 'warning',
           affectedDevices: [],
@@ -265,7 +385,82 @@ export class ProblemDetector {
           affectedNodes: [],
           description: `Beamforming is disabled on ${settings.band}`,
           rootCause: 'Beamforming improves signal quality for compatible devices',
-          recommendation: 'Enable beamforming for better performance',
+          recommendation: 'Enable beamforming via nvram set wl0_txbf=1 / wl1_txbf=1',
+          autoFixAvailable: true,
+          detectedAt: new Date(),
+        });
+      }
+
+      if (!settings.muMimo) {
+        problems.push({
+          id: `config-mumimo-${settings.band}`,
+          category: 'configuration_error',
+          severity: 'info',
+          affectedDevices: [],
+          affectedNodes: [],
+          description: `MU-MIMO is disabled on ${settings.band}`,
+          rootCause: 'MU-MIMO enables simultaneous communication with multiple devices',
+          recommendation: 'Enable MU-MIMO via nvram set wl0_mumimo=1 / wl1_mumimo=1',
+          autoFixAvailable: true,
+          detectedAt: new Date(),
+        });
+      }
+
+      if (settings.ofdma === false) {
+        problems.push({
+          id: `config-ofdma-${settings.band}`,
+          category: 'configuration_error',
+          severity: 'info',
+          affectedDevices: [],
+          affectedNodes: [],
+          description: `OFDMA is disabled on ${settings.band}`,
+          rootCause: 'OFDMA improves efficiency with many devices (WiFi 6 feature)',
+          recommendation: 'Enable OFDMA via nvram set wl0_ofdma=1 / wl1_ofdma=1',
+          autoFixAvailable: true,
+          detectedAt: new Date(),
+        });
+      }
+
+      if (settings.band === '5GHz' && settings.channelWidth < 80) {
+        problems.push({
+          id: `config-5g-width-${settings.channelWidth}`,
+          category: 'configuration_error',
+          severity: 'warning',
+          affectedDevices: [],
+          affectedNodes: [],
+          description: `5GHz uses narrow ${settings.channelWidth}MHz channel width`,
+          rootCause: 'Narrow channel width limits maximum throughput',
+          recommendation: 'Use 80MHz or 160MHz channel width for 5GHz',
+          autoFixAvailable: true,
+          detectedAt: new Date(),
+        });
+      }
+
+      if (settings.security === 'WPA' || settings.security === 'Open' || settings.security === 'Unknown') {
+        problems.push({
+          id: `config-security-${settings.band}`,
+          category: 'configuration_error',
+          severity: settings.security === 'Open' ? 'critical' : 'error',
+          affectedDevices: [],
+          affectedNodes: [],
+          description: `${settings.band} uses weak security: ${settings.security}`,
+          rootCause: 'Weak or no encryption exposes network to attacks',
+          recommendation: 'Upgrade to WPA2 or WPA3 for better security',
+          autoFixAvailable: true,
+          detectedAt: new Date(),
+        });
+      }
+
+      if (!settings.roamingAssistant && state.nodes.length > 1) {
+        problems.push({
+          id: `config-roaming-${settings.band}`,
+          category: 'configuration_error',
+          severity: 'warning',
+          affectedDevices: [],
+          affectedNodes: [],
+          description: `Roaming Assistant is disabled on ${settings.band}`,
+          rootCause: 'Without roaming assistant, devices may stick to weak signals',
+          recommendation: 'Enable Roaming Assistant for better mesh handoff',
           autoFixAvailable: true,
           detectedAt: new Date(),
         });
@@ -294,16 +489,46 @@ export class ProblemDetector {
         });
       }
 
-      if (node.cpuUsage > 80) {
+      if (node.cpuUsage > 95) {
         problems.push({
           id: `capacity-cpu-${node.id}`,
           category: 'capacity_exceeded',
-          severity: node.cpuUsage > 95 ? 'critical' : 'warning',
+          severity: 'warning',
           affectedDevices: [],
           affectedNodes: [node.id],
-          description: `Node ${node.name} has high CPU usage (${node.cpuUsage}%)`,
-          rootCause: 'Router is overloaded',
-          recommendation: 'Reduce traffic or upgrade hardware',
+          description: `Node ${node.name} has sustained high CPU usage (${node.cpuUsage}%)`,
+          rootCause: 'Router may be overloaded (note: CPU spikes during scans are normal)',
+          recommendation: 'If this persists outside of scans, reduce traffic or disable unused services',
+          autoFixAvailable: false,
+          detectedAt: new Date(),
+        });
+      }
+
+      if (node.memoryUsage > 85) {
+        problems.push({
+          id: `capacity-memory-${node.id}`,
+          category: 'capacity_exceeded',
+          severity: node.memoryUsage > 95 ? 'critical' : 'warning',
+          affectedDevices: [],
+          affectedNodes: [node.id],
+          description: `Node ${node.name} has high memory usage (${node.memoryUsage}%)`,
+          rootCause: 'Router memory is nearly exhausted',
+          recommendation: 'Reboot router or reduce connected clients',
+          autoFixAvailable: false,
+          detectedAt: new Date(),
+        });
+      }
+
+      if (node.uptime > 30 * 24 * 60 * 60) {
+        problems.push({
+          id: `uptime-extended-${node.id}`,
+          category: 'configuration_error',
+          severity: 'info',
+          affectedDevices: [],
+          affectedNodes: [node.id],
+          description: `Node ${node.name} has been running for ${Math.floor(node.uptime / 86400)} days`,
+          rootCause: 'Extended uptime may cause memory leaks or performance degradation',
+          recommendation: 'Consider scheduling periodic reboots',
           autoFixAvailable: false,
           detectedAt: new Date(),
         });

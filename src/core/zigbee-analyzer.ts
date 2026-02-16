@@ -81,8 +81,9 @@ export class ZigbeeAnalyzer {
             powerSource: device.power_source === 'Battery' ? 'battery'
                        : device.power_source === 'Mains' ? 'mains'
                        : 'unknown',
-            lqi: 0,
-            available: !device.disabled,
+            lqi: device.linkquality ?? 0,
+            lastSeen: device.last_seen ? new Date(device.last_seen) : undefined,
+            available: !device.disabled && !device.interviewing,
           });
         }
       } catch (z2mErr) {
@@ -126,22 +127,88 @@ export class ZigbeeAnalyzer {
     }
 
     for (const endDevice of endDevices) {
-      let bestRouter = coordinator;
-      let bestLqi = 0;
-
-      for (const router of routers) {
-        if (router.lqi > bestLqi) {
-          bestLqi = router.lqi;
-          bestRouter = router;
-        }
-      }
-
+      const parentRouter = this.findBestParentForDevice(endDevice, routers, coordinator);
+      
       links.push({
-        source: bestRouter.ieeeAddress,
+        source: parentRouter.ieeeAddress,
         target: endDevice.ieeeAddress,
         lqi: endDevice.lqi,
-        depth: bestRouter === coordinator ? 1 : 2,
+        depth: parentRouter === coordinator ? 1 : 2,
       });
+    }
+
+    return links;
+  }
+
+  private findBestParentForDevice(
+    device: ZigbeeDevice, 
+    routers: ZigbeeDevice[], 
+    coordinator: ZigbeeDevice
+  ): ZigbeeDevice {
+    if (routers.length === 0) return coordinator;
+    
+    if (device.lqi >= 200) {
+      return coordinator;
+    }
+    
+    const availableRouters = routers.filter(r => r.available && r.lqi > 100);
+    if (availableRouters.length === 0) return coordinator;
+    
+    const sortedRouters = [...availableRouters].sort((a, b) => b.lqi - a.lqi);
+    return sortedRouters[0] ?? coordinator;
+  }
+
+  async buildNetworkTopologyWithNeighbors(): Promise<ZigbeeLink[]> {
+    const links: ZigbeeLink[] = [];
+    
+    if (!this.currentState) return links;
+    
+    const devices = this.currentState.devices;
+    const coordinator = devices.find(d => d.type === 'coordinator');
+    
+    if (!coordinator) return links;
+
+    for (const device of devices) {
+      if (device.type === 'coordinator') continue;
+      
+      try {
+        const details = await this.hassClient.getZhaDeviceDetails(device.ieeeAddress);
+        
+        if (details.neighbors && details.neighbors.length > 0) {
+          for (const neighbor of details.neighbors) {
+            links.push({
+              source: neighbor.ieee,
+              target: device.ieeeAddress,
+              lqi: neighbor.lqi,
+              depth: neighbor.depth,
+            });
+          }
+        } else {
+          const parent = this.findBestParentForDevice(
+            device, 
+            devices.filter(d => d.type === 'router'), 
+            coordinator
+          );
+          links.push({
+            source: parent.ieeeAddress,
+            target: device.ieeeAddress,
+            lqi: device.lqi,
+            depth: parent === coordinator ? 1 : 2,
+          });
+        }
+      } catch {
+        const parent = this.findBestParentForDevice(
+          device, 
+          devices.filter(d => d.type === 'router'), 
+          coordinator
+        );
+        links.push({
+          source: parent.ieeeAddress,
+          target: device.ieeeAddress,
+          lqi: device.lqi,
+          depth: parent === coordinator ? 1 : 2,
+        });
+      }
     }
 
     return links;

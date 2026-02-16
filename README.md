@@ -15,7 +15,7 @@
 <h3>🚀 Intelligente Mesh-Netzwerk Analyse & Optimierung für ASUS Router</h3>
 
 <p>
-  <strong>55+ Actions</strong> • <strong>19 Core Modules</strong> • <strong>100+ Vendor OUIs</strong> • <strong>v1.7.0</strong>
+  <strong>60+ Actions</strong> • <strong>20 Core Modules</strong> • <strong>100+ Vendor OUIs</strong> • <strong>v1.8.0</strong>
 </p>
 
 ![Node.js](https://img.shields.io/badge/Node.js-18%2B-green?style=for-the-badge&logo=node.js)

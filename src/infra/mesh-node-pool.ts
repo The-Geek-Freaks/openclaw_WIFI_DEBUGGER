@@ -2,6 +2,7 @@ import { spawn } from 'child_process';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { createChildLogger } from '../utils/logger.js';
+import { normalizeMac } from '../utils/mac.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -96,8 +97,9 @@ export class MeshNodePool {
   }
 
   private buildSshArgs(host: string): string[] {
+    const useKeyAuth = !!this.sshKeyPath;
+    
     const args: string[] = [
-      '-o', 'BatchMode=yes',
       '-o', 'StrictHostKeyChecking=no',
       '-o', 'UserKnownHostsFile=/dev/null',
       '-o', 'ConnectTimeout=10',
@@ -107,8 +109,10 @@ export class MeshNodePool {
       '-p', String(this.sshPort),
     ];
 
-    if (this.sshKeyPath) {
-      args.push('-i', this.sshKeyPath);
+    // BatchMode only for key auth - it blocks password prompts
+    if (useKeyAuth) {
+      args.unshift('-o', 'BatchMode=yes');
+      args.push('-i', this.sshKeyPath!);
     }
 
     args.push(`${this.sshUser}@${host}`);
@@ -347,10 +351,11 @@ export class MeshNodePool {
           continue;
         }
 
+        const normalizedNodeMac = normalizeMac(meshEntry.mac);
         const nodeInfo: MeshNodeInfo = {
-          id: `node_${meshEntry.mac.replace(/:/g, '')}`,
-          name: meshEntry.alias || meshEntry.model || `AiMesh Node ${meshEntry.mac}`,
-          macAddress: meshEntry.mac,
+          id: `node_${normalizedNodeMac.replace(/:/g, '')}`,
+          name: meshEntry.alias || meshEntry.model || `AiMesh Node ${normalizedNodeMac}`,
+          macAddress: normalizedNodeMac,
           ipAddress: ip,
           isMainRouter: false,
           firmwareVersion: '',
@@ -453,7 +458,9 @@ export class MeshNodePool {
       const systemInfo = await this.executeOnNode(nodeId, 'nvram show 2>/dev/null | grep -E "^(productid|firmver|buildno)" | head -5');
       const cpuInfo = await this.executeOnNode(nodeId, 'top -bn1 | head -3');
       const memInfo = await this.executeOnNode(nodeId, 'free | grep Mem');
-      const clientCount = await this.executeOnNode(nodeId, 'wl -i eth6 assoclist 2>/dev/null | wc -l; wl -i eth7 assoclist 2>/dev/null | wc -l');
+      const wl0Ifname = (await this.executeOnNode(nodeId, 'nvram get wl0_ifname 2>/dev/null')).trim() || 'eth6';
+      const wl1Ifname = (await this.executeOnNode(nodeId, 'nvram get wl1_ifname 2>/dev/null')).trim() || 'eth7';
+      const clientCount = await this.executeOnNode(nodeId, `wl -i ${wl0Ifname} assoclist 2>/dev/null | wc -l; wl -i ${wl1Ifname} assoclist 2>/dev/null | wc -l`);
       const uptimeOutput = await this.executeOnNode(nodeId, 'cat /proc/uptime');
 
       const lines = systemInfo.split('\n');
@@ -516,15 +523,22 @@ export class MeshNodePool {
 
   async executeOnAllNodes(command: string): Promise<Map<string, string>> {
     const results = new Map<string, string>();
+    const nodeIds = Array.from(this.discoveredNodes.keys());
 
-    for (const nodeId of this.discoveredNodes.keys()) {
+    // C5 Fix: Execute in parallel instead of serial for better performance
+    const promises = nodeIds.map(async (nodeId) => {
       try {
         const result = await this.executeOnNode(nodeId, command);
-        results.set(nodeId, result);
+        return { nodeId, result, error: null };
       } catch (err) {
         logger.warn({ err, nodeId }, 'Failed to execute on node');
-        results.set(nodeId, `ERROR: ${err}`);
+        return { nodeId, result: `ERROR: ${err}`, error: err };
       }
+    });
+
+    const outcomes = await Promise.all(promises);
+    for (const { nodeId, result } of outcomes) {
+      results.set(nodeId, result);
     }
 
     return results;

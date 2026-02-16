@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const WifiBandSchema = z.enum(['2.4GHz', '5GHz', '6GHz']);
+export const WifiBandSchema = z.enum(['2.4GHz', '5GHz', '5GHz-2', '6GHz']);
 export type WifiBand = z.infer<typeof WifiBandSchema>;
 
 export const WifiStandardSchema = z.enum(['802.11a', '802.11b', '802.11g', '802.11n', '802.11ac', '802.11ax']);

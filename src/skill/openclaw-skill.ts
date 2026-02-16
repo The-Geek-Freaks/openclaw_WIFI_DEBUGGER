@@ -1,5 +1,7 @@
 import { createChildLogger, logSkillAction, getCurrentLogFile } from '../utils/logger.js';
+import { compareMac } from '../utils/mac.js';
 import { metrics } from '../utils/metrics.js';
+import { SkillStateStore } from '../infra/skill-state-store.js';
 import { loadConfigFromEnv, type Config } from '../config/index.js';
 import { AsusSshClient } from '../infra/asus-ssh-client.js';
 import { HomeAssistantClient } from '../infra/homeassistant-client.js';
@@ -57,6 +59,7 @@ export class OpenClawAsusMeshSkill {
   private readonly realTriangulation: RealTriangulationEngine;
   private readonly geoLocationService: GeoLocationService;
   private readonly wallDetector: WallDetector;
+  private readonly stateStore: SkillStateStore;
   
   private meshState: MeshNetworkState | null = null;
   private zigbeeState: ZigbeeNetworkState | null = null;
@@ -100,6 +103,7 @@ export class OpenClawAsusMeshSkill {
     this.realTriangulation = new RealTriangulationEngine();
     this.geoLocationService = new GeoLocationService();
     this.wallDetector = new WallDetector();
+    this.stateStore = new SkillStateStore();
     
     // Connect MeshAnalyzer to RealTriangulationEngine for signal forwarding
     this.meshAnalyzer.setTriangulationEngine(this.realTriangulation);
@@ -111,15 +115,64 @@ export class OpenClawAsusMeshSkill {
     // SSH connection is now LAZY - only connect when an action needs it
     // This allows local-only actions (set_node_position_3d, set_house_config, etc.) to work without SSH
     
-    try {
-      await this.knowledgeBase.initialize();
-      logger.info('Knowledge base loaded');
-    } catch (err) {
-      logger.warn({ err }, 'Failed to initialize knowledge base - data persistence disabled');
-    }
+    // Load persisted state from SkillStateStore
+    this.loadStateFromStore();
 
     this.initialized = true;
     logger.info('Skill initialized (SSH connection deferred until needed)');
+  }
+
+  private loadStateFromStore(): void {
+    // Restore mesh state
+    const meshState = this.stateStore.getMeshState();
+    if (meshState) {
+      this.meshState = meshState;
+      logger.info({ nodes: meshState.nodes.length, devices: meshState.devices.length }, 'Restored mesh state from store');
+    }
+
+    // Restore zigbee state
+    const zigbeeState = this.stateStore.getZigbeeState();
+    if (zigbeeState) {
+      this.zigbeeState = zigbeeState;
+      logger.info({ devices: zigbeeState.devices.length }, 'Restored zigbee state from store');
+    }
+
+    // Restore node positions to RealTriangulationEngine
+    const nodePositions = this.stateStore.getNodePositions();
+    for (const pos of nodePositions) {
+      this.realTriangulation.setNodePosition(pos);
+    }
+    if (nodePositions.length > 0) {
+      logger.info({ count: nodePositions.length }, 'Restored node positions from store');
+    }
+
+    // Restore house config
+    const houseConfig = this.stateStore.getHouseConfig();
+    if (houseConfig) {
+      this.realTriangulation.setHouseConfig(houseConfig);
+      logger.info('Restored house config from store');
+    }
+
+    // Restore signal measurements to RealTriangulationEngine
+    const signalMeasurements = this.stateStore.getTriangulationSignalMeasurements();
+    for (const [deviceMac, measurements] of Object.entries(signalMeasurements)) {
+      for (const m of measurements) {
+        this.realTriangulation.recordSignalMeasurement(deviceMac, m.nodeMac, m.rssi);
+      }
+    }
+
+    // Restore geo location
+    const geoData = this.stateStore.getGeoLocation();
+    if (geoData) {
+      this.geoLocationService.importPropertyData(geoData as Parameters<typeof this.geoLocationService.importPropertyData>[0]);
+      logger.info('Restored geo location from store');
+    }
+
+    // Restore pending optimizations
+    const pending = this.stateStore.getPendingOptimizations();
+    for (const { id, suggestion } of pending) {
+      this.pendingOptimizations.set(id, suggestion);
+    }
   }
 
   /**
@@ -168,6 +221,10 @@ export class OpenClawAsusMeshSkill {
   async shutdown(): Promise<void> {
     logger.info('Shutting down skill');
     
+    // Save state before shutdown
+    this.saveStateToStore();
+    this.stateStore.shutdown();
+    
     try {
       this.meshAnalyzer.destroy();
     } catch (err) {
@@ -186,12 +243,6 @@ export class OpenClawAsusMeshSkill {
       logger.warn({ err }, 'Error disconnecting Home Assistant');
     }
 
-    try {
-      await this.knowledgeBase.shutdown();
-    } catch (err) {
-      logger.warn({ err }, 'Error shutting down knowledge base');
-    }
-
     if (this.nodePool) {
       try {
         await this.nodePool.shutdown();
@@ -202,6 +253,43 @@ export class OpenClawAsusMeshSkill {
 
     this.initialized = false;
     logger.info('Skill shutdown complete');
+  }
+
+  private saveStateToStore(): void {
+    // Save mesh state
+    if (this.meshState) {
+      this.stateStore.setMeshState(this.meshState);
+    }
+
+    // Save zigbee state
+    if (this.zigbeeState) {
+      this.stateStore.setZigbeeState(this.zigbeeState);
+    }
+
+    // Save node positions from RealTriangulationEngine
+    const nodePositions = this.realTriangulation.getNodePositions();
+    for (const pos of nodePositions) {
+      this.stateStore.setNodePosition(pos);
+    }
+
+    // Save house config
+    const houseConfig = this.realTriangulation.getHouseConfig();
+    if (houseConfig) {
+      this.stateStore.setHouseConfig(houseConfig);
+    }
+
+    // Save geo location
+    const propertyData = this.geoLocationService.exportPropertyData();
+    if (propertyData) {
+      this.stateStore.setGeoLocation(propertyData);
+    }
+
+    // Save pending optimizations
+    for (const [id, suggestion] of this.pendingOptimizations) {
+      this.stateStore.addPendingOptimization(id, suggestion);
+    }
+
+    logger.info('State saved to store');
   }
 
   registerShutdownHandlers(): void {
@@ -524,6 +612,18 @@ export class OpenClawAsusMeshSkill {
         case 'get_knowledge_stats':
           return this.handleGetKnowledgeStats();
         
+        case 'get_state_stats':
+          return this.handleGetStateStats();
+        
+        case 'cleanup_state':
+          return this.handleCleanupState();
+        
+        case 'help':
+          return this.handleHelp(action.params?.action);
+        
+        case 'find_device':
+          return this.handleFindDevice(action.params.query);
+        
         case 'get_known_devices':
           return this.handleGetKnownDevices(action.params?.filter);
         
@@ -729,10 +829,7 @@ export class OpenClawAsusMeshSkill {
       this.meshState = await this.meshAnalyzer.scan();
     }
 
-    const normalizedMac = macAddress.toUpperCase().replace(/[:-]/g, ':');
-    const device = this.meshState.devices.find(d => 
-      d.macAddress.toUpperCase().replace(/[:-]/g, ':') === normalizedMac
-    );
+    const device = this.meshState.devices.find(d => compareMac(d.macAddress, macAddress));
     if (!device) {
       return this.successResponse('get_device_details', {
         found: false,
@@ -839,6 +936,7 @@ export class OpenClawAsusMeshSkill {
     severity?: 'all' | 'critical' | 'error' | 'warning'
   ): Promise<SkillResponse> {
     if (!this.meshState) {
+      await this.ensureSshConnected();
       this.meshState = await this.meshAnalyzer.scan();
     }
 
@@ -1265,6 +1363,7 @@ export class OpenClawAsusMeshSkill {
 
   private async handleGetHeatmap(floor?: number): Promise<SkillResponse> {
     if (!this.meshState) {
+      await this.ensureSshConnected();
       this.meshState = await this.meshAnalyzer.scan();
     }
 
@@ -1381,25 +1480,19 @@ export class OpenClawAsusMeshSkill {
     
     const result = await this.networkIntelligence.performFullScan(defaultTargets);
 
-    this.meshState = result.context.topologyState ? {
-      nodes: [],
-      devices: [],
-      wifiSettings: result.context.wifiState.ownNetworks.map(n => ({
-        ssid: n.ssid,
-        band: n.band as '2.4GHz' | '5GHz',
-        channel: n.channel,
-        channelWidth: n.channelWidth,
-        txPower: 100,
-        standard: '802.11ax' as const,
-        security: 'WPA3' as const,
-        bandSteering: false,
-        smartConnect: false,
-        roamingAssistant: false,
-        beamforming: false,
-        muMimo: false,
-      })),
-      lastUpdated: new Date(),
-    } : this.meshState;
+    // Do NOT create empty meshState - it corrupts subsequent actions that check for meshState existence
+    // If meshState is needed, actions should call ensureMeshState() which triggers a proper scan
+    // full_intelligence_scan focuses on spectrum/interference analysis, not device enumeration
+    if (result.context.zigbeeState) {
+      this.zigbeeState = {
+        channel: result.context.zigbeeState.channel,
+        panId: 0,
+        extendedPanId: '',
+        devices: [],
+        links: [],
+        lastUpdated: new Date(),
+      };
+    }
 
     return this.successResponse('full_intelligence_scan', {
       duration: result.duration,
@@ -1804,6 +1897,7 @@ export class OpenClawAsusMeshSkill {
     }
 
     if (!this.meshState) {
+      await this.ensureSshConnected();
       this.meshState = await this.meshAnalyzer.scan();
     }
 
@@ -2213,6 +2307,130 @@ export class OpenClawAsusMeshSkill {
     });
   }
 
+  private handleGetStateStats(): SkillResponse {
+    const stats = this.stateStore.getStats();
+    const isStale = this.stateStore.isScanStale();
+
+    return this.successResponse('get_state_stats', {
+      ...stats,
+      isScanStale: isStale,
+      stateFile: '~/.openclaw/skills/asus-mesh-wifi-analyzer/state.json',
+    }, isStale 
+      ? ['⚠️ Letzer Scan ist veraltet. Führe scan_network aus für aktuelle Daten.']
+      : ['✅ State ist aktuell']
+    );
+  }
+
+  private handleCleanupState(): SkillResponse {
+    const result = this.stateStore.cleanup();
+
+    return this.successResponse('cleanup_state', {
+      deletedEvents: result.deletedEvents,
+      deletedMeasurements: result.deletedMeasurements,
+      message: `Cleanup abgeschlossen: ${result.deletedEvents} Events und ${result.deletedMeasurements} Messungen gelöscht`,
+    }, [
+      '📊 get_state_stats - Aktuellen State-Status anzeigen',
+    ]);
+  }
+
+  private handleHelp(actionName?: string): SkillResponse {
+    const actions = [
+      { name: 'scan_network', desc: 'Netzwerk scannen', category: 'Scan' },
+      { name: 'get_network_health', desc: 'Netzwerk-Gesundheit prüfen', category: 'Status' },
+      { name: 'get_device_list', desc: 'Alle Geräte auflisten', category: 'Geräte' },
+      { name: 'get_device_details', desc: 'Gerätedetails (MAC erforderlich)', category: 'Geräte' },
+      { name: 'find_device', desc: 'Gerät suchen nach Name/Vendor', category: 'Geräte' },
+      { name: 'get_mesh_nodes', desc: 'Mesh-Nodes anzeigen', category: 'Mesh' },
+      { name: 'get_wifi_settings', desc: 'WLAN-Einstellungen', category: 'WiFi' },
+      { name: 'get_problems', desc: 'Probleme erkennen', category: 'Diagnose' },
+      { name: 'get_quick_diagnosis', desc: 'Schnelldiagnose', category: 'Diagnose' },
+      { name: 'get_optimization_suggestions', desc: 'Optimierungsvorschläge', category: 'Optimierung' },
+      { name: 'scan_zigbee', desc: 'Zigbee-Netzwerk scannen', category: 'Zigbee' },
+      { name: 'get_zigbee_devices', desc: 'Zigbee-Geräte auflisten', category: 'Zigbee' },
+      { name: 'get_frequency_conflicts', desc: 'WiFi/Zigbee-Konflikte', category: 'Zigbee' },
+      { name: 'get_auto_map', desc: 'Automatische Karte generieren', category: 'Karte' },
+      { name: 'triangulate_devices', desc: 'Geräte-Positionen berechnen', category: 'Karte' },
+      { name: 'get_heatmap', desc: 'Signal-Heatmap', category: 'Karte' },
+      { name: 'set_house_config', desc: 'Hausstruktur konfigurieren', category: 'Karte' },
+      { name: 'set_node_position_3d', desc: 'Node-Position setzen', category: 'Karte' },
+      { name: 'run_benchmark', desc: 'Geschwindigkeitstest', category: 'Test' },
+      { name: 'get_channel_scan', desc: 'Kanal-Scan', category: 'WiFi' },
+      { name: 'check_router_tweaks', desc: 'Router-Optimierungen prüfen', category: 'Optimierung' },
+      { name: 'get_state_stats', desc: 'State-Statistiken', category: 'System' },
+      { name: 'cleanup_state', desc: 'Alte Daten aufräumen', category: 'System' },
+      { name: 'help', desc: 'Diese Hilfe anzeigen', category: 'System' },
+    ];
+
+    if (actionName) {
+      const action = actions.find(a => a.name === actionName);
+      if (action) {
+        return this.successResponse('help', {
+          action: action.name,
+          description: action.desc,
+          category: action.category,
+        });
+      }
+      return this.errorResponse('help', `Action '${actionName}' nicht gefunden`);
+    }
+
+    const grouped = actions.reduce((acc, a) => {
+      if (!acc[a.category]) acc[a.category] = [];
+      acc[a.category].push({ name: a.name, desc: a.desc });
+      return acc;
+    }, {} as Record<string, Array<{ name: string; desc: string }>>);
+
+    return this.successResponse('help', {
+      totalActions: actions.length,
+      categories: grouped,
+    }, [
+      '💡 help {"action":"scan_network"} - Details zu einer Action',
+      '🔍 find_device {"query":"iPhone"} - Gerät nach Name suchen',
+    ]);
+  }
+
+  private handleFindDevice(query: string): SkillResponse {
+    if (!this.meshState) {
+      return this.errorResponse('find_device', 'Kein Netzwerk-Scan vorhanden. Erst scan_network ausführen.');
+    }
+
+    const queryLower = query.toLowerCase();
+    const matches = this.meshState.devices.filter(d => {
+      const hostname = d.hostname?.toLowerCase() ?? '';
+      const vendor = d.vendor?.toLowerCase() ?? '';
+      const mac = d.macAddress.toLowerCase();
+      return hostname.includes(queryLower) || 
+             vendor.includes(queryLower) || 
+             mac.includes(queryLower);
+    });
+
+    if (matches.length === 0) {
+      return this.successResponse('find_device', {
+        query,
+        found: 0,
+        devices: [],
+      }, [
+        '💡 Versuche einen anderen Suchbegriff',
+        '📋 get_device_list - Alle Geräte anzeigen',
+      ]);
+    }
+
+    return this.successResponse('find_device', {
+      query,
+      found: matches.length,
+      devices: matches.map(d => ({
+        mac: d.macAddress,
+        hostname: d.hostname ?? 'Unbekannt',
+        vendor: d.vendor ?? 'Unbekannt',
+        ip: d.ipAddress,
+        connectionType: d.connectionType,
+        signalStrength: d.signalStrength,
+        connectedTo: d.connectedToNode,
+      })),
+    }, matches.length > 0 ? [
+      `🔍 get_device_details {"macAddress":"${matches[0]!.macAddress}"} - Details anzeigen`,
+    ] : []);
+  }
+
   private handleGetKnownDevices(filter?: 'all' | 'known' | 'unknown'): SkillResponse {
     let devices;
     switch (filter) {
@@ -2517,6 +2735,7 @@ export class OpenClawAsusMeshSkill {
 
   private async handleTriangulateDevices(deviceMac?: string): Promise<SkillResponse> {
     if (!this.meshState) {
+      await this.ensureSshConnected();
       this.meshState = await this.meshAnalyzer.scan();
     }
 
@@ -2596,12 +2815,17 @@ export class OpenClawAsusMeshSkill {
     const propertyData = this.geoLocationService.getPropertyData();
     
     if (!this.meshState) {
+      await this.ensureSshConnected();
       this.meshState = await this.meshAnalyzer.scan();
     }
 
+    // Include Zigbee devices in the map if available
+    const zigbeeDevices = this.zigbeeState?.devices ?? [];
+    
     const autoMap = this.realTriangulation.generateAutoMap(
       this.meshState.nodes,
-      this.meshState.devices
+      this.meshState.devices,
+      zigbeeDevices
     );
 
     let floorAscii: string | undefined;

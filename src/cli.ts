@@ -1,13 +1,6 @@
 #!/usr/bin/env node
 import { OpenClawAsusMeshSkill } from './skill/openclaw-skill.js';
 import { SkillActionSchema, type SkillAction } from './skill/actions.js';
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
-import { homedir } from 'os';
-import { join } from 'path';
-
-const STATE_DIR = join(homedir(), '.openclaw', 'skills', 'asus-mesh-wifi-analyzer');
-const STATE_FILE = join(STATE_DIR, 'session-state.json');
-const STATE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
 // Actions that work without SSH connection (local state only)
 const LOCAL_ONLY_ACTIONS = new Set([
@@ -31,57 +24,9 @@ const LOCAL_ONLY_ACTIONS = new Set([
   'mark_device_known',
   'get_network_history',
   'export_knowledge',
+  'cleanup_state',
+  'get_state_stats',
 ]);
-
-interface SessionState {
-  timestamp: number;
-  meshState: unknown;
-  zigbeeState: unknown;
-  pendingOptimizations: Array<[string, unknown]>;
-  nodePositions?: unknown[];
-  houseConfig?: unknown;
-  signalMeasurements?: Record<string, Array<{ nodeMac: string; rssi: number; timestamp: string }>>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  propertyData?: any;
-}
-
-function loadState(): SessionState | null {
-  try {
-    if (!existsSync(STATE_FILE)) return null;
-    const raw = readFileSync(STATE_FILE, 'utf-8');
-    const state = JSON.parse(raw) as SessionState;
-    if (Date.now() - state.timestamp > STATE_TTL_MS) {
-      return null;
-    }
-    return state;
-  } catch {
-    return null;
-  }
-}
-
-function saveState(state: { 
-  meshState: unknown; 
-  zigbeeState: unknown; 
-  pendingOptimizations: Array<[string, unknown]>;
-  nodePositions?: unknown[];
-  houseConfig?: unknown;
-  signalMeasurements?: Record<string, Array<{ nodeMac: string; rssi: number; timestamp: string }>>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  propertyData?: any;
-}): void {
-  try {
-    if (!existsSync(STATE_DIR)) {
-      mkdirSync(STATE_DIR, { recursive: true });
-    }
-    const fullState: SessionState = {
-      ...state,
-      timestamp: Date.now(),
-    };
-    writeFileSync(STATE_FILE, JSON.stringify(fullState, null, 2));
-  } catch (err) {
-    console.error(`Warning: Failed to save state: ${err}`);
-  }
-}
 
 function printUsage(): void {
   console.log(`
@@ -188,28 +133,9 @@ async function main(): Promise<void> {
 
   try {
     await skill.initialize();
-    
-    // Load cached state if available (includes triangulation data, signal measurements, and location)
-    const cachedState = loadState();
-    if (cachedState && (cachedState.meshState || cachedState.nodePositions || cachedState.houseConfig || cachedState.signalMeasurements || cachedState.propertyData)) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      skill.importState(cachedState as any);
-    }
 
-    // Execute action
+    // Execute action - Skill manages its own state via SkillStateStore
     const result = await skill.execute(parsed);
-    
-    // Save state for next call (including triangulation data, signal measurements, and location)
-    const exportedState = skill.exportState();
-    saveState({
-      meshState: exportedState.meshState,
-      zigbeeState: exportedState.zigbeeState,
-      pendingOptimizations: exportedState.pendingOptimizations,
-      nodePositions: exportedState.nodePositions,
-      houseConfig: exportedState.houseConfig,
-      signalMeasurements: exportedState.signalMeasurements,
-      propertyData: exportedState.propertyData,
-    });
 
     // Output result
     console.log(JSON.stringify(result, null, 2));

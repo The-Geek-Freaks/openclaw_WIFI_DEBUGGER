@@ -116,7 +116,7 @@ export class BenchmarkEngine {
     const results: ChannelTestResult[] = [];
 
     try {
-      const iface = band === '2g' ? 'eth6' : 'eth7';
+      const iface = this.sshClient.getInterface(band);
       const scanOutput = await this.sshClient.execute(`wl -i ${iface} scanresults`);
       
       const channelStats = new Map<number, {

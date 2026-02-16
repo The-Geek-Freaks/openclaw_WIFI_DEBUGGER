@@ -119,17 +119,27 @@ export class MeshAnalyzer extends EventEmitter<MeshAnalyzerEvents> {
 
     try {
       const systemInfo = await this.sshClient.getSystemInfo();
-      await this.sshClient.getAiMeshClientList();
       
       // Get main router MAC and IP from NVRAM
       const lanMac = (await this.sshClient.execute('nvram get lan_hwaddr')).trim().toLowerCase();
       const lanIp = (await this.sshClient.execute('nvram get lan_ipaddr')).trim();
       
-      // Get connected client count from wireless interfaces
+      // Get connected client count from wireless interfaces (dynamically detected)
       let connectedClients = 0;
       try {
-        const assocCount = await this.sshClient.execute('for iface in eth7 eth8 eth9 eth10; do wl -i $iface assoclist 2>/dev/null; done | wc -l');
-        connectedClients = parseInt(assocCount.trim(), 10) || 0;
+        const detectedInterfaces = this.sshClient.getDetectedInterfaces();
+        const interfaces = [
+          detectedInterfaces.wl0,
+          detectedInterfaces.wl1,
+          detectedInterfaces.wl2,
+          detectedInterfaces.wl3,
+        ].filter(Boolean);
+        
+        if (interfaces.length > 0) {
+          const ifaceCmd = interfaces.map(iface => `wl -i ${iface} assoclist 2>/dev/null`).join('; ');
+          const assocCount = await this.sshClient.execute(`(${ifaceCmd}) | wc -l`);
+          connectedClients = parseInt(assocCount.trim(), 10) || 0;
+        }
       } catch {
         // Ignore errors, keep 0
       }
@@ -290,7 +300,7 @@ export class MeshAnalyzer extends EventEmitter<MeshAnalyzerEvents> {
           const rssi = allSignals.get(normalizedMac);
           if (rssi !== undefined) {
             device.signalStrength = rssi;
-            this.recordSignalMeasurement(normalizedMac, 'main', rssi);
+            this.recordSignalMeasurement(normalizedMac, 'main', rssi, band);
             
             // Set status based on signal strength and disconnect history
             if (rssi < -80 || device.disconnectCount > 3) {
@@ -312,22 +322,28 @@ export class MeshAnalyzer extends EventEmitter<MeshAnalyzerEvents> {
 
     for (const node of nodes) {
       try {
-        // Get wireless interface names dynamically
-        const wl0Ifname = node.isMainRouter 
-          ? (await this.nodePool.executeOnNode(node.id, 'nvram get wl0_ifname 2>/dev/null')).trim() || 'eth6'
-          : 'eth6';
-        const wl1Ifname = node.isMainRouter
-          ? (await this.nodePool.executeOnNode(node.id, 'nvram get wl1_ifname 2>/dev/null')).trim() || 'eth7'
-          : 'eth7';
+        // Get wireless interface names dynamically for ALL nodes (including satellites)
+        const wl0Ifname = (await this.nodePool.executeOnNode(node.id, 'nvram get wl0_ifname 2>/dev/null')).trim() || 'eth6';
+        const wl1Ifname = (await this.nodePool.executeOnNode(node.id, 'nvram get wl1_ifname 2>/dev/null')).trim() || 'eth7';
+        const wl2Ifname = (await this.nodePool.executeOnNode(node.id, 'nvram get wl2_ifname 2>/dev/null')).trim();
+        const wl3Ifname = (await this.nodePool.executeOnNode(node.id, 'nvram get wl3_ifname 2>/dev/null')).trim();
 
-        // Get wireless clients from this node (2.4GHz and 5GHz)
-        const assocCmd = `wl -i ${wl0Ifname} assoclist 2>/dev/null; wl -i ${wl1Ifname} assoclist 2>/dev/null`;
+        // Build interface list with band mapping
+        const interfaceBands: Array<{ iface: string; band: 'wireless_2g' | 'wireless_5g' | 'wireless_6g' }> = [
+          { iface: wl0Ifname, band: 'wireless_2g' },
+          { iface: wl1Ifname, band: 'wireless_5g' },
+        ];
+        if (wl2Ifname) interfaceBands.push({ iface: wl2Ifname, band: 'wireless_5g' });
+        if (wl3Ifname) interfaceBands.push({ iface: wl3Ifname, band: 'wireless_6g' });
+
+        // Get wireless clients from this node (all bands)
+        const assocCmd = interfaceBands.map(ib => `wl -i ${ib.iface} assoclist 2>/dev/null`).join('; ');
         const assocOutput = await this.nodePool.executeOnNode(node.id, assocCmd);
         const macMatches = assocOutput.match(/([0-9A-Fa-f:]{17})/g) ?? [];
 
-        // Get signal strengths from this node
-        const signalMap = new Map<string, number>();
-        for (const iface of [wl0Ifname, wl1Ifname]) {
+        // Get signal strengths and band info from this node
+        const signalMap = new Map<string, { rssi: number; band: 'wireless_2g' | 'wireless_5g' | 'wireless_6g' }>();
+        for (const { iface, band } of interfaceBands) {
           try {
             const rssiCmd = `wl -i ${iface} rssi_per_sta 2>/dev/null || for mac in $(wl -i ${iface} assoclist 2>/dev/null | awk '{print $2}'); do echo "$mac $(wl -i ${iface} rssi $mac 2>/dev/null)"; done`;
             const rssiOutput = await this.nodePool.executeOnNode(node.id, rssiCmd);
@@ -338,7 +354,7 @@ export class MeshAnalyzer extends EventEmitter<MeshAnalyzerEvents> {
                 const mac = normalizeMac(match[1]!);
                 const rssi = parseInt(match[2]!, 10);
                 if (!isNaN(rssi)) {
-                  signalMap.set(mac, rssi);
+                  signalMap.set(mac, { rssi, band });
                 }
               }
             }
@@ -360,17 +376,19 @@ export class MeshAnalyzer extends EventEmitter<MeshAnalyzerEvents> {
           
           if (devices.has(normalizedMac)) {
             const device = devices.get(normalizedMac)!;
-            const rssi = signalMap.get(normalizedMac);
+            const signalInfo = signalMap.get(normalizedMac);
+            const rssi = signalInfo?.rssi;
+            const band = signalInfo?.band ?? 'wireless_5g';
             
             // Only update if this node has a stronger signal or device wasn't wireless before
             if (device.connectionType === 'wired' || 
                 (rssi !== undefined && (device.signalStrength === undefined || rssi > device.signalStrength))) {
-              device.connectionType = 'wireless_5g';
+              device.connectionType = band;
               device.connectedToNode = node.macAddress || node.id;
               
               if (rssi !== undefined) {
                 device.signalStrength = rssi;
-                this.recordSignalMeasurement(normalizedMac, node.macAddress || node.id, rssi);
+                this.recordSignalMeasurement(normalizedMac, node.macAddress || node.id, rssi, band);
                 
                 // Set status based on signal strength and disconnect history
                 if (rssi < -80 || device.disconnectCount > 3) {
@@ -379,7 +397,7 @@ export class MeshAnalyzer extends EventEmitter<MeshAnalyzerEvents> {
               }
             } else if (rssi !== undefined) {
               // Record measurement even if not the strongest - useful for triangulation
-              this.recordSignalMeasurement(normalizedMac, node.macAddress || node.id, rssi);
+              this.recordSignalMeasurement(normalizedMac, node.macAddress || node.id, rssi, band);
             }
           }
         }
@@ -390,6 +408,105 @@ export class MeshAnalyzer extends EventEmitter<MeshAnalyzerEvents> {
 
     const wirelessCount = Array.from(devices.values()).filter(d => d.connectionType !== 'wired').length;
     logger.info({ wirelessCount, totalDevices: devices.size }, 'Multi-node wireless scan complete');
+
+    // CRITICAL: Cross-node RSSI measurement for triangulation
+    // Each node must try to measure RSSI for ALL known wireless devices, not just connected ones
+    await this.collectCrossNodeSignals(devices, nodes);
+  }
+
+  /**
+   * Collect RSSI measurements from ALL nodes for ALL known wireless devices.
+   * This enables true triangulation - a device connected to Node B can still be
+   * measured by Node A and Node C if it's in radio range.
+   */
+  private async collectCrossNodeSignals(
+    devices: Map<string, NetworkDevice>,
+    nodes: Array<{ id: string; macAddress?: string; isMainRouter: boolean }>
+  ): Promise<void> {
+    if (!this.nodePool) return;
+
+    // Get all wireless device MACs
+    const wirelessMacs = Array.from(devices.values())
+      .filter(d => d.connectionType !== 'wired')
+      .map(d => d.macAddress);
+
+    if (wirelessMacs.length === 0) {
+      logger.debug('No wireless devices to measure cross-node signals');
+      return;
+    }
+
+    logger.info({ 
+      deviceCount: wirelessMacs.length, 
+      nodeCount: nodes.length 
+    }, 'Collecting cross-node signals for triangulation');
+
+    for (const node of nodes) {
+      try {
+        // Get interface names for this node
+        const wl0 = (await this.nodePool.executeOnNode(node.id, 'nvram get wl0_ifname 2>/dev/null')).trim() || 'eth6';
+        const wl1 = (await this.nodePool.executeOnNode(node.id, 'nvram get wl1_ifname 2>/dev/null')).trim() || 'eth7';
+        const interfaces = [wl0, wl1].filter(Boolean);
+
+        // For each wireless device, try to get RSSI from this node
+        for (const mac of wirelessMacs) {
+          // Skip if we already have a recent measurement from this node
+          const key = `${mac}:${node.macAddress || node.id}`;
+          const existing = this.signalHistory.get(key);
+          if (existing && existing.length > 0) {
+            const lastMeasurement = existing[existing.length - 1];
+            if (lastMeasurement && Date.now() - lastMeasurement.timestamp.getTime() < 60000) {
+              continue; // Skip if we have a measurement less than 1 minute old
+            }
+          }
+
+          // Try each interface
+          for (const iface of interfaces) {
+            try {
+              const rssiOutput = await this.nodePool.executeOnNode(
+                node.id,
+                `wl -i ${iface} rssi ${mac.toUpperCase().replace(/:/g, ':')} 2>/dev/null`
+              );
+              const rssi = parseInt(rssiOutput.trim(), 10);
+              
+              if (!isNaN(rssi) && rssi < 0 && rssi > -100) {
+                this.recordSignalMeasurement(mac, node.macAddress || node.id, rssi);
+                logger.debug({ 
+                  mac, 
+                  node: node.id, 
+                  iface, 
+                  rssi 
+                }, 'Cross-node signal measurement');
+                break; // Got a valid measurement, no need to try other interfaces
+              }
+            } catch {
+              // Device not in range of this interface - expected
+            }
+          }
+        }
+      } catch (err) {
+        logger.warn({ err, nodeId: node.id }, 'Failed to collect cross-node signals');
+      }
+    }
+
+    // Log triangulation potential
+    const measurementCounts = new Map<string, number>();
+    for (const mac of wirelessMacs) {
+      let count = 0;
+      for (const node of nodes) {
+        const key = `${mac}:${node.macAddress || node.id}`;
+        if (this.signalHistory.has(key)) count++;
+      }
+      measurementCounts.set(mac, count);
+    }
+
+    const canTrilaterate = Array.from(measurementCounts.values()).filter(c => c >= 3).length;
+    const canBilaterate = Array.from(measurementCounts.values()).filter(c => c === 2).length;
+    
+    logger.info({ 
+      canTrilaterate, 
+      canBilaterate,
+      singleNodeOnly: wirelessMacs.length - canTrilaterate - canBilaterate
+    }, 'Triangulation potential after cross-node measurement');
   }
 
   private async getWifiSettings(): Promise<WifiSettings[]> {
@@ -417,19 +534,38 @@ export class MeshAnalyzer extends EventEmitter<MeshAnalyzerEvents> {
         return bwMap[code] ?? defaultMhz;
       };
 
+      const parseBoolean = (val: string | undefined): boolean => {
+        return val === '1' || val === 'on' || val === 'enabled';
+      };
+
+      const parseSecurityMode = (authMode: string | undefined, crypto: string | undefined, mfp: string | undefined): string => {
+        const auth = authMode ?? '';
+        const enc = crypto ?? '';
+        const pmf = mfp ?? '0';
+        
+        if (auth.includes('wpa3') || auth === 'sae' || pmf === '2') return 'WPA3';
+        if (auth.includes('wpa2') || auth === 'psk2') {
+          return pmf === '1' ? 'WPA2/WPA3' : 'WPA2';
+        }
+        if (auth.includes('wpa') || auth === 'psk') return 'WPA';
+        if (auth === 'open') return 'Open';
+        return enc ? 'WPA2' : 'Unknown';
+      };
+
       settings.push({
         ssid: nvram['wl0_ssid'] ?? '',
         band: '2.4GHz',
         channel: parseChannel(nvram['wl0_channel']),
         channelWidth: parseBandwidth(nvram['wl0_bw'], 20),
         txPower: parseChannel(nvram['wl0_txpower']) || 100,
-        standard: '802.11ax',
-        security: 'WPA3',
-        bandSteering: nvram['wl0_bsd_steering_policy'] !== '0',
+        standard: parseBoolean(nvram['wl0_11ax']) ? '802.11ax' : '802.11ac',
+        security: parseSecurityMode(nvram['wl0_auth_mode_x'], nvram['wl0_crypto'], nvram['wl0_mfp']),
+        bandSteering: nvram['wl0_bsd_steering_policy'] !== '0' && nvram['wl0_bsd_steering_policy'] !== '',
         smartConnect: nvram['smart_connect_x'] === '1',
-        roamingAssistant: true,
-        beamforming: true,
-        muMimo: true,
+        roamingAssistant: parseBoolean(nvram['wl0_rast']),
+        beamforming: parseBoolean(nvram['wl0_txbf']) || parseBoolean(nvram['wl0_itxbf']),
+        muMimo: parseBoolean(nvram['wl0_mumimo']),
+        ofdma: parseBoolean(nvram['wl0_ofdma']),
       });
 
       settings.push({
@@ -438,14 +574,33 @@ export class MeshAnalyzer extends EventEmitter<MeshAnalyzerEvents> {
         channel: parseChannel(nvram['wl1_channel']),
         channelWidth: parseBandwidth(nvram['wl1_bw'], 80),
         txPower: parseChannel(nvram['wl1_txpower']) || 100,
-        standard: '802.11ax',
-        security: 'WPA3',
-        bandSteering: nvram['wl1_bsd_steering_policy'] !== '0',
+        standard: parseBoolean(nvram['wl1_11ax']) ? '802.11ax' : '802.11ac',
+        security: parseSecurityMode(nvram['wl1_auth_mode_x'], nvram['wl1_crypto'], nvram['wl1_mfp']),
+        bandSteering: nvram['wl1_bsd_steering_policy'] !== '0' && nvram['wl1_bsd_steering_policy'] !== '',
         smartConnect: nvram['smart_connect_x'] === '1',
-        roamingAssistant: true,
-        beamforming: true,
-        muMimo: true,
+        roamingAssistant: parseBoolean(nvram['wl1_rast']),
+        beamforming: parseBoolean(nvram['wl1_txbf']) || parseBoolean(nvram['wl1_itxbf']),
+        muMimo: parseBoolean(nvram['wl1_mumimo']),
+        ofdma: parseBoolean(nvram['wl1_ofdma']),
       });
+
+      if (nvram['wl2_ssid'] && nvram['wl2_ssid'].trim() !== '') {
+        settings.push({
+          ssid: nvram['wl2_ssid'],
+          band: '5GHz-2',
+          channel: parseChannel(nvram['wl2_channel']),
+          channelWidth: parseBandwidth(nvram['wl2_bw'], 80),
+          txPower: parseChannel(nvram['wl2_txpower']) || 100,
+          standard: '802.11ax',
+          security: parseSecurityMode(nvram['wl2_auth_mode_x'], nvram['wl2_crypto'], undefined),
+          bandSteering: nvram['wl2_bsd_steering_policy'] !== '0' && nvram['wl2_bsd_steering_policy'] !== '',
+          smartConnect: nvram['smart_connect_x'] === '1',
+          roamingAssistant: parseBoolean(nvram['wl2_rast']),
+          beamforming: parseBoolean(nvram['wl2_txbf']) || parseBoolean(nvram['wl2_itxbf']),
+          muMimo: parseBoolean(nvram['wl2_mumimo']),
+          ofdma: parseBoolean(nvram['wl2_ofdma']),
+        });
+      }
     } catch (err) {
       logger.error({ err }, 'Failed to get WiFi settings');
     }
@@ -492,7 +647,14 @@ export class MeshAnalyzer extends EventEmitter<MeshAnalyzerEvents> {
     }
   }
 
-  private recordSignalMeasurement(deviceMac: string, nodeMac: string, rssi: number): void {
+  private recordSignalMeasurement(
+    deviceMac: string, 
+    nodeMac: string, 
+    rssi: number,
+    band?: 'wireless_2g' | 'wireless_5g' | 'wireless_6g',
+    txRate?: number,
+    rxRate?: number
+  ): void {
     const key = `${deviceMac}:${nodeMac}`;
     let history = this.signalHistory.get(key);
     
@@ -501,15 +663,32 @@ export class MeshAnalyzer extends EventEmitter<MeshAnalyzerEvents> {
       this.signalHistory.set(key, history);
     }
 
+    // A6 Fix: Derive channel and channelWidth from cached WifiSettings based on band
+    let channel = 0;
+    let channelWidth = 0;
+    if (band && this.currentState?.wifiSettings) {
+      const bandMap: Record<string, '2.4GHz' | '5GHz' | '5GHz-2' | '6GHz'> = {
+        'wireless_2g': '2.4GHz',
+        'wireless_5g': '5GHz',
+        'wireless_6g': '6GHz',
+      };
+      const wifiBand = bandMap[band];
+      const settings = this.currentState.wifiSettings.find(s => s.band === wifiBand);
+      if (settings) {
+        channel = settings.channel;
+        channelWidth = settings.channelWidth;
+      }
+    }
+
     history.push({
       timestamp: new Date(),
       deviceMac,
       nodeMac,
       rssi,
-      channel: 0,
-      channelWidth: 0,
-      txRate: 0,
-      rxRate: 0,
+      channel,
+      channelWidth,
+      txRate: txRate ?? 0,
+      rxRate: rxRate ?? 0,
     });
 
     if (history.length > MAX_SIGNAL_HISTORY_ENTRIES) {
