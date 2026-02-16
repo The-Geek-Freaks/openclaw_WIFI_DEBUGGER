@@ -163,6 +163,22 @@ export class MeshAnalyzer extends EventEmitter<MeshAnalyzerEvents> {
         const meshList = await this.sshClient.getMeshNodes();
         const meshEntries = meshList.split('<').filter(Boolean);
         
+        // F3 Fix: Get cfg_cost to determine backhaul type (0 = wired, >0 = wireless)
+        let cfgCost: Record<string, number> = {};
+        try {
+          const cfgCostRaw = await this.sshClient.execute('nvram get cfg_cost');
+          // cfg_cost format: <MAC>cost> or MAC1>cost1<MAC2>cost2
+          const costEntries = cfgCostRaw.split('<').filter(Boolean);
+          for (const costEntry of costEntries) {
+            const [costMac, cost] = costEntry.split('>');
+            if (costMac && cost !== undefined) {
+              cfgCost[normalizeMac(costMac)] = parseInt(cost, 10) || 999;
+            }
+          }
+        } catch {
+          // cfg_cost not available on all firmware versions
+        }
+        
         // cfg_clientlist format: <MAC>IP>model>alias
         // Parse each entry consistently
         for (const entry of meshEntries) {
@@ -182,8 +198,13 @@ export class MeshAnalyzer extends EventEmitter<MeshAnalyzerEvents> {
             
             const nodeName = alias || model || ip || `AiMesh Node ${mac}`;
             
+            // F3 Fix: Determine backhaul type from cfg_cost
+            // Cost 0 = wired backhaul, Cost > 0 = wireless backhaul
+            const cost = cfgCost[mac];
+            const backhaulType: 'wired' | 'mesh_backhaul' = cost === 0 ? 'wired' : 'mesh_backhaul';
+            
             logger.debug({ 
-              mac, ip, model, alias, partsCount: parts.length 
+              mac, ip, model, alias, cost, backhaulType, partsCount: parts.length 
             }, 'Parsed mesh node entry (cfg_clientlist)');
             
             nodes.push({
@@ -197,7 +218,7 @@ export class MeshAnalyzer extends EventEmitter<MeshAnalyzerEvents> {
               cpuUsage: 0,
               memoryUsage: 0,
               connectedClients: 0,
-              backhaulType: 'mesh_backhaul',
+              backhaulType,
             });
           }
         }
